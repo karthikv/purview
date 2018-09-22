@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+ESC=$(printf '\033')
+trap "kill %1" SIGINT
+
+tsc -p tsconfig.json -w 2>&1 | sed -e "s/^/$ESC[33;1m[tsc]$ESC[0m /" &
+sleep 3 # Wait for first compile to finish.
+
+nodemon build/server.js 2>&1

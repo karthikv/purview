@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "lib": ["es2017", "dom"],
+    "target": "es2017",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./build",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "strict": true,
+    "strictPropertyInitialization": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "jsx": "react",
+    "jsxFactory": "Purview.createElement",
+    "plugins": [{ "name": "tslint-language-service" }]
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules"]
+}

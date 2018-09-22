@@ -1,0 +1,22 @@
+{
+  "extends": [
+    "tslint:recommended",
+    "tslint-config-prettier"
+  ],
+  "rules": {
+    "member-access": false,
+    "interface-name": false,
+    "ordered-imports": false,
+    "object-literal-sort-keys": false,
+    "typedef": [
+      true,
+      "call-signature",
+      "parameter",
+      "property-declaration",
+      "member-variable-declaration"
+    ]
+  },
+  "linterOptions": {
+    "exclude": ["**/*.json"]
+  }
+}
