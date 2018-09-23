@@ -1,175 +1,154 @@
 import * as http from "http"
-import { EventEmitter } from "events"
-
-import { JSDOM } from "jsdom"
-import { v4 as makeUUID } from "uuid"
 import * as WebSocket from "ws"
+import { v4 as makeUUID } from "uuid"
+import { JSDOM } from "jsdom"
 
+import Component, { ComponentConstructor } from "./component"
 import { tryParse } from "./helpers"
-
-export interface PurviewCtor<P, S> {
-  new (props: P): Purview<P, S>
-}
-type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
+import Broker from "./broker"
 
 const { document } = new JSDOM().window
 
-export default abstract class Purview<P, S> extends EventEmitter {
-  // TODO: clean up to avoid memory leaks
-  static instances: { [key: string]: Purview<any, any> } = {}
+// TODO: clean up to avoid memory leaks
+const roots: { [key: string]: Component<any, any> } = {}
 
-  static createElement(
-    nodeName: string | PurviewCtor<any, any>,
-    attributes: JSX.IntrinsicAttributes,
-    ...children: JSX.Child[]
-  ): JSX.Element {
-    return { nodeName, attributes, children }
-  }
+export function createElement(
+  nodeName: string | ComponentConstructor<any, any>,
+  attributes: JSX.IntrinsicAttributes,
+  ...children: JSX.Child[]
+): JSX.Element {
+  return { nodeName, attributes, children }
+}
 
-  static handleWebSocket(server: http.Server): void {
-    const wsServer = new WebSocket.Server({ server })
-    wsServer.on("connection", ws => {
-      ws.on("message", data => {
-        // TODO: validation
-        const message = tryParse<ClientMessage>(data.toString())
+export function handleWebSocket(server: http.Server): void {
+  const wsServer = new WebSocket.Server({ server })
+  wsServer.on("connection", ws => {
+    ws.on("message", data => {
+      // TODO: validation
+      const message = tryParse<ClientMessage>(data.toString())
 
-        switch (message.type) {
-          case "connect":
-            message.purviewIDs.forEach(id => {
-              const purview = this.instances[id]
-              if (!purview) {
-                return
+      switch (message.type) {
+        case "connect":
+          message.rootIDs.forEach(id => {
+            const root = roots[id]
+            if (!root) {
+              return
+            }
+
+            Broker.on(`update-${id}`, (component: Component<any, any>) => {
+              const elem = makeComponentElem(component, id)
+              const update: UpdateMessage = {
+                type: "update",
+                componentID: component.id,
+                html: elem.outerHTML,
               }
-
-              purview.on("materialize", (purviewID, elem) => {
-                const update: UpdateMessage = {
-                  type: "update",
-                  purviewID,
-                  html: elem.outerHTML,
-                }
-                ws.send(JSON.stringify(update))
-              })
+              ws.send(JSON.stringify(update))
             })
-            break
+          })
+          break
 
-          case "event":
-            const instance = this.instances[message.purviewID]
-            if (!instance) {
-              return
-            }
-
-            const handler = instance.handlers[message.eventID]
-            if (!handler) {
-              return
-            }
-
-            handler()
-            break
-        }
-      })
+        case "event":
+          Broker.emit(message.eventID)
+          break
+      }
     })
+  })
+}
+
+export function render(jsxElem: JSX.Element): string {
+  if (!isComponentElem(jsxElem)) {
+    throw new Error("Root element must be a Purview.Component")
   }
 
-  static renderToString(jsxElem: JSX.Element): string {
-    if (typeof jsxElem.nodeName !== "function") {
-      throw new Error("Root element must be a Purview component")
-    }
+  const root = makeComponent(jsxElem)
+  roots[root.id] = root
+  return makeComponentElem(root, null).outerHTML
+}
 
-    const args = Object.assign(
-      { children: jsxElem.children },
-      jsxElem.attributes,
-    )
-    const purview = new jsxElem.nodeName(args)
+function isComponentElem(
+  jsxElem: JSX.Element,
+): jsxElem is JSX.ComponentElement {
+  // TODO: disambiguate between pure stateless func
+  return typeof jsxElem.nodeName === "function"
+}
 
-    const root = purview._materialize()
-    root.setAttribute("data-purview-root", "true")
-    return root.outerHTML
+function makeElem(
+  jsxElem: JSX.Element,
+  parent: Component<any, any>,
+  rootID: string,
+): Element {
+  if (isComponentElem(jsxElem)) {
+    const component = makeComponent(jsxElem)
+    return makeComponentElem(component, rootID)
   }
 
-  protected state: Readonly<S>
-  protected id: string
+  const { nodeName, attributes, children } = jsxElem
+  const elem = document.createElement(nodeName as string)
 
-  private handlers: { [key: string]: () => void }
-  private childInstances: Array<Purview<any, any>> = []
-
-  constructor(protected props: Readonly<P>) {
-    super()
-    this.id = makeUUID()
-  }
-
-  abstract render(): JSX.Element
-
-  setState(changes: Partial<S> | UpdateFn<S>): void {
-    if (changes instanceof Function) {
-      Object.assign(this.state, changes(this.state))
-    } else {
-      Object.assign(this.state, changes)
-    }
-    this.emit("materialize", this.id, this._materialize())
-  }
-
-  _materialize(): Element {
-    this.handlers = {}
-    this.childInstances.forEach(child => {
-      delete Purview.instances[child.id]
-      child.off("materialize", this.propagateMaterialize)
-    })
-    this.childInstances = []
-
-    const elem = this._materializeElem(this.render())
-    elem.setAttribute("data-purview-id", this.id)
-    Purview.instances[this.id] = this
-
-    this.childInstances.forEach(child => {
-      child.on("materialize", this.propagateMaterialize)
-    })
-    return elem
-  }
-
-  _materializeElem({ nodeName, attributes, children }: JSX.Element): Element {
-    const childNodes = children.map(child => {
-      if (child === null) {
-        return null
-      } else if (typeof child === "object") {
-        return this._materializeElem(child)
+  for (const key in attributes) {
+    if (attributes.hasOwnProperty(key)) {
+      if (key === "onClick") {
+        const eventID = makeUUID()
+        Broker.on(eventID, attributes[key] as any)
+        elem.setAttribute(`data-${key}`, eventID)
       } else {
-        return document.createTextNode(String(child))
+        const value = (attributes as any)[key]
+        elem.setAttribute(key, value)
       }
-    })
+    }
+  }
 
-    let elem: Element
-    if (typeof nodeName === "string") {
-      elem = document.createElement(nodeName)
+  children.forEach(child => {
+    if (child === null) {
+      return
+    }
+
+    let node: Node
+    if (typeof child === "object") {
+      node = makeElem(child, parent, rootID)
     } else {
-      const args = Object.assign({ children }, attributes)
-      const purview = new nodeName(args)
-
-      this.childInstances.push(purview)
-      elem = purview._materialize()
+      node = document.createTextNode(String(child))
     }
+    elem.appendChild(node)
+  })
 
-    for (const key in attributes) {
-      if (attributes.hasOwnProperty(key)) {
-        if (key === "onClick") {
-          const eventID = makeUUID()
-          this.handlers[eventID] = attributes[key] as any
-          elem.setAttribute(`data-${key}`, eventID)
-        } else {
-          const value = (attributes as any)[key]
-          elem.setAttribute(key, value)
-        }
-      }
-    }
+  return elem
+}
 
-    childNodes.forEach(child => {
-      if (child) {
-        elem.appendChild(child)
-      }
-    })
-    return elem
+function makeComponent({
+  nodeName,
+  attributes,
+  children,
+}: JSX.ComponentElement): Component<any, any> {
+  const args = Object.assign({ children }, attributes)
+  return new nodeName(args)
+}
+
+function makeComponentElem(
+  component: Component<any, any>,
+  rootID: string | null,
+): Element {
+  let elem: Element
+  if (rootID) {
+    elem = makeElem(component.render(), component, rootID)
+  } else {
+    rootID = component.id
+    elem = makeElem(component.render(), component, rootID)
+    elem.setAttribute("data-root", "true")
   }
 
-  propagateMaterialize = (...args: any[]): void => {
-    this.emit("materialize", ...args)
-  }
+  component.on("update", () => {
+    Broker.emit(`update-${rootID}`, component)
+  })
+  elem.setAttribute("data-component-id", component.id)
+  return elem
+}
+
+export { Component }
+
+export default {
+  createElement,
+  handleWebSocket,
+  render,
+  Component,
 }

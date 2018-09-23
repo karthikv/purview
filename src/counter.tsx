@@ -8,7 +8,7 @@ interface CounterState {
   count: number
 }
 
-export default class extends Purview<CounterProps, CounterState> {
+export default class extends Purview.Component<CounterProps, CounterState> {
   constructor(props: CounterProps) {
     super(props)
     this.state = { count: this.props.initialCount }

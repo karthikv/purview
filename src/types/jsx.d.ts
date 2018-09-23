@@ -1,4 +1,4 @@
-import Purview, { PurviewCtor } from "../purview"
+import Component, { ComponentConstructor } from "../component"
 
 /* tslint:disable no-namespace */
 declare global {
@@ -20,12 +20,16 @@ declare global {
     }
 
     interface Element {
-      nodeName: string | PurviewCtor<any, any>
+      nodeName: string | ComponentConstructor<any, any>
       attributes: JSX.IntrinsicAttributes
       children: Child[]
     }
 
-    interface ElementClass extends Purview<any, any> {}
+    interface ComponentElement extends Element {
+      nodeName: ComponentConstructor<any, any>
+    }
+
+    interface ElementClass extends Component<any, any> {}
 
     interface ElementAttributesProperty {
       props: {}

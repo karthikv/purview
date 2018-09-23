@@ -15,12 +15,14 @@ const wsURL = `${wsProtocol}//${host}${pathname}${search}`
 const ws = new WebSocket(wsURL)
 
 ws.onopen = () => {
-  const roots = Array.from(document.querySelectorAll("[data-purview-root]"))
-  const ids = roots.map(elem => elem.getAttribute("data-purview-id") as string)
+  const rootElems = Array.from(document.querySelectorAll("[data-root]"))
+  const rootIDs = rootElems.map(elem => {
+    return elem.getAttribute("data-component-id") as string
+  })
 
   const message: ClientMessage = {
     type: "connect",
-    purviewIDs: ids,
+    rootIDs,
   }
   ws.send(JSON.stringify(message))
 }
@@ -30,7 +32,7 @@ ws.onmessage = messageEvent => {
 
   switch (message.type) {
     case "update":
-      const selector = `[data-purview-id=\"${message.purviewID}\"]`
+      const selector = `[data-component-id=\"${message.componentID}\"]`
       const elem = document.querySelector(selector)
 
       if (elem) {
@@ -48,15 +50,11 @@ window.addEventListener("click", event => {
 
   let triggerElem = target.closest("[data-onclick]")
   while (triggerElem) {
-    const purviewElem = triggerElem.closest("[data-purview-id]")
-    if (purviewElem) {
-      const message: ClientMessage = {
-        type: "event",
-        purviewID: purviewElem.getAttribute("data-purview-id") as string,
-        eventID: triggerElem.getAttribute("data-onclick") as string,
-      }
-      ws.send(JSON.stringify(message))
+    const message: ClientMessage = {
+      type: "event",
+      eventID: triggerElem.getAttribute("data-onclick") as string,
     }
+    ws.send(JSON.stringify(message))
 
     triggerElem = triggerElem.parentElement
     if (triggerElem) {

@@ -5,7 +5,7 @@ interface AppState {
   help: boolean
 }
 
-export default class extends Purview<{}, AppState> {
+export default class extends Purview.Component<{}, AppState> {
   constructor(props: {}) {
     super(props)
     this.state = { help: true }

@@ -26,7 +26,7 @@ const server = http.createServer(async (req, res) => {
           <body>
             <h1>This is a counter</h1>
             <div id="root">
-              ${Purview.renderToString(<App />)}
+              ${Purview.render(<App />)}
             </div>
             <script src="/${CLIENT_BASENAME}"></script>
           </body>
@@ -54,4 +54,7 @@ Purview.handleWebSocket(server)
 
 const port = 2597
 const host = "127.0.0.1"
+
+/* tslint:disable no-console */
 server.listen(port, host, () => console.log(`Listening on ${host}:${port}`))
+/* tslint:enable no-console */

@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+npx tsc
+npx tslint -p tsconfig.json
