@@ -1,4 +1,4 @@
-import { v4 as makeUUID } from "uuid"
+import nanoid = require("nanoid")
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
@@ -16,7 +16,7 @@ export default abstract class Component<P, S> {
   static _cachedTypeID: string
   static get _typeID(): string {
     if (!this._cachedTypeID) {
-      this._cachedTypeID = makeUUID()
+      this._cachedTypeID = nanoid()
     }
     return this._cachedTypeID
   }
@@ -30,7 +30,7 @@ export default abstract class Component<P, S> {
   protected state: Readonly<S>
 
   constructor(protected props: Readonly<P>) {
-    this._id = makeUUID()
+    this._id = nanoid()
   }
 
   abstract render(): JSX.Element

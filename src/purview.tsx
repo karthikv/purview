@@ -1,7 +1,7 @@
 import * as http from "http"
 import { EventEmitter } from "events"
 import * as WebSocket from "ws"
-import { v4 as makeUUID } from "uuid"
+import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor } from "./component"
@@ -83,7 +83,7 @@ function makeElem(
 ): Element {
   let key: string
   if (isComponentElem(jsxElem)) {
-    key = `${parentKey}#${jsxElem.nodeName._typeID}`
+    key = `${parentKey}/${jsxElem.nodeName._typeID}`
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
     const component = makeComponent(jsxElem, existing)
@@ -96,13 +96,13 @@ function makeElem(
   }
 
   const { nodeName, attributes, children } = jsxElem
-  key = `${parentKey}#${nodeName}`
+  key = `${parentKey}/${nodeName}`
   const elem = document.createElement(nodeName as string)
 
   for (const attr in attributes) {
     if (attributes.hasOwnProperty(attr)) {
       if (attr === "onClick") {
-        const eventID = makeUUID()
+        const eventID = nanoid()
         broker.on(eventID, attributes[attr] as any)
         elem.setAttribute(`data-${attr}`, eventID)
       } else {
