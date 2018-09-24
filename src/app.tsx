@@ -24,9 +24,8 @@ export default class extends Purview.Component<{}, AppState> {
     return (
       <div>
         <Counter initialCount={89} />
-        <Counter initialCount={0} />
-
         {help}
+        <Counter initialCount={0} />
         <button onClick={this.toggleHelp}>Toggle Help</button>
       </div>
     )

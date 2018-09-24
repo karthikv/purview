@@ -1,15 +1,18 @@
 import * as http from "http"
+import { EventEmitter } from "events"
 import * as WebSocket from "ws"
 import { v4 as makeUUID } from "uuid"
 import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor } from "./component"
 import { tryParse } from "./helpers"
-import Broker from "./broker"
 
 const { document } = new JSDOM().window
 
+// TODO: typescript target in tsconfig.json
+
 // TODO: clean up to avoid memory leaks
+const broker = new EventEmitter()
 const roots: { [key: string]: Component<any, any> } = {}
 
 export function createElement(
@@ -35,11 +38,11 @@ export function handleWebSocket(server: http.Server): void {
               return
             }
 
-            Broker.on(`update-${id}`, (component: Component<any, any>) => {
+            broker.on(`update-${id}`, (component: Component<any, any>) => {
               const elem = makeComponentElem(component, id)
               const update: UpdateMessage = {
                 type: "update",
-                componentID: component.id,
+                componentID: component._id,
                 html: elem.outerHTML,
               }
               ws.send(JSON.stringify(update))
@@ -48,7 +51,7 @@ export function handleWebSocket(server: http.Server): void {
           break
 
         case "event":
-          Broker.emit(message.eventID)
+          broker.emit(message.eventID)
           break
       }
     })
@@ -61,7 +64,7 @@ export function render(jsxElem: JSX.Element): string {
   }
 
   const root = makeComponent(jsxElem)
-  roots[root.id] = root
+  roots[root._id] = root
   return makeComponentElem(root, null).outerHTML
 }
 
@@ -76,24 +79,35 @@ function makeElem(
   jsxElem: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
+  parentKey: string,
 ): Element {
+  let key: string
   if (isComponentElem(jsxElem)) {
-    const component = makeComponent(jsxElem)
+    key = `${parentKey}#${jsxElem.nodeName._typeID}`
+    const cached = parent._childMap[key]
+    const existing = cached ? cached.shift() : null
+    const component = makeComponent(jsxElem, existing)
+
+    if (!parent._newChildMap[key]) {
+      parent._newChildMap[key] = []
+    }
+    parent._newChildMap[key].push(component)
     return makeComponentElem(component, rootID)
   }
 
   const { nodeName, attributes, children } = jsxElem
+  key = `${parentKey}#${nodeName}`
   const elem = document.createElement(nodeName as string)
 
-  for (const key in attributes) {
-    if (attributes.hasOwnProperty(key)) {
-      if (key === "onClick") {
+  for (const attr in attributes) {
+    if (attributes.hasOwnProperty(attr)) {
+      if (attr === "onClick") {
         const eventID = makeUUID()
-        Broker.on(eventID, attributes[key] as any)
-        elem.setAttribute(`data-${key}`, eventID)
+        broker.on(eventID, attributes[attr] as any)
+        elem.setAttribute(`data-${attr}`, eventID)
       } else {
-        const value = (attributes as any)[key]
-        elem.setAttribute(key, value)
+        const value = (attributes as any)[attr]
+        elem.setAttribute(attr, value)
       }
     }
   }
@@ -105,7 +119,7 @@ function makeElem(
 
     let node: Node
     if (typeof child === "object") {
-      node = makeElem(child, parent, rootID)
+      node = makeElem(child, parent, rootID, key)
     } else {
       node = document.createTextNode(String(child))
     }
@@ -115,32 +129,41 @@ function makeElem(
   return elem
 }
 
-function makeComponent({
-  nodeName,
-  attributes,
-  children,
-}: JSX.ComponentElement): Component<any, any> {
-  const args = Object.assign({ children }, attributes)
-  return new nodeName(args)
+function makeComponent<P, S>(
+  { nodeName, attributes, children }: JSX.ComponentElement,
+  existing?: Component<any, any> | null,
+): Component<P, S> {
+  const props = Object.assign({ children }, attributes)
+  if (existing) {
+    existing._setProps(props as any)
+    return existing
+  }
+  return new nodeName(props)
 }
 
 function makeComponentElem(
   component: Component<any, any>,
   rootID: string | null,
 ): Element {
+  component._newChildMap = {}
   let elem: Element
+
   if (rootID) {
-    elem = makeElem(component.render(), component, rootID)
+    elem = makeElem(component.render(), component, rootID, "")
   } else {
-    rootID = component.id
-    elem = makeElem(component.render(), component, rootID)
+    rootID = component._id
+    elem = makeElem(component.render(), component, rootID, "")
     elem.setAttribute("data-root", "true")
   }
 
-  component.on("update", () => {
-    Broker.emit(`update-${rootID}`, component)
-  })
-  elem.setAttribute("data-component-id", component.id)
+  component._childMap = component._newChildMap
+  if (!component._handleUpdate) {
+    component._handleUpdate = () => {
+      broker.emit(`update-${rootID}`, component)
+    }
+  }
+
+  elem.setAttribute("data-component-id", component._id)
   return elem
 }
 
