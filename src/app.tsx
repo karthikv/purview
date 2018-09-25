@@ -24,6 +24,20 @@ export default class extends Purview.Component<{}, AppState> {
     return (
       <div>
         <Counter initialCount={89} />
+        <input type="text" />
+        <input type="checkbox" />
+
+        <input type="radio" name="foo" value="bar" />
+        <input type="radio" name="foo" value="baz" />
+
+        <select>
+          <option>Hello</option>
+          <option>Hey</option>
+          <option>Foo</option>
+        </select>
+
+        <textarea />
+
         {help}
         <Counter initialCount={0} />
         <button onClick={this.toggleHelp}>Toggle Help</button>

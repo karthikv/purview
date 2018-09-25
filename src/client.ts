@@ -1,4 +1,5 @@
 import { tryParse } from "./helpers"
+import morphdom = require("morphdom")
 
 const { protocol, host, pathname, search } = window.location
 let wsProtocol: string
@@ -27,6 +28,62 @@ ws.onopen = () => {
   ws.send(JSON.stringify(message))
 }
 
+function isInputElement(elem: HTMLElement): elem is HTMLInputElement {
+  return elem.nodeName === "INPUT"
+}
+
+function isOptionElement(elem: HTMLElement): elem is HTMLOptionElement {
+  return elem.nodeName === "OPTION"
+}
+
+function isSelectElement(elem: HTMLElement): elem is HTMLSelectElement {
+  return elem.nodeName === "SELECT"
+}
+
+const selectedValues = new WeakMap()
+
+const morphOpts = {
+  onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
+    if (isInputElement(from) && isInputElement(to)) {
+      if (to.hasAttribute("value")) {
+        to.value = to.getAttribute("value") as string
+      } else {
+        to.value = from.value
+      }
+
+      if (to.hasAttribute("checked")) {
+        to.checked = true
+      } else {
+        to.checked = from.checked
+      }
+    }
+
+    if (isSelectElement(from) && isSelectElement(to)) {
+      selectedValues.delete(to)
+      if (!to.querySelector("option[selected]")) {
+        if (to.hasAttribute("multiple")) {
+          const values = Array.from(from.querySelectorAll("option"))
+            .filter(option => option.selected)
+            .map(option => option.value)
+          selectedValues.set(to, values)
+        } else {
+          selectedValues.set(to, [from.value])
+        }
+      }
+    }
+
+    if (isOptionElement(from) && isOptionElement(to)) {
+      if (!to.hasAttribute("selected") && to.parentNode) {
+        const values = selectedValues.get(to.parentNode)
+        if (values && values.includes(to.value)) {
+          to.setAttribute("selected", "true")
+        }
+      }
+    }
+    return true
+  },
+}
+
 ws.onmessage = messageEvent => {
   const message = tryParse<ServerMessage>(messageEvent.data)
 
@@ -36,7 +93,9 @@ ws.onmessage = messageEvent => {
       const elem = document.querySelector(selector)
 
       if (elem) {
-        elem.innerHTML = message.html
+        const div = document.createElement("div")
+        div.innerHTML = message.html
+        morphdom(elem, div.firstChild as Node, morphOpts)
       }
       break
   }

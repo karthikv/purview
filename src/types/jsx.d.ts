@@ -9,6 +9,14 @@ declare global {
       span: IntrinsicAttributes
       button: IntrinsicAttributes
       br: IntrinsicAttributes
+      input: IntrinsicAttributes & {
+        type?: string
+        name?: string
+        value?: string
+      }
+      select: IntrinsicAttributes & { autocomplete?: string }
+      option: IntrinsicAttributes
+      textarea: IntrinsicAttributes
     }
 
     type Child = string | number | JSX.Element | null

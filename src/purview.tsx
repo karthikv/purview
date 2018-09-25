@@ -15,12 +15,29 @@ const { document } = new JSDOM().window
 const broker = new EventEmitter()
 const roots: { [key: string]: Component<any, any> } = {}
 
+const eventIDs = new WeakMap()
+
 export function createElement(
   nodeName: string | ComponentConstructor<any, any>,
   attributes: JSX.IntrinsicAttributes,
   ...children: JSX.Child[]
 ): JSX.Element {
+  attributes = attributes || {}
+  if (
+    (nodeName === "select" &&
+      children.find(c => hasAttributes(c) && (c.attributes as any).selected)) ||
+    (nodeName === "input" &&
+      (attributes.hasOwnProperty("value") ||
+        attributes.hasOwnProperty("checked"))) ||
+    (nodeName === "textarea" && children.length > 0)
+  ) {
+    attributes = Object.assign({ autocomplete: "off" }, attributes)
+  }
   return { nodeName, attributes, children }
+}
+
+function hasAttributes(child: JSX.Child): child is JSX.Element {
+  return child && (child as any).attributes
 }
 
 export function handleWebSocket(server: http.Server): void {
@@ -102,8 +119,14 @@ function makeElem(
   for (const attr in attributes) {
     if (attributes.hasOwnProperty(attr)) {
       if (attr === "onClick") {
-        const eventID = nanoid()
-        broker.on(eventID, attributes[attr] as any)
+        const handler = attributes[attr] as () => {}
+        let eventID = eventIDs.get(handler)
+
+        if (!eventID) {
+          eventID = nanoid()
+          eventIDs.set(handler, eventID)
+          broker.on(eventID, handler)
+        }
         elem.setAttribute(`data-${attr}`, eventID)
       } else {
         const value = (attributes as any)[attr]
