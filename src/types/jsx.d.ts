@@ -17,6 +17,7 @@ declare global {
       select: IntrinsicAttributes & { autocomplete?: string }
       option: IntrinsicAttributes
       textarea: IntrinsicAttributes
+      style: IntrinsicAttributes
     }
 
     type Child = string | number | JSX.Element | null
@@ -25,12 +26,16 @@ declare global {
       "data-onClick"?: string
       onClick?: () => void
       children?: Child | Child[]
+      class?: string
+      style?: string
     }
+
+    interface NestedArray<T> extends Array<NestedArray<T> | T> {}
 
     interface Element {
       nodeName: string | ComponentConstructor<any, any>
       attributes: JSX.IntrinsicAttributes
-      children: Child[]
+      children: NestedArray<Child>
     }
 
     interface ComponentElement extends Element {

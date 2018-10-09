@@ -135,21 +135,36 @@ function makeElem(
     }
   }
 
-  children.forEach(child => {
-    if (child === null) {
-      return
-    }
+  if (children) {
+    eachNested(children, child => {
+      if (child === null) {
+        return
+      }
 
-    let node: Node
-    if (typeof child === "object") {
-      node = makeElem(child, parent, rootID, key)
-    } else {
-      node = document.createTextNode(String(child))
-    }
-    elem.appendChild(node)
-  })
+      let node: Node
+      if (typeof child === "object") {
+        node = makeElem(child, parent, rootID, key)
+      } else {
+        node = document.createTextNode(String(child))
+      }
+      elem.appendChild(node)
+    })
+  }
 
   return elem
+}
+
+function eachNested<T>(
+  array: JSX.NestedArray<T>,
+  callback: (elem: T) => void,
+): void {
+  array.forEach(elem => {
+    if (elem instanceof Array) {
+      eachNested(elem, callback)
+    } else {
+      callback(elem)
+    }
+  })
 }
 
 function makeComponent<P, S>(

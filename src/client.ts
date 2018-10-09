@@ -28,15 +28,15 @@ ws.onopen = () => {
   ws.send(JSON.stringify(message))
 }
 
-function isInputElement(elem: HTMLElement): elem is HTMLInputElement {
+function isInput(elem: HTMLElement): elem is HTMLInputElement {
   return elem.nodeName === "INPUT"
 }
 
-function isOptionElement(elem: HTMLElement): elem is HTMLOptionElement {
+function isOption(elem: HTMLElement): elem is HTMLOptionElement {
   return elem.nodeName === "OPTION"
 }
 
-function isSelectElement(elem: HTMLElement): elem is HTMLSelectElement {
+function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
   return elem.nodeName === "SELECT"
 }
 
@@ -44,7 +44,7 @@ const selectedValues = new WeakMap()
 
 const morphOpts = {
   onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
-    if (isInputElement(from) && isInputElement(to)) {
+    if (isInput(from) && isInput(to)) {
       if (to.hasAttribute("value")) {
         to.value = to.getAttribute("value") as string
       } else {
@@ -58,7 +58,7 @@ const morphOpts = {
       }
     }
 
-    if (isSelectElement(from) && isSelectElement(to)) {
+    if (isSelect(from) && isSelect(to)) {
       selectedValues.delete(to)
       if (!to.querySelector("option[selected]")) {
         if (to.hasAttribute("multiple")) {
@@ -72,7 +72,7 @@ const morphOpts = {
       }
     }
 
-    if (isOptionElement(from) && isOptionElement(to)) {
+    if (isOption(from) && isOption(to)) {
       if (!to.hasAttribute("selected") && to.parentNode) {
         const values = selectedValues.get(to.parentNode)
         if (values && values.includes(to.value)) {
