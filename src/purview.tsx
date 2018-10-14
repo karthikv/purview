@@ -17,7 +17,7 @@ const roots: { [key: string]: Component<any, any> } = {}
 
 const eventIDs = new WeakMap()
 
-export function createElement(
+export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
   attributes: JSX.IntrinsicAttributes,
   ...children: JSX.Child[]
@@ -25,7 +25,7 @@ export function createElement(
   attributes = attributes || {}
   if (
     (nodeName === "select" &&
-      children.find(c => hasAttributes(c) && (c.attributes as any).selected)) ||
+      children.find(c => isJSXElem(c) && (c.attributes as any).selected)) ||
     (nodeName === "input" &&
       (attributes.hasOwnProperty("value") ||
         attributes.hasOwnProperty("checked"))) ||
@@ -36,7 +36,7 @@ export function createElement(
   return { nodeName, attributes, children }
 }
 
-function hasAttributes(child: JSX.Child): child is JSX.Element {
+function isJSXElem(child: JSX.Child): child is JSX.Element {
   return child && (child as any).attributes
 }
 
@@ -65,6 +65,10 @@ export function handleWebSocket(server: http.Server): void {
               ws.send(JSON.stringify(update))
             })
           })
+
+          // TODO: listen for this on client side
+          const connected: ConnectedMessage = { type: "connected" }
+          ws.send(JSON.stringify(connected))
           break
 
         case "event":
@@ -208,7 +212,7 @@ function makeComponentElem(
 export { Component }
 
 export default {
-  createElement,
+  createElem,
   handleWebSocket,
   render,
   Component,

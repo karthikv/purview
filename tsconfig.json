@@ -16,7 +16,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "jsx": "react",
-    "jsxFactory": "Purview.createElement",
+    "jsxFactory": "Purview.createElem",
     "plugins": [{ "name": "tslint-language-service" }]
   },
   "include": ["src/**/*", "test/**/*"],

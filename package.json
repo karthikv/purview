@@ -40,12 +40,13 @@
   "jest": {
     "testEnvironment": "node",
     "transform": {
-      "^.+\\.ts$": "ts-jest"
+      "^.+\\.tsx?$": "ts-jest"
     },
-    "testRegex": "/test/.+_test\\.ts$",
+    "testRegex": "/test/.+_test\\.tsx?$",
     "moduleFileExtensions": [
       "js",
       "ts",
+      "tsx",
       "node"
     ]
   }

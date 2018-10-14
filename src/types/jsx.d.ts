@@ -15,9 +15,10 @@ declare global {
         value?: string
       }
       select: IntrinsicAttributes & { autocomplete?: string }
-      option: IntrinsicAttributes
+      option: IntrinsicAttributes & { selected?: boolean }
       textarea: IntrinsicAttributes
       style: IntrinsicAttributes
+      img: IntrinsicAttributes & { src?: string }
     }
 
     type Child = string | number | JSX.Element | null
