@@ -23,6 +23,11 @@ export function createElem(
   ...children: JSX.Child[]
 ): JSX.Element {
   attributes = attributes || {}
+
+  // In Firefox, if you visit a website, enter some data into a text input,
+  // and refresh, the value from the previous page will be retained, even if
+  // the input has a value attribute. We don't want this behavior, so we set
+  // autocomplete to off. The same applies to selects and textareas.
   if (
     (nodeName === "select" &&
       children.find(c => isJSXElem(c) && (c.attributes as any).selected)) ||
@@ -33,6 +38,7 @@ export function createElem(
   ) {
     attributes = Object.assign({ autocomplete: "off" }, attributes)
   }
+
   return { nodeName, attributes, children }
 }
 
