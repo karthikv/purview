@@ -81,23 +81,27 @@ function handleMessage(
 
         broker.on(`update-${id}`, (component: Component<any, any>) => {
           const elem = makeComponentElem(component, id)
-          const update: UpdateMessage = {
+          sendMessage(ws, {
             type: "update",
             componentID: component._id,
             html: elem.outerHTML,
-          }
-          ws.send(JSON.stringify(update))
+          })
         })
       })
 
       // TODO: listen for this on client side
-      const connected: ConnectedMessage = { type: "connected" }
-      ws.send(JSON.stringify(connected))
+      sendMessage(ws, { type: "connected" })
       break
 
     case "event":
       broker.emit(message.eventID)
       break
+  }
+}
+
+function sendMessage(ws: WebSocket, message: ServerMessage): void {
+  if (ws.readyState === 1) {
+    ws.send(JSON.stringify(message))
   }
 }
 

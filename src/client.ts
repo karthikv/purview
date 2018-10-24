@@ -20,24 +20,7 @@ ws.onopen = () => {
   const rootIDs = rootElems.map(elem => {
     return elem.getAttribute("data-component-id") as string
   })
-
-  const message: ClientMessage = {
-    type: "connect",
-    rootIDs,
-  }
-  ws.send(JSON.stringify(message))
-}
-
-function isInput(elem: HTMLElement): elem is HTMLInputElement {
-  return elem.nodeName === "INPUT"
-}
-
-function isOption(elem: HTMLElement): elem is HTMLOptionElement {
-  return elem.nodeName === "OPTION"
-}
-
-function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
-  return elem.nodeName === "SELECT"
+  sendMessage({ type: "connect", rootIDs })
 }
 
 const selectedValues = new WeakMap()
@@ -101,6 +84,8 @@ ws.onmessage = messageEvent => {
   }
 }
 
+ws.onclose = () => location.reload()
+
 window.addEventListener("click", event => {
   const target = event.target
   if (!(target instanceof Element)) {
@@ -109,11 +94,10 @@ window.addEventListener("click", event => {
 
   let triggerElem = target.closest("[data-onclick]")
   while (triggerElem) {
-    const message: ClientMessage = {
+    sendMessage({
       type: "event",
       eventID: triggerElem.getAttribute("data-onclick") as string,
-    }
-    ws.send(JSON.stringify(message))
+    })
 
     triggerElem = triggerElem.parentElement
     if (triggerElem) {
@@ -137,5 +121,23 @@ if (!Element.prototype.closest) {
     } while (elem !== null)
 
     return null
+  }
+}
+
+function isInput(elem: HTMLElement): elem is HTMLInputElement {
+  return elem.nodeName === "INPUT"
+}
+
+function isOption(elem: HTMLElement): elem is HTMLOptionElement {
+  return elem.nodeName === "OPTION"
+}
+
+function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
+  return elem.nodeName === "SELECT"
+}
+
+function sendMessage(message: ClientMessage): void {
+  if (ws.readyState === 1) {
+    ws.send(JSON.stringify(message))
   }
 }
