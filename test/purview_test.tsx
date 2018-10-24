@@ -85,7 +85,7 @@ test("render setState", async () => {
   })
 })
 
-test("render dom event", async () => {
+test("render DOM event", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
     constructor(props: {}) {
       super(props)
@@ -177,6 +177,81 @@ test("render retain state", async () => {
     const div = parse(message2.html)
     expect((div.querySelector("p") as Element).textContent).toBe("hello")
     expect((div.querySelector("span") as Element).textContent).toBe("101")
+  })
+})
+
+test("componentDidMount", async () => {
+  let mounted = false
+  class Foo extends Purview.Component<{}, { text: string }> {
+    componentDidMount(): void {
+      mounted = true
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  expect(mounted).toBe(false)
+  await renderAndConnect(<Foo />, async () => {
+    expect(mounted).toBe(true)
+  })
+})
+
+test("componentWillUnmount", async () => {
+  let unmounted = false
+  class Foo extends Purview.Component<{}, { text: string }> {
+    componentWillUnmount(): void {
+      unmounted = true
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async () => {
+    expect(unmounted).toBe(false)
+  })
+
+  // Must wait for close to propagate to server.
+  await new Promise(resolve => setTimeout(resolve, 25))
+  expect(unmounted).toBe(true)
+})
+
+test("componentWillReceiveProps", async () => {
+  let instance: Foo = null as any
+  let receivedProps: { count: number } | null = null
+
+  class Foo extends Purview.Component<{}, { count: number }> {
+    constructor(props: {}) {
+      super(props)
+      instance = this
+      this.state = { count: 0 }
+    }
+
+    setCount = () => this.setState({ count: 1 })
+
+    render(): JSX.Element {
+      return <Bar count={1} />
+    }
+  }
+
+  class Bar extends Purview.Component<{ count: number }, {}> {
+    componentWillReceiveProps(props: { count: number }): void {
+      receivedProps = props
+    }
+
+    render(): JSX.Element {
+      return <p>{this.props.count}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async client => {
+    expect(receivedProps).toBe(null)
+    instance.setCount()
+    await client.messages.next()
+    expect(receivedProps).toEqual({ count: 1, children: [] })
   })
 })
 

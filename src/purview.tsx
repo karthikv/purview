@@ -49,40 +49,56 @@ function isJSXElem(child: JSX.Child): child is JSX.Element {
 export function handleWebSocket(server: http.Server): void {
   const wsServer = new WebSocket.Server({ server })
   wsServer.on("connection", ws => {
+    const wsRoots: Array<Component<any, any>> = []
+
     ws.on("message", data => {
       // TODO: validation
       const message = tryParse<ClientMessage>(data.toString())
+      handleMessage(message, ws, wsRoots)
+    })
 
-      switch (message.type) {
-        case "connect":
-          message.rootIDs.forEach(id => {
-            const root = roots[id]
-            if (!root) {
-              return
-            }
-
-            broker.on(`update-${id}`, (component: Component<any, any>) => {
-              const elem = makeComponentElem(component, id)
-              const update: UpdateMessage = {
-                type: "update",
-                componentID: component._id,
-                html: elem.outerHTML,
-              }
-              ws.send(JSON.stringify(update))
-            })
-          })
-
-          // TODO: listen for this on client side
-          const connected: ConnectedMessage = { type: "connected" }
-          ws.send(JSON.stringify(connected))
-          break
-
-        case "event":
-          broker.emit(message.eventID)
-          break
-      }
+    ws.on("close", () => {
+      wsRoots.forEach(root => root._triggerUnmount())
     })
   })
+}
+
+function handleMessage(
+  message: ClientMessage,
+  ws: WebSocket,
+  wsRoots: Array<Component<any, any>>,
+): void {
+  switch (message.type) {
+    case "connect":
+      message.rootIDs.forEach(id => {
+        const root = roots[id]
+        if (!root) {
+          return
+        }
+
+        wsRoots.push(root)
+        root._triggerMount()
+
+        broker.on(`update-${id}`, (component: Component<any, any>) => {
+          const elem = makeComponentElem(component, id)
+          const update: UpdateMessage = {
+            type: "update",
+            componentID: component._id,
+            html: elem.outerHTML,
+          }
+          ws.send(JSON.stringify(update))
+        })
+      })
+
+      // TODO: listen for this on client side
+      const connected: ConnectedMessage = { type: "connected" }
+      ws.send(JSON.stringify(connected))
+      break
+
+    case "event":
+      broker.emit(message.eventID)
+      break
+  }
 }
 
 export function render(jsxElem: JSX.Element): string {

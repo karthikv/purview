@@ -35,6 +35,18 @@ export default abstract class Component<P, S> {
 
   abstract render(): JSX.Element
 
+  componentDidMount(): void {
+    // May be implemented by subclasses.
+  }
+
+  componentWillUnmount(): void {
+    // May be implemented by subclasses.
+  }
+
+  componentWillReceiveProps(_: P): void {
+    // May be implemented by subclasses.
+  }
+
   setState(changes: Partial<S> | UpdateFn<S>): void {
     if (changes instanceof Function) {
       Object.assign(this.state, changes(this.state))
@@ -47,7 +59,22 @@ export default abstract class Component<P, S> {
     }
   }
 
+  _triggerMount(): void {
+    this.componentDidMount()
+    Object.keys(this._childMap).forEach(key => {
+      this._childMap[key].forEach(c => c._triggerMount())
+    })
+  }
+
+  _triggerUnmount(): void {
+    this.componentWillUnmount()
+    Object.keys(this._childMap).forEach(key => {
+      this._childMap[key].forEach(c => c._triggerUnmount())
+    })
+  }
+
   _setProps(props: Readonly<P>): void {
+    this.componentWillReceiveProps(props)
     this.props = props
   }
 }
