@@ -14,8 +14,6 @@ interface Root {
 
 const { document } = new JSDOM().window
 
-// TODO: typescript target in tsconfig.json
-
 const roots: { [key: string]: Root } = {}
 const cachedEventIDs = new WeakMap()
 
