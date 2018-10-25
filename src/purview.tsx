@@ -1,5 +1,4 @@
 import * as http from "http"
-import { EventEmitter } from "events"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
@@ -7,15 +6,18 @@ import { JSDOM } from "jsdom"
 import Component, { ComponentConstructor } from "./component"
 import { tryParse } from "./helpers"
 
+interface Root {
+  component: Component<any, any>
+  ws?: WebSocket
+  handlers: { [key: string]: () => void }
+}
+
 const { document } = new JSDOM().window
 
 // TODO: typescript target in tsconfig.json
 
-// TODO: clean up to avoid memory leaks
-const broker = new EventEmitter()
-const roots: { [key: string]: Component<any, any> } = {}
-
-const eventIDs = new WeakMap()
+const roots: { [key: string]: Root } = {}
+const cachedEventIDs = new WeakMap()
 
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
@@ -49,16 +51,19 @@ function isJSXElem(child: JSX.Child): child is JSX.Element {
 export function handleWebSocket(server: http.Server): void {
   const wsServer = new WebSocket.Server({ server })
   wsServer.on("connection", ws => {
-    const wsRoots: Array<Component<any, any>> = []
+    const wsState = { roots: [] as Root[], connected: false }
 
     ws.on("message", data => {
       // TODO: validation
       const message = tryParse<ClientMessage>(data.toString())
-      handleMessage(message, ws, wsRoots)
+      handleMessage(message, ws, wsState)
     })
 
     ws.on("close", () => {
-      wsRoots.forEach(root => root._triggerUnmount())
+      wsState.roots.forEach(root => {
+        root.component._triggerUnmount()
+        delete roots[root.component._id]
+      })
     })
   })
 }
@@ -66,36 +71,38 @@ export function handleWebSocket(server: http.Server): void {
 function handleMessage(
   message: ClientMessage,
   ws: WebSocket,
-  wsRoots: Array<Component<any, any>>,
+  wsState: { roots: Root[]; connected: boolean },
 ): void {
   switch (message.type) {
-    case "connect":
+    case "connect": {
+      if (wsState.connected) {
+        return
+      }
+      wsState.connected = true
+
       message.rootIDs.forEach(id => {
         const root = roots[id]
         if (!root) {
           return
         }
 
-        wsRoots.push(root)
-        root._triggerMount()
-
-        broker.on(`update-${id}`, (component: Component<any, any>) => {
-          const elem = makeComponentElem(component, id)
-          sendMessage(ws, {
-            type: "update",
-            componentID: component._id,
-            html: elem.outerHTML,
-          })
-        })
+        root.ws = ws
+        root.component._triggerMount()
+        wsState.roots.push(root)
       })
 
       // TODO: listen for this on client side
       sendMessage(ws, { type: "connected" })
       break
+    }
 
-    case "event":
-      broker.emit(message.eventID)
+    case "event": {
+      const root = wsState.roots.find(r => r.component._id === message.rootID)
+      if (root) {
+        root.handlers[message.eventID]()
+      }
       break
+    }
   }
 }
 
@@ -110,9 +117,9 @@ export function render(jsxElem: JSX.Element): string {
     throw new Error("Root element must be a Purview.Component")
   }
 
-  const root = makeComponent(jsxElem)
-  roots[root._id] = root
-  return makeComponentElem(root, null).outerHTML
+  const component = makeComponent(jsxElem)
+  roots[component._id] = { component, handlers: {} }
+  return makeComponentElem(component, null).outerHTML
 }
 
 function isComponentElem(
@@ -150,13 +157,16 @@ function makeElem(
     if (attributes.hasOwnProperty(attr)) {
       if (attr === "onClick") {
         const handler = attributes[attr] as () => {}
-        let eventID = eventIDs.get(handler)
+        let eventID = cachedEventIDs.get(handler)
 
         if (!eventID) {
           eventID = nanoid()
-          eventIDs.set(handler, eventID)
-          broker.on(eventID, handler)
+          cachedEventIDs.set(handler, eventID)
+          if (roots[rootID]) {
+            roots[rootID].handlers[eventID] = handler
+          }
         }
+
         elem.setAttribute(`data-${attr}`, eventID)
       } else {
         const value = (attributes as any)[attr]
@@ -211,15 +221,15 @@ function makeComponent<P, S>(
 
 function makeComponentElem(
   component: Component<any, any>,
-  rootID: string | null,
+  givenRootID: string | null,
 ): Element {
   component._newChildMap = {}
+  const rootID = givenRootID || component._id
   let elem: Element
 
-  if (rootID) {
+  if (givenRootID) {
     elem = makeElem(component.render(), component, rootID, "")
   } else {
-    rootID = component._id
     elem = makeElem(component.render(), component, rootID, "")
     elem.setAttribute("data-root", "true")
   }
@@ -227,7 +237,15 @@ function makeComponentElem(
   component._childMap = component._newChildMap
   if (!component._handleUpdate) {
     component._handleUpdate = () => {
-      broker.emit(`update-${rootID}`, component)
+      const root = roots[rootID]
+      if (root && root.ws) {
+        const newElem = makeComponentElem(component, rootID)
+        sendMessage(root.ws, {
+          type: "update",
+          componentID: component._id,
+          html: newElem.outerHTML,
+        })
+      }
     }
   }
 

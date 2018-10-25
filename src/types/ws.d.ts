@@ -5,6 +5,7 @@ interface ConnectMessage {
 
 interface EventMessage {
   type: "event"
+  rootID: string
   eventID: string
 }
 

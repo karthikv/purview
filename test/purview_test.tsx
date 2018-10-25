@@ -104,6 +104,7 @@ test("render DOM event", async () => {
   await renderAndConnect(<Foo />, async client => {
     const event: EventMessage = {
       type: "event",
+      rootID: client.rootID,
       eventID: client.elem.getAttribute("data-onclick") as string,
     }
     client.ws.send(JSON.stringify(event))
@@ -154,6 +155,7 @@ test("render retain state", async () => {
     const span = client.elem.querySelector("span") as Element
     const event1: EventMessage = {
       type: "event",
+      rootID: client.rootID,
       eventID: span.getAttribute("data-onclick") as string,
     }
     client.ws.send(JSON.stringify(event1))
@@ -165,6 +167,7 @@ test("render retain state", async () => {
 
     const event2: EventMessage = {
       type: "event",
+      rootID: client.rootID,
       eventID: client.elem.getAttribute("data-onclick") as string,
     }
     client.ws.send(JSON.stringify(event2))

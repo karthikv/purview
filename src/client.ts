@@ -86,6 +86,8 @@ ws.onmessage = messageEvent => {
 
 ws.onclose = () => location.reload()
 
+const elemRootIDs = new WeakMap()
+
 window.addEventListener("click", event => {
   const target = event.target
   if (!(target instanceof Element)) {
@@ -94,8 +96,17 @@ window.addEventListener("click", event => {
 
   let triggerElem = target.closest("[data-onclick]")
   while (triggerElem) {
+    let rootID = elemRootIDs.get(triggerElem)
+
+    if (!rootID) {
+      const rootElem = triggerElem.closest("[data-root]") as Element
+      rootID = rootElem.getAttribute("data-component-id")
+      elemRootIDs.set(triggerElem, rootID)
+    }
+
     sendMessage({
       type: "event",
+      rootID,
       eventID: triggerElem.getAttribute("data-onclick") as string,
     })
 
