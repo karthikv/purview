@@ -14,7 +14,8 @@
       "parameter",
       "property-declaration",
       "member-variable-declaration"
-    ]
+    ],
+    "no-unbound-method": true
   },
   "linterOptions": {
     "exclude": ["**/*.json"]

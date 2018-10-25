@@ -10,6 +10,7 @@ interface Root {
   component: Component<any, any>
   ws?: WebSocket
   handlers: { [key: string]: () => void }
+  aliases: { [key: string]: string }
 }
 
 const { document } = new JSDOM().window
@@ -116,7 +117,7 @@ export function render(jsxElem: JSX.Element): string {
   }
 
   const component = makeComponent(jsxElem)
-  roots[component._id] = { component, handlers: {} }
+  roots[component._id] = { component, handlers: {}, aliases: {} }
   return makeComponentElem(component, null).outerHTML
 }
 
@@ -240,15 +241,32 @@ function makeComponentElem(
         const newElem = makeComponentElem(component, rootID)
         sendMessage(root.ws, {
           type: "update",
-          componentID: component._id,
+          componentID: unalias(component._id, root),
           html: newElem.outerHTML,
         })
       }
     }
   }
 
+  // If this component directly nests another component, a component ID will
+  // already exist on elem. In this case, we override the component ID in the
+  // data-component-id attribute, but keep track of the mapping in our aliases
+  // map. This lets us send the proper ID in update messages to the client (see
+  // the _handleUpdate function above).
+  const componentID = elem.getAttribute("data-component-id")
+  if (componentID) {
+    roots[rootID].aliases[componentID] = component._id
+  }
+
   elem.setAttribute("data-component-id", component._id)
   return elem
+}
+
+function unalias(id: string, root: Root): string {
+  while (root.aliases[id]) {
+    id = root.aliases[id]
+  }
+  return id
 }
 
 export { Component }

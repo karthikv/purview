@@ -183,6 +183,57 @@ test("render retain state", async () => {
   })
 })
 
+test("render directly nested", async () => {
+  let foo: Foo = null as any
+  class Foo extends Purview.Component<{}, { text: string }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { text: "" }
+      foo = this
+    }
+
+    setText = () => this.setState({ text: "hello" })
+
+    render(): JSX.Element {
+      if (this.state.text) {
+        return <p onClick={this.setText}>{this.state.text}</p>
+      } else {
+        return <Bar />
+      }
+    }
+  }
+
+  let bar: Bar = null as any
+  class Bar extends Purview.Component<{}, { count: number }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { count: 0 }
+      bar = this
+    }
+
+    increment = () => this.setState(state => ({ count: state.count + 1 }))
+
+    render(): JSX.Element {
+      return <p onClick={this.increment}>{this.state.count}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async client => {
+    bar.increment()
+    const message1 = (await client.messages.next()) as UpdateMessage
+    expect(message1.type).toBe("update")
+    // Since Foo and Bar should share the same component ID.
+    expect(message1.componentID).toBe(client.rootID)
+    expect(parse(message1.html).textContent).toBe("1")
+
+    foo.setText()
+    const message2 = (await client.messages.next()) as UpdateMessage
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(client.rootID)
+    expect(parse(message2.html).textContent).toBe("hello")
+  })
+})
+
 test("componentDidMount", async () => {
   let mounted = false
   class Foo extends Purview.Component<{}, { text: string }> {
