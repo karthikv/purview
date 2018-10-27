@@ -63,11 +63,21 @@ const morphOpts = {
         }
       }
     }
+
+    if (isTextArea(from) && isTextArea(to)) {
+      if (to.textContent) {
+        to.value = to.textContent
+      } else {
+        to.value = from.value
+      }
+    }
+
     return true
   },
 }
 
 ws.onmessage = messageEvent => {
+  // TODO: validation
   const message = tryParse<ServerMessage>(messageEvent.data)
 
   switch (message.type) {
@@ -145,6 +155,10 @@ function isOption(elem: HTMLElement): elem is HTMLOptionElement {
 
 function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
   return elem.nodeName === "SELECT"
+}
+
+function isTextArea(elem: HTMLElement): elem is HTMLTextAreaElement {
+  return elem.nodeName === "TEXTAREA"
 }
 
 function sendMessage(message: ClientMessage): void {

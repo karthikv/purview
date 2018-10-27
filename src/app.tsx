@@ -67,7 +67,7 @@ export default class extends Purview.Component<{}, AppState> {
           <option>Foo</option>
         </select>
 
-        <textarea />
+        <textarea>foo</textarea>
 
         {help}
         <Counter initialCount={0} />
