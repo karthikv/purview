@@ -55,6 +55,7 @@ test("render simple", () => {
 
   const p = parse(Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
+  expect(p.getAttribute("data-root")).toBe("true")
 
   const img = p.childNodes[1] as Element
   expect(img.getAttribute("src")).toEqual("foo")
@@ -81,7 +82,10 @@ test("render setState", async () => {
     const message = (await client.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(client.rootID)
-    expect(parse(message.html).textContent).toBe("hello")
+
+    const p = parse(message.html)
+    expect(p.textContent).toBe("hello")
+    expect(p.getAttribute("data-root")).toBe("true")
   })
 })
 

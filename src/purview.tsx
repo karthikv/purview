@@ -118,7 +118,7 @@ export function render(jsxElem: JSX.Element): string {
 
   const component = makeComponent(jsxElem)
   roots[component._id] = { component, handlers: {}, aliases: {} }
-  return makeComponentElem(component, null).outerHTML
+  return makeComponentElem(component, component._id).outerHTML
 }
 
 function isComponentElem(
@@ -220,16 +220,13 @@ function makeComponent<P, S>(
 
 function makeComponentElem(
   component: Component<any, any>,
-  givenRootID: string | null,
+  rootID: string,
 ): Element {
   component._newChildMap = {}
-  const rootID = givenRootID || component._id
   let elem: Element
 
-  if (givenRootID) {
-    elem = makeElem(component.render(), component, rootID, "")
-  } else {
-    elem = makeElem(component.render(), component, rootID, "")
+  elem = makeElem(component.render(), component, rootID, "")
+  if (component._id === rootID) {
     elem.setAttribute("data-root", "true")
   }
 
