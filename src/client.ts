@@ -1,167 +1,85 @@
 import { tryParse } from "./helpers"
-import morphdom = require("morphdom")
+import morph from "./morph"
 
-const { protocol, host, pathname, search } = window.location
-let wsProtocol: string
+export function connectWebSocket(location: Location): WebSocket {
+  const { protocol, host, pathname, search } = location
+  let wsProtocol: string
 
-if (protocol === "https:") {
-  wsProtocol = "wss:"
-} else if (protocol === "http:") {
-  wsProtocol = "ws:"
-} else {
-  throw new Error(`Invalid protocol ${protocol}`)
-}
-
-const wsURL = `${wsProtocol}//${host}${pathname}${search}`
-const ws = new WebSocket(wsURL)
-
-ws.onopen = () => {
-  const rootElems = Array.from(document.querySelectorAll("[data-root]"))
-  const rootIDs = rootElems.map(elem => {
-    return elem.getAttribute("data-component-id") as string
-  })
-  sendMessage({ type: "connect", rootIDs })
-}
-
-const selectedValues = new WeakMap()
-
-const morphOpts = {
-  onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
-    if (isInput(from) && isInput(to)) {
-      if (to.hasAttribute("value")) {
-        to.value = to.getAttribute("value") as string
-      } else {
-        to.value = from.value
-      }
-
-      if (to.hasAttribute("checked")) {
-        to.checked = true
-      } else {
-        to.checked = from.checked
-      }
-    }
-
-    if (isSelect(from) && isSelect(to)) {
-      selectedValues.delete(to)
-      if (!to.querySelector("option[selected]")) {
-        if (to.hasAttribute("multiple")) {
-          const values = Array.from(from.querySelectorAll("option"))
-            .filter(option => option.selected)
-            .map(option => option.value)
-          selectedValues.set(to, values)
-        } else {
-          selectedValues.set(to, [from.value])
-        }
-      }
-    }
-
-    if (isOption(from) && isOption(to)) {
-      if (!to.hasAttribute("selected") && to.parentNode) {
-        const values = selectedValues.get(to.parentNode)
-        if (values && values.includes(to.value)) {
-          to.setAttribute("selected", "true")
-        }
-      }
-    }
-
-    if (isTextArea(from) && isTextArea(to)) {
-      if (to.textContent) {
-        to.value = to.textContent
-      } else {
-        to.value = from.value
-      }
-    }
-
-    return true
-  },
-}
-
-ws.onmessage = messageEvent => {
-  // TODO: validation
-  const message = tryParse<ServerMessage>(messageEvent.data)
-
-  switch (message.type) {
-    case "update":
-      const selector = `[data-component-id=\"${message.componentID}\"]`
-      const elem = document.querySelector(selector)
-
-      if (elem) {
-        const div = document.createElement("div")
-        div.innerHTML = message.html
-        morphdom(elem, div.firstChild as Node, morphOpts)
-      }
-      break
-  }
-}
-
-ws.onclose = () => location.reload()
-
-const elemRootIDs = new WeakMap()
-
-window.addEventListener("click", event => {
-  const target = event.target
-  if (!(target instanceof Element)) {
-    return
+  if (protocol === "https:") {
+    wsProtocol = "wss:"
+  } else if (protocol === "http:") {
+    wsProtocol = "ws:"
+  } else {
+    throw new Error(`Invalid protocol ${protocol}`)
   }
 
-  let triggerElem = target.closest("[data-onclick]")
-  while (triggerElem) {
-    let rootID = elemRootIDs.get(triggerElem)
+  const wsURL = `${wsProtocol}//${host}${pathname}${search}`
+  const ws = new WebSocket(wsURL)
 
-    if (!rootID) {
-      const rootElem = triggerElem.closest("[data-root]") as Element
-      rootID = rootElem.getAttribute("data-component-id")
-      elemRootIDs.set(triggerElem, rootID)
-    }
-
-    sendMessage({
-      type: "event",
-      rootID,
-      eventID: triggerElem.getAttribute("data-onclick") as string,
+  ws.onopen = () => {
+    const rootElems = Array.from(document.querySelectorAll("[data-root]"))
+    const rootIDs = rootElems.map(elem => {
+      return elem.getAttribute("data-component-id") as string
     })
+    sendMessage(ws, { type: "connect", rootIDs })
+  }
 
-    triggerElem = triggerElem.parentElement
-    if (triggerElem) {
-      triggerElem = triggerElem.closest("[data-onclick]")
+  ws.onmessage = messageEvent => {
+    // TODO: validation
+    const message = tryParse<ServerMessage>(messageEvent.data)
+
+    switch (message.type) {
+      case "update":
+        const selector = `[data-component-id="${message.componentID}"]`
+        const elem = document.querySelector(selector)
+
+        if (elem) {
+          const div = document.createElement("div")
+          div.innerHTML = message.html
+          morph(elem, div.children[0] as Node)
+        }
+        break
     }
   }
-})
 
-if (!Element.prototype.closest) {
-  Element.prototype.closest = function(selector: string): Element | null {
-    if (!document.documentElement.contains(this)) {
-      return null
+  ws.onclose = () => location.reload()
+  return ws
+}
+
+export function handleEvents(ws: WebSocket): void {
+  const elemRootIDs = new WeakMap()
+
+  window.addEventListener("click", event => {
+    const target = event.target
+    if (!(target instanceof Element)) {
+      return
     }
 
-    let elem: Element | null = this
-    do {
-      if (elem.matches(selector)) {
-        return elem
+    let triggerElem = target.closest("[data-onclick]")
+    while (triggerElem) {
+      let rootID = elemRootIDs.get(triggerElem)
+
+      if (!rootID) {
+        const rootElem = triggerElem.closest("[data-root]") as Element
+        rootID = rootElem.getAttribute("data-component-id")
+        elemRootIDs.set(triggerElem, rootID)
       }
-      elem = elem.parentElement
-    } while (elem !== null)
 
-    return null
-  }
+      sendMessage(ws, {
+        type: "event",
+        rootID,
+        eventID: triggerElem.getAttribute("data-onclick") as string,
+      })
+
+      triggerElem = triggerElem.parentElement
+      if (triggerElem) {
+        triggerElem = triggerElem.closest("[data-onclick]")
+      }
+    }
+  })
 }
 
-function isInput(elem: HTMLElement): elem is HTMLInputElement {
-  return elem.nodeName === "INPUT"
-}
-
-function isOption(elem: HTMLElement): elem is HTMLOptionElement {
-  return elem.nodeName === "OPTION"
-}
-
-function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
-  return elem.nodeName === "SELECT"
-}
-
-function isTextArea(elem: HTMLElement): elem is HTMLTextAreaElement {
-  return elem.nodeName === "TEXTAREA"
-}
-
-function sendMessage(message: ClientMessage): void {
+function sendMessage(ws: WebSocket, message: ClientMessage): void {
   if (ws.readyState === 1) {
     ws.send(JSON.stringify(message))
   }

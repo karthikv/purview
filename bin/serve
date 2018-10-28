@@ -5,7 +5,7 @@ ESC=$(printf '\033')
 trap "kill %1" SIGINT
 
 npx tsc -p tsconfig_src.json -w 2>&1 | sed -e "s/^/$ESC[33;1m[tsc]$ESC[0m /" &
-npx parcel watch src/client.ts 2>&1 | sed -e "s/^/$ESC[34;1m[parcel]$ESC[0m /" &
+npx parcel watch src/browser.ts 2>&1 | sed -e "s/^/$ESC[34;1m[parcel]$ESC[0m /" &
 
 sleep 3 # Wait for first compile to finish.
 npx nodemon build/server.js 2>&1

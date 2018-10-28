@@ -1,9 +1,10 @@
 /* tslint:disable max-classes-per-file */
-import Purview from "../src/purview"
 import { JSDOM } from "jsdom"
 import * as WebSocket from "ws"
 import * as http from "http"
 import * as net from "net"
+import AsyncQueue from "./async_queue"
+import Purview from "../src/purview"
 
 const { document } = new JSDOM().window
 
@@ -76,12 +77,12 @@ test("render setState", async () => {
     }
   }
 
-  await renderAndConnect(<Foo />, async client => {
+  await renderAndConnect(<Foo />, async conn => {
     instance.setState({ text: "hello" })
 
-    const message = (await client.messages.next()) as UpdateMessage
+    const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
-    expect(message.componentID).toBe(client.rootID)
+    expect(message.componentID).toBe(conn.rootID)
 
     const p = parse(message.html)
     expect(p.textContent).toBe("hello")
@@ -105,17 +106,17 @@ test("render DOM event", async () => {
     }
   }
 
-  await renderAndConnect(<Foo />, async client => {
+  await renderAndConnect(<Foo />, async conn => {
     const event: EventMessage = {
       type: "event",
-      rootID: client.rootID,
-      eventID: client.elem.getAttribute("data-onclick") as string,
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-onclick") as string,
     }
-    client.ws.send(JSON.stringify(event))
+    conn.ws.send(JSON.stringify(event))
 
-    const message = (await client.messages.next()) as UpdateMessage
+    const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
-    expect(message.componentID).toBe(client.rootID)
+    expect(message.componentID).toBe(conn.rootID)
     expect(parse(message.html).textContent).toBe("hello")
   })
 })
@@ -155,30 +156,30 @@ test("render retain state", async () => {
     }
   }
 
-  await renderAndConnect(<Foo />, async client => {
-    const span = client.elem.querySelector("span") as Element
+  await renderAndConnect(<Foo />, async conn => {
+    const span = conn.elem.querySelector("span") as Element
     const event1: EventMessage = {
       type: "event",
-      rootID: client.rootID,
+      rootID: conn.rootID,
       eventID: span.getAttribute("data-onclick") as string,
     }
-    client.ws.send(JSON.stringify(event1))
+    conn.ws.send(JSON.stringify(event1))
 
-    const message1 = (await client.messages.next()) as UpdateMessage
+    const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(span.getAttribute("data-component-id"))
     expect(parse(message1.html).textContent).toBe("101")
 
     const event2: EventMessage = {
       type: "event",
-      rootID: client.rootID,
-      eventID: client.elem.getAttribute("data-onclick") as string,
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-onclick") as string,
     }
-    client.ws.send(JSON.stringify(event2))
+    conn.ws.send(JSON.stringify(event2))
 
-    const message2 = (await client.messages.next()) as UpdateMessage
+    const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
-    expect(message2.componentID).toBe(client.rootID)
+    expect(message2.componentID).toBe(conn.rootID)
 
     // 101 should be retained from the previous state update.
     const div = parse(message2.html)
@@ -222,18 +223,18 @@ test("render directly nested", async () => {
     }
   }
 
-  await renderAndConnect(<Foo />, async client => {
+  await renderAndConnect(<Foo />, async conn => {
     bar.increment()
-    const message1 = (await client.messages.next()) as UpdateMessage
+    const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
     // Since Foo and Bar should share the same component ID.
-    expect(message1.componentID).toBe(client.rootID)
+    expect(message1.componentID).toBe(conn.rootID)
     expect(parse(message1.html).textContent).toBe("1")
 
     foo.setText()
-    const message2 = (await client.messages.next()) as UpdateMessage
+    const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
-    expect(message2.componentID).toBe(client.rootID)
+    expect(message2.componentID).toBe(conn.rootID)
     expect(parse(message2.html).textContent).toBe("hello")
   })
 })
@@ -305,10 +306,10 @@ test("componentWillReceiveProps", async () => {
     }
   }
 
-  await renderAndConnect(<Foo />, async client => {
+  await renderAndConnect(<Foo />, async conn => {
     expect(receivedProps).toBe(null)
     instance.setCount()
-    await client.messages.next()
+    await conn.messages.next()
     expect(receivedProps).toEqual({ count: 1, children: [] })
   })
 })
@@ -316,7 +317,7 @@ test("componentWillReceiveProps", async () => {
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (
-    client: {
+    conn: {
       ws: WebSocket
       rootID: string
       elem: Element
@@ -367,39 +368,6 @@ async function renderAndConnect<T>(
     ws.close()
   }
   return result
-}
-
-class AsyncQueue<T> {
-  private queue: T[] = []
-  private pushed: Promise<void>
-  private resolvePushed: () => void
-
-  constructor() {
-    this.setPushed()
-  }
-
-  push(elem: T): void {
-    this.queue.push(elem)
-    this.resolvePushed()
-  }
-
-  async next(): Promise<T> {
-    if (this.queue.length > 0) {
-      return this.queue.shift() as T
-    } else {
-      await this.pushed
-      return this.next()
-    }
-  }
-
-  setPushed(): void {
-    this.pushed = new Promise(resolve => {
-      this.resolvePushed = () => {
-        resolve()
-        this.setPushed()
-      }
-    })
-  }
 }
 
 function parse(html: string): Element {

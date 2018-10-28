@@ -7,8 +7,8 @@ import * as urlLib from "url"
 import Purview from "./purview"
 import App from "./app"
 
-const CLIENT_BASENAME = "client.js"
-const CLIENT_PATH = pathLib.join(__dirname, "..", "dist", CLIENT_BASENAME)
+const BROWSER_JS = "browser.js"
+const BROWSER_JS_PATH = pathLib.join(__dirname, "..", "dist", BROWSER_JS)
 
 const server = http.createServer(async (req, res) => {
   if (!req.url) {
@@ -28,7 +28,7 @@ const server = http.createServer(async (req, res) => {
             <div id="root">
               ${Purview.render(<App />)}
             </div>
-            <script src="/${CLIENT_BASENAME}"></script>
+            <script src="/${BROWSER_JS}"></script>
           </body>
         </html>
       `
@@ -37,8 +37,8 @@ const server = http.createServer(async (req, res) => {
       res.end(html)
       break
 
-    case `/${CLIENT_BASENAME}`:
-      const readStream = fs.createReadStream(CLIENT_PATH)
+    case `/${BROWSER_JS}`:
+      const readStream = fs.createReadStream(BROWSER_JS_PATH)
       res.setHeader("Content-type", "application/javascript")
       streamLib.pipeline(readStream, res)
       break
