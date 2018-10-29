@@ -260,6 +260,65 @@ test("componentDidMount", async () => {
   })
 })
 
+test("nested mount cycle", async () => {
+  let foo: Foo = null as any
+  class Foo extends Purview.Component<{}, { on: boolean }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { on: false }
+      foo = this
+    }
+
+    toggle = () => this.setState(state => ({ on: !state.on }))
+
+    render(): JSX.Element {
+      if (this.state.on) {
+        return <Bar />
+      } else {
+        return <p>Foo</p>
+      }
+    }
+  }
+
+  class Bar extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <Baz />
+    }
+  }
+
+  // We use counts instead of booleans to ensure we don't call mount/unmount
+  // multiple times.
+  let mountCount = 0
+  let unmountCount = 0
+
+  class Baz extends Purview.Component<{}, {}> {
+    componentDidMount(): void {
+      mountCount++
+    }
+
+    componentWillUnmount(): void {
+      unmountCount++
+    }
+
+    render(): JSX.Element {
+      return <p>Baz</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async () => {
+    expect(mountCount).toBe(0)
+    expect(unmountCount).toBe(0)
+
+    foo.toggle()
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(0)
+
+    foo.toggle()
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(1)
+  })
+})
+
 test("componentWillUnmount", async () => {
   let unmounted = false
   class Foo extends Purview.Component<{}, { text: string }> {

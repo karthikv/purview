@@ -8,6 +8,7 @@ import { tryParseJSON } from "./helpers"
 
 interface Root {
   component: Component<any, any>
+  mounted: boolean
   ws?: WebSocket
   handlers: { [key: string]: () => void }
   aliases: { [key: string]: string }
@@ -87,6 +88,7 @@ function handleMessage(
 
         root.ws = ws
         root.component._triggerMount()
+        root.mounted = true
         wsState.roots.push(root)
       })
 
@@ -117,7 +119,12 @@ export function render(jsxElem: JSX.Element): string {
   }
 
   const component = makeComponent(jsxElem)
-  roots[component._id] = { component, handlers: {}, aliases: {} }
+  roots[component._id] = {
+    component,
+    mounted: false,
+    handlers: {},
+    aliases: {},
+  }
   return makeComponentElem(component, component._id).outerHTML
 }
 
@@ -145,7 +152,15 @@ function makeElem(
       parent._newChildMap[key] = []
     }
     parent._newChildMap[key].push(component)
-    return makeComponentElem(component, rootID)
+
+    const finalElem = makeComponentElem(component, rootID)
+    if (!existing && roots[rootID] && roots[rootID].mounted) {
+      // Child components have already been mounted recursively. We don't call
+      // _triggerMount() because that would recursively call componentDidMount()
+      // on children again.
+      component.componentDidMount()
+    }
+    return finalElem
   }
 
   const { nodeName, attributes, children } = jsxElem
@@ -230,7 +245,9 @@ function makeComponentElem(
     elem.setAttribute("data-root", "true")
   }
 
+  unmountChildren(component)
   component._childMap = component._newChildMap
+
   if (!component._handleUpdate) {
     component._handleUpdate = () => {
       const root = roots[rootID]
@@ -257,6 +274,13 @@ function makeComponentElem(
 
   elem.setAttribute("data-component-id", component._id)
   return elem
+}
+
+function unmountChildren(component: Component<any, any>): void {
+  Object.keys(component._childMap).forEach(key => {
+    const children = component._childMap[key]
+    children.forEach(child => child._triggerUnmount())
+  })
 }
 
 function unalias(id: string, root: Root): string {

@@ -6,10 +6,19 @@ interface AnimationState {
 }
 
 export default class extends Purview.Component<{}, AnimationState> {
+  interval: NodeJS.Timer
+
   constructor(props: {}) {
     super(props)
     this.state = { count: 0, step: 0.5 }
-    setInterval(this.next, 1000 / 60)
+  }
+
+  componentDidMount(): void {
+    this.interval = setInterval(this.next, 1000 / 60)
+  }
+
+  componentWillUnmount(): void {
+    clearInterval(this.interval)
   }
 
   next = () => {
