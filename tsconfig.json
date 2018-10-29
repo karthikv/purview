@@ -17,7 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "jsx": "react",
     "jsxFactory": "Purview.createElem",
-    "plugins": [{ "name": "tslint-language-service" }]
+    "plugins": [{ "name": "typescript-tslint-plugin" }]
   },
   "include": ["src/**/*", "test/**/*"],
   "exclude": ["node_modules"]

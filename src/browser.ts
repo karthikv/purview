@@ -3,7 +3,7 @@ import { connectWebSocket, handleEvents } from "./client"
 // Polyfill closest() for browsers that don't support it.
 if (!Element.prototype.closest) {
   Element.prototype.closest = function(selector: string): Element | null {
-    if (!document.documentElement.contains(this)) {
+    if (!(document.documentElement as Element).contains(this)) {
       return null
     }
 
