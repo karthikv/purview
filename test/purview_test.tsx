@@ -1,12 +1,15 @@
 /* tslint:disable max-classes-per-file */
 import { JSDOM } from "jsdom"
+
+const { document } = new JSDOM().window
+Object.assign(global, { document })
+
 import * as WebSocket from "ws"
 import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import Purview from "../src/purview"
-
-const { document } = new JSDOM().window
+import { parseHTML } from "../src/helpers"
 
 test("createElem", () => {
   const p = (
@@ -54,7 +57,7 @@ test("render simple", () => {
     }
   }
 
-  const p = parse(Purview.render(<Foo />))
+  const p = parseHTML(Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
   expect(p.getAttribute("data-root")).toBe("true")
 
@@ -84,7 +87,7 @@ test("render setState", async () => {
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
 
-    const p = parse(message.html)
+    const p = parseHTML(message.html)
     expect(p.textContent).toBe("hello")
     expect(p.getAttribute("data-root")).toBe("true")
   })
@@ -117,7 +120,7 @@ test("render DOM event", async () => {
     const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
-    expect(parse(message.html).textContent).toBe("hello")
+    expect(parseHTML(message.html).textContent).toBe("hello")
   })
 })
 
@@ -168,7 +171,7 @@ test("render retain state", async () => {
     const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(span.getAttribute("data-component-id"))
-    expect(parse(message1.html).textContent).toBe("101")
+    expect(parseHTML(message1.html).textContent).toBe("101")
 
     const event2: EventMessage = {
       type: "event",
@@ -182,7 +185,7 @@ test("render retain state", async () => {
     expect(message2.componentID).toBe(conn.rootID)
 
     // 101 should be retained from the previous state update.
-    const div = parse(message2.html)
+    const div = parseHTML(message2.html)
     expect((div.querySelector("p") as Element).textContent).toBe("hello")
     expect((div.querySelector("span") as Element).textContent).toBe("101")
   })
@@ -229,13 +232,13 @@ test("render directly nested", async () => {
     expect(message1.type).toBe("update")
     // Since Foo and Bar should share the same component ID.
     expect(message1.componentID).toBe(conn.rootID)
-    expect(parse(message1.html).textContent).toBe("1")
+    expect(parseHTML(message1.html).textContent).toBe("1")
 
     foo.setText()
     const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
-    expect(parse(message2.html).textContent).toBe("hello")
+    expect(parseHTML(message2.html).textContent).toBe("hello")
   })
 })
 
@@ -329,7 +332,7 @@ async function renderAndConnect<T>(
   await new Promise(resolve => server.listen(resolve))
 
   Purview.handleWebSocket(server)
-  const elem = parse(Purview.render(jsxElem))
+  const elem = parseHTML(Purview.render(jsxElem))
   const id = elem.getAttribute("data-component-id")
   if (!id) {
     throw new Error(`Expected component ID, but got: ${id}`)
@@ -368,10 +371,4 @@ async function renderAndConnect<T>(
     ws.close()
   }
   return result
-}
-
-function parse(html: string): Element {
-  const div = document.createElement("div")
-  div.innerHTML = html
-  return div.firstChild as Element
 }

@@ -4,21 +4,18 @@ const selectedValues = new WeakMap()
 const morphOpts = {
   onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
     if (isInput(from) && isInput(to)) {
-      if (to.hasAttribute("value")) {
-        to.value = to.getAttribute("value") as string
-      } else {
-        to.value = from.value
+      if (!to.hasAttribute("checked")) {
+        to.checked = from.checked
       }
 
-      if (to.hasAttribute("checked")) {
-        to.checked = true
-      } else {
-        to.checked = from.checked
+      if (!to.hasAttribute("value")) {
+        to.value = from.value
       }
     }
 
     if (isSelect(from) && isSelect(to)) {
       selectedValues.delete(to)
+
       if (!to.querySelector("option[selected]")) {
         if (to.hasAttribute("multiple")) {
           const values = Array.from(from.querySelectorAll("option"))
@@ -35,15 +32,13 @@ const morphOpts = {
       if (!to.hasAttribute("selected") && to.parentNode) {
         const values = selectedValues.get(to.parentNode)
         if (values && values.includes(to.value)) {
-          to.setAttribute("selected", "true")
+          to.selected = true
         }
       }
     }
 
     if (isTextArea(from) && isTextArea(to)) {
-      if (to.textContent) {
-        to.value = to.textContent
-      } else {
+      if (!to.textContent) {
         to.value = from.value
       }
     }

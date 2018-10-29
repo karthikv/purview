@@ -55,8 +55,8 @@ export default class extends Purview.Component<{}, AppState> {
         {animation}
 
         <Counter initialCount={89} />
-        <input type="text" />
-        <input type="checkbox" />
+        <input type="text" value="value" />
+        <input type="checkbox" checked />
 
         <input type="radio" name="foo" value="bar" />
         <input type="radio" name="foo" value="baz" />

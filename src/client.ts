@@ -1,4 +1,4 @@
-import { tryParse } from "./helpers"
+import { tryParseJSON, parseHTML } from "./helpers"
 import morph from "./morph"
 
 export function connectWebSocket(location: Location): WebSocket {
@@ -26,7 +26,7 @@ export function connectWebSocket(location: Location): WebSocket {
 
   ws.onmessage = messageEvent => {
     // TODO: validation
-    const message = tryParse<ServerMessage>(messageEvent.data)
+    const message = tryParseJSON<ServerMessage>(messageEvent.data)
 
     switch (message.type) {
       case "update":
@@ -34,9 +34,7 @@ export function connectWebSocket(location: Location): WebSocket {
         const elem = document.querySelector(selector)
 
         if (elem) {
-          const div = document.createElement("div")
-          div.innerHTML = message.html
-          morph(elem, div.children[0] as Node)
+          morph(elem, parseHTML(message.html))
         }
         break
     }

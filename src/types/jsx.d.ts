@@ -13,6 +13,7 @@ declare global {
         type?: string
         name?: string
         value?: string
+        checked?: boolean
       }
       select: IntrinsicAttributes & { autocomplete?: string }
       option: IntrinsicAttributes & { selected?: boolean }

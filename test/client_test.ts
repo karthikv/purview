@@ -1,8 +1,5 @@
 import { JSDOM } from "jsdom"
 import * as WebSocket from "ws"
-import * as http from "http"
-import * as net from "net"
-import AsyncQueue from "./async_queue"
 
 const {
   window,
@@ -10,7 +7,9 @@ const {
 } = new JSDOM()
 Object.assign(global, { window, document, Element, WebSocket })
 
-import "../src/morph"
+import * as http from "http"
+import * as net from "net"
+import AsyncQueue from "./async_queue"
 import { connectWebSocket, handleEvents } from "../src/client"
 
 test("connectWebSocket", async () => {

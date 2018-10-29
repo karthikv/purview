@@ -4,7 +4,7 @@ import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor } from "./component"
-import { tryParse } from "./helpers"
+import { tryParseJSON } from "./helpers"
 
 interface Root {
   component: Component<any, any>
@@ -54,7 +54,7 @@ export function handleWebSocket(server: http.Server): void {
 
     ws.on("message", data => {
       // TODO: validation
-      const message = tryParse<ClientMessage>(data.toString())
+      const message = tryParseJSON<ClientMessage>(data.toString())
       handleMessage(message, ws, wsState)
     })
 
