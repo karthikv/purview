@@ -19,15 +19,14 @@ test("connectWebSocket", async () => {
     <section><a data-root="true" data-component-id="baz"></a></section>
   `
 
-  const reload = await connect(async conn => {
+  const { wsClient, reload } = await connect(async conn => {
     const message = (await conn.messages.next()) as ConnectMessage
     expect(message.type).toBe("connect")
     expect(message.rootIDs).toEqual(["foo", "baz"])
-    return conn.reload
+    return conn
   })
 
-  // Must wait for close to propagate to client.
-  await new Promise(resolve => setTimeout(resolve, 25))
+  await new Promise(resolve => wsClient.addEventListener("close", resolve))
   expect(reload).toBeCalled()
 })
 
@@ -50,8 +49,9 @@ test("connectWebSocket update", async () => {
     }
 
     conn.ws.send(JSON.stringify(message))
-    // Wait for client to respond to update.
-    await new Promise(resolve => setTimeout(resolve, 25))
+    await new Promise(resolve => {
+      conn.wsClient.addEventListener("message", resolve)
+    })
 
     const div = document.querySelector('[data-component-id="foo"]') as Element
     expect(div.nodeName).toBe("DIV")

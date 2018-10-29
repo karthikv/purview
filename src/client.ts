@@ -16,15 +16,15 @@ export function connectWebSocket(location: Location): WebSocket {
   const wsURL = `${wsProtocol}//${host}${pathname}${search}`
   const ws = new WebSocket(wsURL)
 
-  ws.onopen = () => {
+  ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
       return elem.getAttribute("data-component-id") as string
     })
     sendMessage(ws, { type: "connect", rootIDs })
-  }
+  })
 
-  ws.onmessage = messageEvent => {
+  ws.addEventListener("message", messageEvent => {
     // TODO: validation
     const message = tryParseJSON<ServerMessage>(messageEvent.data)
 
@@ -38,9 +38,9 @@ export function connectWebSocket(location: Location): WebSocket {
         }
         break
     }
-  }
+  })
 
-  ws.onclose = () => location.reload()
+  ws.addEventListener("close", () => location.reload())
   return ws
 }
 

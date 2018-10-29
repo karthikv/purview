@@ -340,11 +340,11 @@ async function renderAndConnect<T>(
 
   const addr = server.address() as net.AddressInfo
   const ws = new WebSocket(`ws://127.0.0.1:${addr.port}`)
-  await new Promise(resolve => (ws.onopen = resolve))
+  await new Promise(resolve => ws.addEventListener("open", resolve))
 
   const messages = new AsyncQueue<ServerMessage>()
   await new Promise(resolve => {
-    ws.onmessage = messageEvent => {
+    ws.addEventListener("message", messageEvent => {
       const message = JSON.parse(messageEvent.data.toString())
       switch (message.type) {
         case "connected":
@@ -354,7 +354,7 @@ async function renderAndConnect<T>(
         default:
           messages.push(message)
       }
-    }
+    })
 
     const connect: ClientMessage = {
       type: "connect",
