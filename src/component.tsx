@@ -25,9 +25,10 @@ export default abstract class Component<P, S> {
   public _childMap: ChildMap = {}
   public _newChildMap: ChildMap = {}
   public _handleUpdate: () => void
-  /* tslint:enable variable-name */
 
   protected state: Readonly<S>
+  private _changesets: Array<Partial<S> | UpdateFn<S>> = []
+  /* tslint:enable variable-name */
 
   constructor(protected props: Readonly<P>) {
     this._id = nanoid()
@@ -47,16 +48,34 @@ export default abstract class Component<P, S> {
     // May be implemented by subclasses.
   }
 
-  setState(changes: Partial<S> | UpdateFn<S>): void {
-    if (changes instanceof Function) {
-      Object.assign(this.state, changes(this.state))
-    } else {
-      Object.assign(this.state, changes)
-    }
+  setState(changes: Partial<S> | UpdateFn<S>): Promise<void> {
+    this._changesets.push(changes)
 
-    if (this._handleUpdate) {
-      this._handleUpdate()
-    }
+    return new Promise(resolve => {
+      // Make all setState() calls asynchronous. This simplifies our mental
+      // model; if a component event is triggered, we don't have to think about
+      // setState() calls re-rendering the component in the middle of the event.
+      // In the future, this may help us batch updates in more intelligent ways.
+      process.nextTick(() => {
+        if (this._changesets.length === 0) {
+          return
+        }
+
+        this._changesets.forEach(cs => {
+          if (cs instanceof Function) {
+            Object.assign(this.state, cs(this.state))
+          } else {
+            Object.assign(this.state, cs)
+          }
+        })
+        this._changesets = []
+
+        if (this._handleUpdate) {
+          this._handleUpdate()
+        }
+        resolve()
+      })
+    })
   }
 
   _triggerMount(): void {

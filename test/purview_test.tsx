@@ -81,7 +81,7 @@ test("render setState", async () => {
   }
 
   await renderAndConnect(<Foo />, async conn => {
-    instance.setState({ text: "hello" })
+    await instance.setState({ text: "hello" })
 
     const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
@@ -200,11 +200,9 @@ test("render directly nested", async () => {
       foo = this
     }
 
-    setText = () => this.setState({ text: "hello" })
-
     render(): JSX.Element {
       if (this.state.text) {
-        return <p onClick={this.setText}>{this.state.text}</p>
+        return <p>{this.state.text}</p>
       } else {
         return <Bar />
       }
@@ -219,22 +217,20 @@ test("render directly nested", async () => {
       bar = this
     }
 
-    increment = () => this.setState(state => ({ count: state.count + 1 }))
-
     render(): JSX.Element {
-      return <p onClick={this.increment}>{this.state.count}</p>
+      return <p>{this.state.count}</p>
     }
   }
 
   await renderAndConnect(<Foo />, async conn => {
-    bar.increment()
+    await bar.setState(state => ({ count: state.count + 1 }))
     const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
     // Since Foo and Bar should share the same component ID.
     expect(message1.componentID).toBe(conn.rootID)
     expect(parseHTML(message1.html).textContent).toBe("1")
 
-    foo.setText()
+    await foo.setState({ text: "hello" })
     const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
@@ -261,15 +257,13 @@ test("componentDidMount", async () => {
 })
 
 test("nested mount cycle", async () => {
-  let foo: Foo = null as any
+  let instance: Foo = null as any
   class Foo extends Purview.Component<{}, { on: boolean }> {
     constructor(props: {}) {
       super(props)
       this.state = { on: false }
-      foo = this
+      instance = this
     }
-
-    toggle = () => this.setState(state => ({ on: !state.on }))
 
     render(): JSX.Element {
       if (this.state.on) {
@@ -309,11 +303,11 @@ test("nested mount cycle", async () => {
     expect(mountCount).toBe(0)
     expect(unmountCount).toBe(0)
 
-    foo.toggle()
+    await instance.setState({ on: true })
     expect(mountCount).toBe(1)
     expect(unmountCount).toBe(0)
 
-    foo.toggle()
+    await instance.setState({ on: false })
     expect(mountCount).toBe(1)
     expect(unmountCount).toBe(1)
   })
@@ -347,11 +341,9 @@ test("componentWillReceiveProps", async () => {
   class Foo extends Purview.Component<{}, { count: number }> {
     constructor(props: {}) {
       super(props)
-      instance = this
       this.state = { count: 0 }
+      instance = this
     }
-
-    setCount = () => this.setState({ count: 1 })
 
     render(): JSX.Element {
       return <Bar count={1} />
@@ -370,7 +362,7 @@ test("componentWillReceiveProps", async () => {
 
   await renderAndConnect(<Foo />, async conn => {
     expect(receivedProps).toBe(null)
-    instance.setCount()
+    instance.setState({ count: 1 })
     await conn.messages.next()
     expect(receivedProps).toEqual({ count: 1, children: [] })
   })
