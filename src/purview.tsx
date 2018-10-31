@@ -4,7 +4,7 @@ import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor } from "./component"
-import { tryParseJSON } from "./helpers"
+import { tryParseJSON, eachNested } from "./helpers"
 
 interface Root {
   component: Component<any, any>
@@ -21,31 +21,90 @@ const cachedEventIDs = new WeakMap()
 
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
-  attributes: JSX.IntrinsicAttributes,
+  attributes:
+    | JSX.IntrinsicAttributes & {
+        autocomplete?: string
+        type?: string
+        selected?: boolean
+        forceSelected?: boolean
+        value?: string
+        forceValue?: string
+        checked?: boolean
+        forceChecked?: boolean
+      }
+    | null,
   ...children: JSX.Child[]
 ): JSX.Element {
   attributes = attributes || {}
 
-  // In Firefox, if you visit a website, enter some data into a text input,
-  // and refresh, the value from the previous page will be retained, even if
-  // the input has a value attribute. We don't want this behavior, so we set
-  // autocomplete to off. The same applies to selects and textareas.
-  if (
-    (nodeName === "select" &&
-      children.find(c => isJSXElem(c) && (c.attributes as any).selected)) ||
-    (nodeName === "input" &&
-      (attributes.hasOwnProperty("value") ||
-        attributes.hasOwnProperty("checked"))) ||
-    (nodeName === "textarea" && children.length > 0)
-  ) {
-    attributes = Object.assign({ autocomplete: "off" }, attributes)
+  const hasForceSelected =
+    nodeName === "select" &&
+    children.find(
+      c => isJSXOption(c) && c.attributes.hasOwnProperty("forceSelected"),
+    )
+
+  const hasForceValue =
+    ((nodeName === "input" && attributes.type === "text") ||
+      nodeName === "textarea") &&
+    attributes.hasOwnProperty("forceValue")
+
+  const hasForceChecked =
+    nodeName === "input" &&
+    (attributes.type === "checkbox" || attributes.type === "radio") &&
+    attributes.hasOwnProperty("forceChecked")
+
+  // In Firefox, if you enter some data into a text input, and refresh, the
+  // value from the previous page will be retained, even if the input has
+  // a value attribute. We don't want this behavior if we're forcing a value, so
+  // we set autocomplete to off. The same applies to selects and textareas.
+  if (hasForceSelected || hasForceValue || hasForceChecked) {
+    attributes.autocomplete = "off"
   }
+
+  if (hasForceSelected) {
+    children.forEach(c => {
+      if (isJSXOption(c) && c.attributes.hasOwnProperty("forceSelected")) {
+        c.attributes.selected = c.attributes.forceSelected
+        delete c.attributes.forceSelected
+      }
+    })
+  }
+
+  // Must do this before the forceValue logic below.
+  if (nodeName === "textarea" && attributes.hasOwnProperty("value")) {
+    children = [attributes.value as string]
+    delete attributes.value
+  }
+
+  if (hasForceValue) {
+    if (nodeName === "textarea") {
+      children = [attributes.forceValue as string]
+      delete attributes.forceValue
+    } else {
+      attributes.value = attributes.forceValue
+      delete attributes.forceValue
+    }
+  }
+
+  if (hasForceChecked) {
+    attributes.checked = attributes.forceChecked
+    delete attributes.forceChecked
+  }
+
+  Object.keys(attributes).forEach(key => {
+    const value = (attributes as any)[key]
+    if (value === null || value === undefined || value === false) {
+      delete (attributes as any)[key]
+    }
+  })
 
   return { nodeName, attributes, children }
 }
 
-function isJSXElem(child: JSX.Child): child is JSX.Element {
-  return child && (child as any).attributes
+function isJSXOption(
+  child: JSX.Child,
+): child is JSX.Element<JSX.OptionAttributes> {
+  return typeof child === "object" && (child as any).nodeName === "option"
 }
 
 export function handleWebSocket(server: http.Server): void {
@@ -113,12 +172,12 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
   }
 }
 
-export function render(jsxElem: JSX.Element): string {
-  if (!isComponentElem(jsxElem)) {
+export function render(jsx: JSX.Element): string {
+  if (!isComponentElem(jsx)) {
     throw new Error("Root element must be a Purview.Component")
   }
 
-  const component = makeComponent(jsxElem)
+  const component = makeComponent(jsx)
   roots[component._id] = {
     component,
     mounted: false,
@@ -128,25 +187,23 @@ export function render(jsxElem: JSX.Element): string {
   return makeComponentElem(component, component._id).outerHTML
 }
 
-function isComponentElem(
-  jsxElem: JSX.Element,
-): jsxElem is JSX.ComponentElement {
+function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
   // TODO: disambiguate between pure stateless func
-  return typeof jsxElem.nodeName === "function"
+  return typeof jsx.nodeName === "function"
 }
 
 function makeElem(
-  jsxElem: JSX.Element,
+  jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
   parentKey: string,
 ): Element {
   let key: string
-  if (isComponentElem(jsxElem)) {
-    key = `${parentKey}/${jsxElem.nodeName._typeID}`
+  if (isComponentElem(jsx)) {
+    key = `${parentKey}/${jsx.nodeName._typeID}`
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
-    const component = makeComponent(jsxElem, existing)
+    const component = makeComponent(jsx, existing)
 
     if (!parent._newChildMap[key]) {
       parent._newChildMap[key] = []
@@ -163,7 +220,7 @@ function makeElem(
     return finalElem
   }
 
-  const { nodeName, attributes, children } = jsxElem
+  const { nodeName, attributes, children } = jsx
   key = `${parentKey}/${nodeName}`
   const elem = document.createElement(nodeName as string)
 
@@ -206,19 +263,6 @@ function makeElem(
   }
 
   return elem
-}
-
-function eachNested<T>(
-  array: JSX.NestedArray<T>,
-  callback: (elem: T) => void,
-): void {
-  array.forEach(elem => {
-    if (elem instanceof Array) {
-      eachNested(elem, callback)
-    } else {
-      callback(elem)
-    }
-  })
 }
 
 function makeComponent<P, S>(

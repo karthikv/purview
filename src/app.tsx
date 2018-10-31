@@ -55,19 +55,55 @@ export default class extends Purview.Component<{}, AppState> {
         {animation}
 
         <Counter initialCount={89} />
-        <input type="text" value="value" />
-        <input type="checkbox" checked />
+        <input type="text" />
+        <input type="text" forceValue="value" />
+        <br />
+
+        <input type="checkbox" />
+        <input type="checkbox" forceChecked />
+        <input type="checkbox" forceChecked={false} />
+        <br />
 
         <input type="radio" name="foo" value="bar" />
         <input type="radio" name="foo" value="baz" />
+        <br />
+
+        <input type="radio" name="bar" value="bar" />
+        <input type="radio" name="bar" value="baz" forceChecked={true} />
+        <br />
+
+        <input type="radio" name="baz" value="bar" />
+        <input type="radio" name="baz" value="baz" forceChecked={false} />
+        <br />
+
+        <select>
+          <option>Hello</option>
+          <option selected>Hey</option>
+          <option>Foo</option>
+        </select>
 
         <select>
           <option>Hello</option>
           <option>Hey</option>
+          <option forceSelected>Foo</option>
+        </select>
+        <br />
+
+        <select multiple>
+          <option>Hello</option>
+          <option selected>Hey</option>
           <option>Foo</option>
         </select>
 
-        <textarea>foo</textarea>
+        <select multiple>
+          <option>Hello</option>
+          <option forceSelected>Hey</option>
+          <option forceSelected>Foo</option>
+        </select>
+        <br />
+
+        <textarea value="foo" />
+        <textarea forceValue="foo" />
 
         {help}
         <Counter initialCount={0} />

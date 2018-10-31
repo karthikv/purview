@@ -3,20 +3,27 @@ import morphdom = require("morphdom")
 const selectedValues = new WeakMap()
 const morphOpts = {
   onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
-    if (isInput(from) && isInput(to)) {
-      if (!to.hasAttribute("checked")) {
-        to.checked = from.checked
-      }
+    if (
+      isInput(from) &&
+      isInput(to) &&
+      to.getAttribute("autocomplete") !== "off"
+    ) {
+      to.checked = from.checked
+      to.value = from.value
+    }
 
-      if (!to.hasAttribute("value")) {
-        to.value = from.value
-      }
+    if (
+      isTextArea(from) &&
+      isTextArea(to) &&
+      to.getAttribute("autocomplete") !== "off"
+    ) {
+      to.value = from.value
     }
 
     if (isSelect(from) && isSelect(to)) {
       selectedValues.delete(to)
 
-      if (!to.querySelector("option[selected]")) {
+      if (to.getAttribute("autocomplete") !== "off") {
         if (to.hasAttribute("multiple")) {
           const values = Array.from(from.querySelectorAll("option"))
             .filter(option => option.selected)
@@ -28,18 +35,14 @@ const morphOpts = {
       }
     }
 
-    if (isOption(from) && isOption(to)) {
-      if (!to.hasAttribute("selected") && to.parentNode) {
-        const values = selectedValues.get(to.parentNode)
-        if (values && values.includes(to.value)) {
-          to.selected = true
+    if (isOption(from) && isOption(to) && to.parentNode) {
+      const values = selectedValues.get(to.parentNode)
+      if (values) {
+        if (values.includes(to.value)) {
+          to.setAttribute("selected", "true")
+        } else {
+          to.removeAttribute("selected")
         }
-      }
-    }
-
-    if (isTextArea(from) && isTextArea(to)) {
-      if (!to.textContent) {
-        to.value = from.value
       }
     }
 

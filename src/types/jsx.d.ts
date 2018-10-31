@@ -13,13 +13,23 @@ declare global {
         type?: string
         name?: string
         value?: string
+        forceValue?: string
         checked?: boolean
+        forceChecked?: boolean
       }
-      select: IntrinsicAttributes & { autocomplete?: string }
-      option: IntrinsicAttributes & { selected?: boolean }
-      textarea: IntrinsicAttributes
+      select: IntrinsicAttributes & {
+        autocomplete?: string
+        multiple?: boolean
+      }
+      option: OptionAttributes
+      textarea: IntrinsicAttributes & { value?: string; forceValue?: string }
       style: IntrinsicAttributes
       img: IntrinsicAttributes & { src?: string }
+    }
+
+    interface OptionAttributes extends IntrinsicAttributes {
+      selected?: boolean
+      forceSelected?: boolean
     }
 
     type Child = string | number | JSX.Element | null
@@ -34,9 +44,9 @@ declare global {
 
     interface NestedArray<T> extends Array<NestedArray<T> | T> {}
 
-    interface Element {
+    interface Element<T = IntrinsicAttributes> {
       nodeName: string | ComponentConstructor<any, any>
-      attributes: JSX.IntrinsicAttributes
+      attributes: T
       children: NestedArray<Child>
     }
 

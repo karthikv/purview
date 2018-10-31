@@ -23,6 +23,7 @@ const server = http.createServer(async (req, res) => {
       const html = `
         <!DOCTYPE html>
         <html>
+          <head><meta charset="utf-8" /></head>
           <body>
             <h1>This is a counter</h1>
             <div id="root">

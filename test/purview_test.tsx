@@ -29,20 +29,70 @@ test("createElem", () => {
   expect(img.children).toEqual([])
 })
 
-test("createElem autocomplete", () => {
-  const select = (
-    <select>
-      <option>First</option>
-    </select>
-  )
-  expect(select.attributes).toEqual({})
-
-  const selectSelected = (
+test("createElem select", () => {
+  const select1 = (
     <select>
       <option selected>First</option>
     </select>
   )
-  expect(selectSelected.attributes).toHaveProperty("autocomplete", "off")
+  expect(select1.attributes).toEqual({})
+
+  const select2 = (
+    <select>
+      <option forceSelected>First</option>
+    </select>
+  )
+  expect(select2.attributes).toEqual({ autocomplete: "off" })
+  expect(select2.children[0]).toHaveProperty("attributes", { selected: true })
+})
+
+test("createElem textarea", () => {
+  const textarea1 = <textarea value="foo" />
+  expect(textarea1.attributes).toEqual({})
+  expect(textarea1.children).toEqual(["foo"])
+
+  const textarea2 = <textarea forceValue="foo" />
+  expect(textarea2.attributes).toEqual({ autocomplete: "off" })
+  expect(textarea2.children).toEqual(["foo"])
+})
+
+test("createElem checkbox", () => {
+  const checkbox1 = <input type="checkbox" checked />
+  expect(checkbox1.attributes).toEqual({ type: "checkbox", checked: true })
+
+  const checkbox2 = <input type="checkbox" checked={false} />
+  expect(checkbox2.attributes).toEqual({ type: "checkbox" })
+
+  const checkbox3 = <input type="checkbox" forceChecked />
+  expect(checkbox3.attributes).toEqual({
+    type: "checkbox",
+    autocomplete: "off",
+    checked: true,
+  })
+
+  const checkbox4 = <input type="checkbox" forceChecked={false} />
+  expect(checkbox4.attributes).toEqual({
+    type: "checkbox",
+    autocomplete: "off",
+  })
+})
+
+test("createElem input", () => {
+  const input1 = <input type="text" value="foo" />
+  expect(input1.attributes).toEqual({ type: "text", value: "foo" })
+
+  const input2 = <input type="text" forceValue="foo" />
+  expect(input2.attributes).toEqual({
+    type: "text",
+    autocomplete: "off",
+    value: "foo",
+  })
+})
+
+test("createElem falsy attributes", () => {
+  const props = { foo: false, bar: null, baz: undefined, class: "" }
+  const div = <div {...props} />
+  expect(div.attributes).toEqual({ class: "" })
 })
 
 test("render simple", () => {
