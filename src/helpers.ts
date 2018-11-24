@@ -13,7 +13,7 @@ export function parseHTML(html: string): Element {
 }
 
 export function eachNested<T>(
-  array: JSX.NestedArray<T>,
+  array: NestedArray<T>,
   callback: (elem: T) => void,
 ): void {
   array.forEach(elem => {

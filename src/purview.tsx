@@ -22,16 +22,7 @@ const cachedEventIDs = new WeakMap()
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
   attributes:
-    | JSX.IntrinsicAttributes & {
-        autocomplete?: string
-        type?: string
-        selected?: boolean
-        forceSelected?: boolean
-        value?: string
-        forceValue?: string
-        checked?: boolean
-        forceChecked?: boolean
-      }
+    | JSX.InputHTMLAttributes<any> & JSX.TextareaHTMLAttributes<any>
     | null,
   ...children: JSX.Child[]
 ): JSX.Element {
@@ -103,7 +94,7 @@ export function createElem(
 
 function isJSXOption(
   child: JSX.Child,
-): child is JSX.Element<JSX.OptionAttributes> {
+): child is JSX.Element<JSX.OptionHTMLAttributes<any>> {
   return typeof child === "object" && (child as any).nodeName === "option"
 }
 

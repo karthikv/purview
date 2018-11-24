@@ -14,7 +14,7 @@ export default class extends Purview.Component<CounterProps, CounterState> {
     this.state = { count: this.props.initialCount }
   }
 
-  increment = (): void => {
+  increment = () => {
     this.setState(state => ({ count: state.count + 1 }))
   }
 
