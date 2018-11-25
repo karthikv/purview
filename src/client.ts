@@ -15,6 +15,7 @@ export function connectWebSocket(location: Location): WebSocket {
 
   const wsURL = `${wsProtocol}//${host}${pathname}${search}`
   const ws = new WebSocket(wsURL)
+  const seenEventNames = new Set()
 
   ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
@@ -29,7 +30,12 @@ export function connectWebSocket(location: Location): WebSocket {
     const message = tryParseJSON<ServerMessage>(messageEvent.data)
 
     switch (message.type) {
+      case "connected":
+        addEventHandlers(ws, seenEventNames, message.newEventNames)
+        break
+
       case "update":
+        addEventHandlers(ws, seenEventNames, message.newEventNames)
         const selector = `[data-component-id="${message.componentID}"]`
         const elem = document.querySelector(selector)
 
@@ -44,37 +50,70 @@ export function connectWebSocket(location: Location): WebSocket {
   return ws
 }
 
-export function handleEvents(ws: WebSocket): void {
-  const elemRootIDs = new WeakMap()
+function addEventHandlers(
+  ws: WebSocket,
+  seenEventNames: Set<string>,
+  newEventNames: string[],
+): void {
+  let added = false
+  newEventNames.forEach(name => {
+    if (!seenEventNames.has(name)) {
+      handleEvent(ws, name, false)
+      handleEvent(ws, name, true)
 
-  window.addEventListener("click", event => {
-    const target = event.target
-    if (!(target instanceof Element)) {
-      return
-    }
-
-    let triggerElem = target.closest("[data-onclick]")
-    while (triggerElem) {
-      let rootID = elemRootIDs.get(triggerElem)
-
-      if (!rootID) {
-        const rootElem = triggerElem.closest("[data-root]") as Element
-        rootID = rootElem.getAttribute("data-component-id")
-        elemRootIDs.set(triggerElem, rootID)
-      }
-
-      sendMessage(ws, {
-        type: "event",
-        rootID,
-        eventID: triggerElem.getAttribute("data-onclick") as string,
-      })
-
-      triggerElem = triggerElem.parentElement
-      if (triggerElem) {
-        triggerElem = triggerElem.closest("[data-onclick]")
-      }
+      seenEventNames.add(name)
+      added = true
     }
   })
+
+  if (added) {
+    sendMessage(ws, {
+      type: "seenEventNames",
+      seenEventNames: Array.from(seenEventNames),
+    })
+  }
+}
+
+function handleEvent(
+  ws: WebSocket,
+  eventName: string,
+  useCapture: boolean,
+): void {
+  const elemRootIDs = new WeakMap()
+  const attr = useCapture ? `data-${eventName}-capture` : `data-${eventName}`
+
+  window.addEventListener(
+    eventName,
+    event => {
+      const target = event.target
+      if (!(target instanceof Element)) {
+        return
+      }
+
+      let triggerElem = target.closest(`[${attr}]`)
+      while (triggerElem) {
+        let rootID = elemRootIDs.get(triggerElem)
+
+        if (!rootID) {
+          const rootElem = triggerElem.closest("[data-root]") as Element
+          rootID = rootElem.getAttribute("data-component-id")
+          elemRootIDs.set(triggerElem, rootID)
+        }
+
+        sendMessage(ws, {
+          type: "event",
+          rootID,
+          eventID: triggerElem.getAttribute(attr) as string,
+        })
+
+        triggerElem = triggerElem.parentElement
+        if (triggerElem) {
+          triggerElem = triggerElem.closest(`[${attr}]`)
+        }
+      }
+    },
+    useCapture,
+  )
 }
 
 function sendMessage(ws: WebSocket, message: ClientMessage): void {

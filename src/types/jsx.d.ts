@@ -1,4 +1,5 @@
 import Component, { ComponentConstructor } from "../component"
+import { InputEvent, SubmitEvent, KeyEvent } from "./events"
 
 /* tslint:disable no-namespace */
 declare global {
@@ -191,7 +192,7 @@ declare global {
       formtarget?: string
       name?: string
       type?: string
-      value?: string | string[] | number
+      value?: string | number
     }
 
     export interface CanvasHTMLAttributes<T> extends HTMLAttributes<T> {
@@ -297,7 +298,7 @@ declare global {
 
     export interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
       // Purview specific
-      forceValue?: string
+      forceValue?: string | number
       forceChecked?: boolean
 
       // Standard HTML Attributes
@@ -342,7 +343,7 @@ declare global {
       src?: string
       step?: number | string
       type?: string
-      value?: string | string[] | number
+      value?: string | number
       width?: number | string
     }
 
@@ -525,7 +526,7 @@ declare global {
 
     export interface TextareaHTMLAttributes<T> extends HTMLAttributes<T> {
       // Purview specific
-      forceValue?: string
+      forceValue?: string | number
 
       // Standard HTML attributes
       autoFocus?: boolean
@@ -931,119 +932,119 @@ declare global {
 
     export interface DOMAttributes {
       // Clipboard Events
-      onCopy?: (event: ClipboardEvent) => void
-      onCopyCapture?: (event: ClipboardEvent) => void
-      onCut?: (event: ClipboardEvent) => void
-      onCutCapture?: (event: ClipboardEvent) => void
-      onPaste?: (event: ClipboardEvent) => void
-      onPasteCapture?: (event: ClipboardEvent) => void
+      onCopy?: () => void
+      onCopyCapture?: () => void
+      onCut?: () => void
+      onCutCapture?: () => void
+      onPaste?: () => void
+      onPasteCapture?: () => void
 
       // Composition Events
-      onCompositionEnd?: (event: CompositionEvent) => void
-      onCompositionEndCapture?: (event: CompositionEvent) => void
-      onCompositionStart?: (event: CompositionEvent) => void
-      onCompositionStartCapture?: (event: CompositionEvent) => void
-      onCompositionUpdate?: (event: CompositionEvent) => void
-      onCompositionUpdateCapture?: (event: CompositionEvent) => void
+      onCompositionEnd?: () => void
+      onCompositionEndCapture?: () => void
+      onCompositionStart?: () => void
+      onCompositionStartCapture?: () => void
+      onCompositionUpdate?: () => void
+      onCompositionUpdateCapture?: () => void
 
       // Focus Events
-      onFocus?: (event: FocusEvent) => void
-      onFocusCapture?: (event: FocusEvent) => void
-      onBlur?: (event: FocusEvent) => void
-      onBlurCapture?: (event: FocusEvent) => void
+      onFocus?: () => void
+      onFocusCapture?: () => void
+      onBlur?: () => void
+      onBlurCapture?: () => void
 
       // Form Events
-      onChange?: (event: Event) => void
-      onChangeCapture?: (event: Event) => void
-      onInput?: (event: Event) => void
-      onInputCapture?: (event: Event) => void
-      onReset?: (event: Event) => void
-      onResetCapture?: (event: Event) => void
-      onSubmit?: (event: Event) => void
-      onSubmitCapture?: (event: Event) => void
-      onInvalid?: (event: Event) => void
-      onInvalidCapture?: (event: Event) => void
+      onChange?: (event: InputEvent) => void
+      onChangeCapture?: (event: InputEvent) => void
+      onInput?: (event: InputEvent) => void
+      onInputCapture?: (event: InputEvent) => void
+      onReset?: () => void
+      onResetCapture?: () => void
+      onSubmit?: (event: SubmitEvent) => void
+      onSubmitCapture?: (event: SubmitEvent) => void
+      onInvalid?: () => void
+      onInvalidCapture?: () => void
 
       // Image Events
-      onLoad?: (event: Event) => void
-      onLoadCapture?: (event: Event) => void
-      onError?: (event: Event) => void // also a Media Event
-      onErrorCapture?: (event: Event) => void // also a Media Event
+      onLoad?: () => void
+      onLoadCapture?: () => void
+      onError?: () => void // also a Media Event
+      onErrorCapture?: () => void // also a Media Event
 
       // Keyboard Events
-      onKeyDown?: (event: KeyboardEvent) => void
-      onKeyDownCapture?: (event: KeyboardEvent) => void
-      onKeyPress?: (event: KeyboardEvent) => void
-      onKeyPressCapture?: (event: KeyboardEvent) => void
-      onKeyUp?: (event: KeyboardEvent) => void
-      onKeyUpCapture?: (event: KeyboardEvent) => void
+      onKeyDown?: (event: KeyEvent) => void
+      onKeyDownCapture?: (event: KeyEvent) => void
+      onKeyPress?: (event: KeyEvent) => void
+      onKeyPressCapture?: (event: KeyEvent) => void
+      onKeyUp?: (event: KeyEvent) => void
+      onKeyUpCapture?: (event: KeyEvent) => void
 
       // MouseEvents
-      onAuxClick?: (event: MouseEvent) => void
-      onClick?: (event: MouseEvent) => void
-      onClickCapture?: (event: MouseEvent) => void
-      onContextMenu?: (event: MouseEvent) => void
-      onContextMenuCapture?: (event: MouseEvent) => void
-      onDblClick?: (event: MouseEvent) => void
-      onDblClickCapture?: (event: MouseEvent) => void
-      onDrag?: (event: DragEvent) => void
-      onDragCapture?: (event: DragEvent) => void
-      onDragEnd?: (event: DragEvent) => void
-      onDragEndCapture?: (event: DragEvent) => void
-      onDragEnter?: (event: DragEvent) => void
-      onDragEnterCapture?: (event: DragEvent) => void
-      onDragExit?: (event: DragEvent) => void
-      onDragExitCapture?: (event: DragEvent) => void
-      onDragLeave?: (event: DragEvent) => void
-      onDragLeaveCapture?: (event: DragEvent) => void
-      onDragOver?: (event: DragEvent) => void
-      onDragOverCapture?: (event: DragEvent) => void
-      onDragStart?: (event: DragEvent) => void
-      onDragStartCapture?: (event: DragEvent) => void
-      onDrop?: (event: DragEvent) => void
-      onDropCapture?: (event: DragEvent) => void
-      onMouseDown?: (event: MouseEvent) => void
-      onMouseDownCapture?: (event: MouseEvent) => void
-      onMouseEnter?: (event: MouseEvent) => void
-      onMouseLeave?: (event: MouseEvent) => void
-      onMouseMove?: (event: MouseEvent) => void
-      onMouseMoveCapture?: (event: MouseEvent) => void
-      onMouseOut?: (event: MouseEvent) => void
-      onMouseOutCapture?: (event: MouseEvent) => void
-      onMouseOver?: (event: MouseEvent) => void
-      onMouseOverCapture?: (event: MouseEvent) => void
-      onMouseUp?: (event: MouseEvent) => void
-      onMouseUpCapture?: (event: MouseEvent) => void
+      onAuxClick?: () => void
+      onClick?: () => void
+      onClickCapture?: () => void
+      onContextMenu?: () => void
+      onContextMenuCapture?: () => void
+      onDblClick?: () => void
+      onDblClickCapture?: () => void
+      onDrag?: () => void
+      onDragCapture?: () => void
+      onDragEnd?: () => void
+      onDragEndCapture?: () => void
+      onDragEnter?: () => void
+      onDragEnterCapture?: () => void
+      onDragExit?: () => void
+      onDragExitCapture?: () => void
+      onDragLeave?: () => void
+      onDragLeaveCapture?: () => void
+      onDragOver?: () => void
+      onDragOverCapture?: () => void
+      onDragStart?: () => void
+      onDragStartCapture?: () => void
+      onDrop?: () => void
+      onDropCapture?: () => void
+      onMouseDown?: () => void
+      onMouseDownCapture?: () => void
+      onMouseEnter?: () => void
+      onMouseLeave?: () => void
+      onMouseMove?: () => void
+      onMouseMoveCapture?: () => void
+      onMouseOut?: () => void
+      onMouseOutCapture?: () => void
+      onMouseOver?: () => void
+      onMouseOverCapture?: () => void
+      onMouseUp?: () => void
+      onMouseUpCapture?: () => void
 
       // Touch Events
-      onTouchCancel?: (event: TouchEvent) => void
-      onTouchCancelCapture?: (event: TouchEvent) => void
-      onTouchEnd?: (event: TouchEvent) => void
-      onTouchEndCapture?: (event: TouchEvent) => void
-      onTouchMove?: (event: TouchEvent) => void
-      onTouchMoveCapture?: (event: TouchEvent) => void
-      onTouchStart?: (event: TouchEvent) => void
-      onTouchStartCapture?: (event: TouchEvent) => void
+      onTouchCancel?: () => void
+      onTouchCancelCapture?: () => void
+      onTouchEnd?: () => void
+      onTouchEndCapture?: () => void
+      onTouchMove?: () => void
+      onTouchMoveCapture?: () => void
+      onTouchStart?: () => void
+      onTouchStartCapture?: () => void
 
       // UI Events
-      onScroll?: (event: UIEvent) => void
-      onScrollCapture?: (event: UIEvent) => void
+      onScroll?: () => void
+      onScrollCapture?: () => void
 
       // Wheel Events
-      onWheel?: (event: WheelEvent) => void
-      onWheelCapture?: (event: WheelEvent) => void
+      onWheel?: () => void
+      onWheelCapture?: () => void
 
       // Animation Events
-      onAnimationStart?: (event: AnimationEvent) => void
-      onAnimationStartCapture?: (event: AnimationEvent) => void
-      onAnimationEnd?: (event: AnimationEvent) => void
-      onAnimationEndCapture?: (event: AnimationEvent) => void
-      onAnimationIteration?: (event: AnimationEvent) => void
-      onAnimationIterationCapture?: (event: AnimationEvent) => void
+      onAnimationStart?: () => void
+      onAnimationStartCapture?: () => void
+      onAnimationEnd?: () => void
+      onAnimationEndCapture?: () => void
+      onAnimationIteration?: () => void
+      onAnimationIterationCapture?: () => void
 
       // Transition Events
-      onTransitionEnd?: (event: TransitionEvent) => void
-      onTransitionEndCapture?: (event: TransitionEvent) => void
+      onTransitionEnd?: () => void
+      onTransitionEndCapture?: () => void
     }
   }
 }

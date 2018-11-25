@@ -163,7 +163,38 @@ test("render DOM event", async () => {
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
-      eventID: conn.elem.getAttribute("data-onclick") as string,
+      eventID: conn.elem.getAttribute("data-click") as string,
+    }
+    conn.ws.send(JSON.stringify(event))
+
+    const message = (await conn.messages.next()) as UpdateMessage
+    expect(message.type).toBe("update")
+    expect(message.componentID).toBe(conn.rootID)
+    expect(parseHTML(message.html).textContent).toBe("hello")
+  })
+})
+
+test("render DOM event capture", async () => {
+  class Foo extends Purview.Component<{}, { text: string }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { text: "hi" }
+    }
+
+    setText = () => {
+      this.setState({ text: "hello" })
+    }
+
+    render(): JSX.Element {
+      return <p onClickCapture={this.setText}>{this.state.text}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const event: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-click-capture") as string,
     }
     conn.ws.send(JSON.stringify(event))
 
@@ -214,7 +245,7 @@ test("render retain state", async () => {
     const event1: EventMessage = {
       type: "event",
       rootID: conn.rootID,
-      eventID: span.getAttribute("data-onclick") as string,
+      eventID: span.getAttribute("data-click") as string,
     }
     conn.ws.send(JSON.stringify(event1))
 
@@ -226,7 +257,7 @@ test("render retain state", async () => {
     const event2: EventMessage = {
       type: "event",
       rootID: conn.rootID,
-      eventID: conn.elem.getAttribute("data-onclick") as string,
+      eventID: conn.elem.getAttribute("data-click") as string,
     }
     conn.ws.send(JSON.stringify(event2))
 
@@ -418,6 +449,50 @@ test("componentWillReceiveProps", async () => {
   })
 })
 
+test("event names", async () => {
+  let instance: Foo = null as any
+
+  class Foo extends Purview.Component<{}, { enabled: boolean }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { enabled: false }
+      instance = this
+    }
+
+    render(): JSX.Element {
+      if (this.state.enabled) {
+        return <input onKeyDown={() => null} />
+      }
+      return <input onChange={() => null} />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    expect(conn.connectedMessage.newEventNames).toEqual(["change"])
+    instance.setState({ enabled: true })
+
+    const message1 = (await conn.messages.next()) as UpdateMessage
+    expect(message1.type).toBe("update")
+    expect(message1.componentID).toBe(conn.rootID)
+    expect(message1.newEventNames).toEqual(["change", "keydown"])
+
+    const seenEventNames: SeenEventNamesMessage = {
+      type: "seenEventNames",
+      seenEventNames: ["change"],
+    }
+    conn.ws.send(JSON.stringify(seenEventNames))
+
+    // Must wait for seenEventNames to propagate to server.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    instance.setState({ enabled: true })
+
+    const message2 = (await conn.messages.next()) as UpdateMessage
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(conn.rootID)
+    expect(message2.newEventNames).toEqual(["keydown"])
+  })
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (
@@ -425,6 +500,7 @@ async function renderAndConnect<T>(
       ws: WebSocket
       rootID: string
       elem: Element
+      connectedMessage: ConnectedMessage
       messages: AsyncQueue<ServerMessage>
     },
   ) => Promise<T>,
@@ -444,12 +520,12 @@ async function renderAndConnect<T>(
   await new Promise(resolve => ws.addEventListener("open", resolve))
 
   const messages = new AsyncQueue<ServerMessage>()
-  await new Promise(resolve => {
+  const connectedMessage = await new Promise<ConnectedMessage>(resolve => {
     ws.addEventListener("message", messageEvent => {
       const message = JSON.parse(messageEvent.data.toString())
       switch (message.type) {
         case "connected":
-          resolve()
+          resolve(message)
           break
 
         default:
@@ -466,7 +542,13 @@ async function renderAndConnect<T>(
 
   let result
   try {
-    result = await callback({ ws, rootID: id, elem, messages })
+    result = await callback({
+      ws,
+      rootID: id,
+      elem,
+      connectedMessage,
+      messages,
+    })
   } finally {
     server.close()
     ws.close()

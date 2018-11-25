@@ -4,12 +4,26 @@ import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor } from "./component"
-import { tryParseJSON, eachNested } from "./helpers"
+import {
+  tryParseJSON,
+  eachNested,
+  isEventAttr,
+  toEventName,
+  CAPTURE_TEXT,
+} from "./helpers"
+
+interface WebSocketState {
+  ws: WebSocket
+  roots: Root[]
+  connected: boolean
+  seenEventNames: Set<string>
+}
 
 interface Root {
   component: Component<any, any>
   mounted: boolean
-  ws?: WebSocket
+  wsState?: WebSocketState
+  eventNames: Set<string>
   handlers: { [key: string]: () => void }
   aliases: { [key: string]: string }
 }
@@ -101,12 +115,17 @@ function isJSXOption(
 export function handleWebSocket(server: http.Server): void {
   const wsServer = new WebSocket.Server({ server })
   wsServer.on("connection", ws => {
-    const wsState = { roots: [] as Root[], connected: false }
+    const wsState: WebSocketState = {
+      ws,
+      roots: [] as Root[],
+      connected: false,
+      seenEventNames: new Set(),
+    }
 
     ws.on("message", data => {
       // TODO: validation
       const message = tryParseJSON<ClientMessage>(data.toString())
-      handleMessage(message, ws, wsState)
+      handleMessage(message, wsState)
     })
 
     ws.on("close", () => {
@@ -118,11 +137,7 @@ export function handleWebSocket(server: http.Server): void {
   })
 }
 
-function handleMessage(
-  message: ClientMessage,
-  ws: WebSocket,
-  wsState: { roots: Root[]; connected: boolean },
-): void {
+function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
   switch (message.type) {
     case "connect": {
       if (wsState.connected) {
@@ -130,28 +145,43 @@ function handleMessage(
       }
       wsState.connected = true
 
+      const newEventNames = new Set()
       message.rootIDs.forEach(id => {
         const root = roots[id]
         if (!root) {
           return
         }
 
-        root.ws = ws
+        root.wsState = wsState
         root.component._triggerMount()
         root.mounted = true
+
         wsState.roots.push(root)
+        root.eventNames.forEach(name => {
+          if (!wsState.seenEventNames.has(name)) {
+            newEventNames.add(name)
+          }
+        })
       })
 
       // TODO: listen for this on client side
-      sendMessage(ws, { type: "connected" })
+      sendMessage(wsState.ws, {
+        type: "connected",
+        newEventNames: Array.from(newEventNames),
+      })
       break
     }
 
     case "event": {
       const root = wsState.roots.find(r => r.component._id === message.rootID)
-      if (root) {
+      if (root && root.handlers[message.eventID]) {
         root.handlers[message.eventID]()
       }
+      break
+    }
+
+    case "seenEventNames": {
+      wsState.seenEventNames = new Set(message.seenEventNames)
       break
     }
   }
@@ -173,6 +203,7 @@ export function render(jsx: JSX.Element): string {
     component,
     mounted: false,
     handlers: {},
+    eventNames: new Set(),
     aliases: {},
   }
   return makeComponentElem(component, component._id).outerHTML
@@ -213,23 +244,32 @@ function makeElem(
 
   const { nodeName, attributes, children } = jsx
   key = `${parentKey}/${nodeName}`
+
   const elem = document.createElement(nodeName as string)
+  const root = roots[rootID]
 
   for (const attr in attributes) {
     if (attributes.hasOwnProperty(attr)) {
-      if (attr === "onClick") {
+      if (isEventAttr(attr)) {
+        const name = toEventName(attr)
         const handler = attributes[attr] as () => {}
-        let eventID = cachedEventIDs.get(handler)
 
+        let eventID = cachedEventIDs.get(handler)
         if (!eventID) {
           eventID = nanoid()
           cachedEventIDs.set(handler, eventID)
-          if (roots[rootID]) {
-            roots[rootID].handlers[eventID] = handler
-          }
         }
 
-        elem.setAttribute(`data-${attr}`, eventID)
+        if (root) {
+          root.handlers[eventID] = handler
+          root.eventNames.add(name)
+        }
+
+        if (attr.indexOf(CAPTURE_TEXT) !== -1) {
+          elem.setAttribute(`data-${name}-capture`, eventID)
+        } else {
+          elem.setAttribute(`data-${name}`, eventID)
+        }
       } else {
         const value = (attributes as any)[attr]
         elem.setAttribute(attr, value)
@@ -286,12 +326,21 @@ function makeComponentElem(
   if (!component._handleUpdate) {
     component._handleUpdate = () => {
       const root = roots[rootID]
-      if (root && root.ws) {
+      if (root && root.wsState) {
         const newElem = makeComponentElem(component, rootID)
-        sendMessage(root.ws, {
+        const newEventNames = new Set()
+
+        root.eventNames.forEach(name => {
+          if (!(root.wsState as WebSocketState).seenEventNames.has(name)) {
+            newEventNames.add(name)
+          }
+        })
+
+        sendMessage(root.wsState.ws, {
           type: "update",
           componentID: unalias(component._id, root),
           html: newElem.outerHTML,
+          newEventNames: Array.from(newEventNames),
         })
       }
     }
@@ -333,3 +382,5 @@ export default {
   render,
   Component,
 }
+
+export * from "./types/events"

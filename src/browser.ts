@@ -1,4 +1,4 @@
-import { connectWebSocket, handleEvents } from "./client"
+import { connectWebSocket } from "./client"
 
 // Polyfill closest() for browsers that don't support it.
 if (!Element.prototype.closest) {
@@ -19,4 +19,4 @@ if (!Element.prototype.closest) {
   }
 }
 
-handleEvents(connectWebSocket(window.location))
+connectWebSocket(window.location)
