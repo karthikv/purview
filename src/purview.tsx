@@ -11,6 +11,8 @@ import {
   toEventName,
   CAPTURE_TEXT,
 } from "./helpers"
+import { ServerMessage, ClientMessage } from "./types/ws"
+import { EventCallback } from "./types/events"
 
 interface WebSocketState {
   ws: WebSocket
@@ -19,12 +21,18 @@ interface WebSocketState {
   seenEventNames: Set<string>
 }
 
+interface Handler {
+  eventName: string
+  callback: EventCallback
+  possibleValues?: string[]
+}
+
 interface Root {
   component: Component<any, any>
   mounted: boolean
   wsState?: WebSocketState
   eventNames: Set<string>
-  handlers: { [key: string]: () => void }
+  handlers: { [key: string]: Handler }
   aliases: { [key: string]: string }
 }
 
@@ -141,7 +149,7 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
   switch (message.type) {
     case "connect": {
       if (wsState.connected) {
-        return
+        break
       }
       wsState.connected = true
 
@@ -174,9 +182,27 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
 
     case "event": {
       const root = wsState.roots.find(r => r.component._id === message.rootID)
-      if (root && root.handlers[message.eventID]) {
-        root.handlers[message.eventID]()
+      if (!root) {
+        break
       }
+
+      const handler = root.handlers[message.eventID]
+      if (!handler) {
+        break
+      }
+
+      const { eventName } = handler
+      if (eventName === "input" || eventName === "change") {
+        // TODO: validate, including possible values
+      } else if (
+        eventName === "keydown" ||
+        eventName === "keypress" ||
+        eventName === "keyup"
+      ) {
+        // TODO: validate
+      }
+
+      handler.callback(message.event)
       break
     }
 
@@ -247,35 +273,41 @@ function makeElem(
 
   const elem = document.createElement(nodeName as string)
   const root = roots[rootID]
+  let changeHandler: Handler | undefined
 
-  for (const attr in attributes) {
-    if (attributes.hasOwnProperty(attr)) {
-      if (isEventAttr(attr)) {
-        const name = toEventName(attr)
-        const handler = attributes[attr] as () => {}
+  Object.keys(attributes).forEach(attr => {
+    if (!isEventAttr(attr)) {
+      elem.setAttribute(attr, (attributes as any)[attr])
+      return
+    }
 
-        let eventID = cachedEventIDs.get(handler)
-        if (!eventID) {
-          eventID = nanoid()
-          cachedEventIDs.set(handler, eventID)
-        }
+    const eventName = toEventName(attr)
+    const callback = attributes[attr] as EventCallback
 
-        if (root) {
-          root.handlers[eventID] = handler
-          root.eventNames.add(name)
-        }
+    let eventID = cachedEventIDs.get(callback)
+    if (!eventID) {
+      eventID = nanoid()
+      cachedEventIDs.set(callback, eventID)
+    }
 
-        if (attr.indexOf(CAPTURE_TEXT) !== -1) {
-          elem.setAttribute(`data-${name}-capture`, eventID)
-        } else {
-          elem.setAttribute(`data-${name}`, eventID)
-        }
-      } else {
-        const value = (attributes as any)[attr]
-        elem.setAttribute(attr, value)
+    if (root) {
+      root.handlers[eventID] = {
+        eventName,
+        callback,
+      }
+      root.eventNames.add(eventName)
+
+      if (nodeName === "select" && eventName === "change") {
+        changeHandler = root.handlers[eventID]
       }
     }
-  }
+
+    if (attr.indexOf(CAPTURE_TEXT) !== -1) {
+      elem.setAttribute(`data-${eventName}-capture`, eventID)
+    } else {
+      elem.setAttribute(`data-${eventName}`, eventID)
+    }
+  })
 
   if (children) {
     eachNested(children, child => {
@@ -291,6 +323,12 @@ function makeElem(
       }
       elem.appendChild(node)
     })
+  }
+
+  if (changeHandler) {
+    changeHandler.possibleValues = Array.from(
+      (elem as HTMLSelectElement).options,
+    ).map(option => option.value)
   }
 
   return elem

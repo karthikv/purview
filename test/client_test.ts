@@ -3,14 +3,22 @@ import * as WebSocket from "ws"
 
 const {
   window,
-  window: { document, Element },
+  window: { document, HTMLElement },
 } = new JSDOM()
-Object.assign(global, { window, document, Element, WebSocket })
+Object.assign(global, { window, document, HTMLElement, WebSocket })
 
 import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import { connectWebSocket } from "../src/client"
+import {
+  SeenEventNamesMessage,
+  EventMessage,
+  ConnectMessage,
+  UpdateMessage,
+  ClientMessage,
+  ConnectedMessage,
+} from "../src/types/ws"
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
@@ -82,7 +90,6 @@ test("events", async () => {
       newEventNames: ["click"],
     }
     conn.ws.send(JSON.stringify(connectedMessage))
-    await new Promise(resolve => conn.wsClient.on("message", resolve))
 
     const message2 = (await conn.messages.next()) as SeenEventNamesMessage
     expect(message2.type).toBe("seenEventNames")
@@ -127,11 +134,7 @@ test("events after update", async () => {
         `,
       newEventNames: ["click"],
     }
-
     conn.ws.send(JSON.stringify(updateMessage))
-    await new Promise(resolve => {
-      conn.wsClient.addEventListener("message", resolve)
-    })
 
     const message2 = (await conn.messages.next()) as SeenEventNamesMessage
     expect(message2.type).toBe("seenEventNames")
@@ -151,6 +154,90 @@ test("events after update", async () => {
     expect(message4.type).toBe("event")
     expect(message4.rootID).toBe("foo")
     expect(message4.eventID).toBe("baz")
+  })
+})
+
+test("input/change event", async () => {
+  document.body.innerHTML = `
+    <div data-root="true" data-component-id="foo">
+      <input data-input="bar" />
+      <select multiple data-change="baz">
+        <option>Foo</option>
+        <option>Bar</option>
+        <option>Baz</option>
+      </select>
+    </div>
+  `
+
+  await connect(async conn => {
+    const connectedMessage: ConnectedMessage = {
+      type: "connected",
+      newEventNames: ["input", "change"],
+    }
+    conn.ws.send(JSON.stringify(connectedMessage))
+
+    // Ignore connect and seenEventNames messages.
+    await conn.messages.next()
+    await conn.messages.next()
+
+    const event1 = new window.Event("input", { bubbles: true })
+    const input = document.body.querySelector("input") as HTMLInputElement
+    input.value = "value"
+    input.dispatchEvent(event1)
+
+    // Capture event should be triggered first.
+    const message1 = (await conn.messages.next()) as EventMessage
+    expect(message1.type).toBe("event")
+    expect(message1.rootID).toBe("foo")
+    expect(message1.eventID).toBe("bar")
+    expect(message1.event).toEqual({ value: "value" })
+
+    const event2 = new window.Event("change", { bubbles: true })
+    const select = document.body.querySelector("select") as HTMLSelectElement
+    select.options[1].selected = true
+    select.options[2].selected = true
+    select.dispatchEvent(event2)
+
+    const message2 = (await conn.messages.next()) as EventMessage
+    expect(message2.type).toBe("event")
+    expect(message2.rootID).toBe("foo")
+    expect(message2.eventID).toBe("baz")
+    expect(message2.event).toEqual({
+      value: expect.any(String),
+      multipleValues: ["Bar", "Baz"],
+    })
+  })
+})
+
+test("key event", async () => {
+  document.body.innerHTML = `
+    <div data-root="true" data-component-id="foo">
+      <input data-keydown="bar" />
+    </div>
+  `
+
+  await connect(async conn => {
+    const connectedMessage: ConnectedMessage = {
+      type: "connected",
+      newEventNames: ["keydown"],
+    }
+    conn.ws.send(JSON.stringify(connectedMessage))
+
+    // Ignore connect and seenEventNames messages.
+    await conn.messages.next()
+    await conn.messages.next()
+
+    const key = "b"
+    const event = new window.KeyboardEvent("keydown", { bubbles: true, key })
+    const input = document.body.querySelector("input") as HTMLInputElement
+    input.dispatchEvent(event)
+
+    // Capture event should be triggered first.
+    const message = (await conn.messages.next()) as EventMessage
+    expect(message.type).toBe("event")
+    expect(message.rootID).toBe("foo")
+    expect(message.eventID).toBe("bar")
+    expect(message.event).toEqual({ key })
   })
 })
 

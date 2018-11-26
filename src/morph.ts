@@ -1,4 +1,5 @@
 import morphdom = require("morphdom")
+import { isInput, isOption, isSelect, isTextArea } from "./helpers"
 
 const selectedValues = new WeakMap()
 const morphOpts = {
@@ -52,20 +53,4 @@ const morphOpts = {
 
 export default function morph(from: Node, to: Node): void {
   morphdom(from, to, morphOpts)
-}
-
-function isInput(elem: HTMLElement): elem is HTMLInputElement {
-  return elem.nodeName === "INPUT"
-}
-
-function isOption(elem: HTMLElement): elem is HTMLOptionElement {
-  return elem.nodeName === "OPTION"
-}
-
-function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
-  return elem.nodeName === "SELECT"
-}
-
-function isTextArea(elem: HTMLElement): elem is HTMLTextAreaElement {
-  return elem.nodeName === "TEXTAREA"
 }

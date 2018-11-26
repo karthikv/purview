@@ -186,6 +186,22 @@ export function toElem({
   return elem
 }
 
+export function isInput(elem: HTMLElement): elem is HTMLInputElement {
+  return elem.nodeName === "INPUT"
+}
+
+export function isOption(elem: HTMLElement): elem is HTMLOptionElement {
+  return elem.nodeName === "OPTION"
+}
+
+export function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
+  return elem.nodeName === "SELECT"
+}
+
+export function isTextArea(elem: HTMLElement): elem is HTMLTextAreaElement {
+  return elem.nodeName === "TEXTAREA"
+}
+
 function isJSXChild(child: JSX.Child): child is JSX.Element {
   return child && (child as any).nodeName
 }

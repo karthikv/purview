@@ -1,5 +1,6 @@
-import { tryParseJSON, parseHTML } from "./helpers"
+import { tryParseJSON, parseHTML, isSelect } from "./helpers"
 import morph from "./morph"
+import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
 export function connectWebSocket(location: Location): WebSocket {
   const { protocol, host, pathname, search } = location
@@ -86,7 +87,7 @@ function handleEvent(
     eventName,
     event => {
       const target = event.target
-      if (!(target instanceof Element)) {
+      if (!(target instanceof HTMLElement)) {
         return
       }
 
@@ -100,11 +101,33 @@ function handleEvent(
           elemRootIDs.set(triggerElem, rootID)
         }
 
-        sendMessage(ws, {
+        const message: EventMessage = {
           type: "event",
           rootID,
           eventID: triggerElem.getAttribute(attr) as string,
-        })
+        }
+
+        if (eventName === "input" || eventName === "change") {
+          if (eventName === "change" && isSelect(target) && target.multiple) {
+            const values = Array.from(target.options)
+              .filter(option => option.selected)
+              .map(option => option.value)
+            message.event = {
+              value: "Use .multipleValues instead of .value for multi-selects",
+              multipleValues: values,
+            }
+          } else {
+            message.event = { value: (target as HTMLInputElement).value }
+          }
+        } else if (
+          eventName === "keydown" ||
+          eventName === "keypress" ||
+          eventName === "keyup"
+        ) {
+          message.event = { key: (event as KeyboardEvent).key }
+        }
+
+        sendMessage(ws, message)
 
         triggerElem = triggerElem.parentElement
         if (triggerElem) {

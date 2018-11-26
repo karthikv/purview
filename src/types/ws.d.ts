@@ -1,3 +1,5 @@
+import { PurviewEvent } from "./events"
+
 interface ConnectMessage {
   type: "connect"
   rootIDs: string[]
@@ -7,6 +9,7 @@ interface EventMessage {
   type: "event"
   rootID: string
   eventID: string
+  event?: PurviewEvent
 }
 
 interface SeenEventNamesMessage {

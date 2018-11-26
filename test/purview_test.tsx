@@ -8,8 +8,16 @@ import * as WebSocket from "ws"
 import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
-import Purview from "../src/purview"
+import Purview, { InputEvent, ChangeEvent, KeyEvent } from "../src/purview"
 import { parseHTML } from "../src/helpers"
+import {
+  UpdateMessage,
+  EventMessage,
+  SeenEventNamesMessage,
+  ConnectedMessage,
+  ServerMessage,
+  ClientMessage,
+} from "../src/types/ws"
 
 test("createElem", () => {
   const p = (
@@ -143,16 +151,14 @@ test("render setState", async () => {
   })
 })
 
-test("render DOM event", async () => {
+test("render event", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
     constructor(props: {}) {
       super(props)
       this.state = { text: "hi" }
     }
 
-    setText = () => {
-      this.setState({ text: "hello" })
-    }
+    setText = () => this.setState({ text: "hello" })
 
     render(): JSX.Element {
       return <p onClick={this.setText}>{this.state.text}</p>
@@ -174,16 +180,14 @@ test("render DOM event", async () => {
   })
 })
 
-test("render DOM event capture", async () => {
+test("render event capture", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
     constructor(props: {}) {
       super(props)
       this.state = { text: "hi" }
     }
 
-    setText = () => {
-      this.setState({ text: "hello" })
-    }
+    setText = () => this.setState({ text: "hello" })
 
     render(): JSX.Element {
       return <p onClickCapture={this.setText}>{this.state.text}</p>
@@ -202,6 +206,88 @@ test("render DOM event capture", async () => {
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
     expect(parseHTML(message.html).textContent).toBe("hello")
+  })
+})
+
+test("render input/change event", async () => {
+  let value: string
+  let multipleValues: string[]
+
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      this.state = {}
+    }
+
+    handleInput = (event: InputEvent) => (value = event.value)
+    handleChange = (event: ChangeEvent) =>
+      (multipleValues = event.multipleValues as string[])
+
+    render(): JSX.Element {
+      return (
+        <div>
+          <input onInput={this.handleInput} />
+          <select onChange={this.handleChange} multiple={true}>
+            <option>Foo</option>
+            <option>Bar</option>
+            <option>Baz</option>
+          </select>
+        </div>
+      )
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const event1: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[0].getAttribute("data-input") as string,
+      event: { value: "value" },
+    }
+    conn.ws.send(JSON.stringify(event1))
+
+    const event2: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[1].getAttribute("data-change") as string,
+      event: { value: "", multipleValues: ["Bar", "Baz"] },
+    }
+    conn.ws.send(JSON.stringify(event2))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(value).toBe((event1.event as InputEvent).value)
+    expect(multipleValues).toEqual((event2.event as ChangeEvent).multipleValues)
+  })
+})
+
+test("render keydown event", async () => {
+  let key: string
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      this.state = {}
+    }
+
+    handleKeyDown = (event: KeyEvent) => (key = event.key)
+
+    render(): JSX.Element {
+      return <input onKeyDown={this.handleKeyDown} />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const event: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-keydown") as string,
+      event: { key: "k" },
+    }
+    conn.ws.send(JSON.stringify(event))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(key).toBe((event.event as KeyEvent).key)
   })
 })
 
