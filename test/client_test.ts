@@ -161,7 +161,8 @@ test("input/change event", async () => {
   document.body.innerHTML = `
     <div data-root="true" data-component-id="foo">
       <input data-input="bar" />
-      <select multiple data-change="baz">
+      <input type="checkbox" data-input="baz" />
+      <select multiple data-change="other">
         <option>Foo</option>
         <option>Bar</option>
         <option>Baz</option>
@@ -192,20 +193,31 @@ test("input/change event", async () => {
     expect(message1.eventID).toBe("bar")
     expect(message1.event).toEqual({ value: "value" })
 
-    const event2 = new window.Event("change", { bubbles: true })
-    const select = document.body.querySelector("select") as HTMLSelectElement
-    select.options[1].selected = true
-    select.options[2].selected = true
-    select.dispatchEvent(event2)
+    const event2 = new window.Event("input", { bubbles: true })
+    const checkbox = document.body.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement
+    checkbox.checked = true
+    checkbox.dispatchEvent(event2)
 
+    // Capture event should be triggered first.
     const message2 = (await conn.messages.next()) as EventMessage
     expect(message2.type).toBe("event")
     expect(message2.rootID).toBe("foo")
     expect(message2.eventID).toBe("baz")
-    expect(message2.event).toEqual({
-      value: expect.any(String),
-      multipleValues: ["Bar", "Baz"],
-    })
+    expect(message2.event).toEqual({ value: true })
+
+    const event3 = new window.Event("change", { bubbles: true })
+    const select = document.body.querySelector("select") as HTMLSelectElement
+    select.options[1].selected = true
+    select.options[2].selected = true
+    select.dispatchEvent(event3)
+
+    const message3 = (await conn.messages.next()) as EventMessage
+    expect(message3.type).toBe("event")
+    expect(message3.rootID).toBe("foo")
+    expect(message3.eventID).toBe("other")
+    expect(message3.event).toEqual({ value: ["Bar", "Baz"] })
   })
 })
 

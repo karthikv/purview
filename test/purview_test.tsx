@@ -210,8 +210,9 @@ test("render event capture", async () => {
 })
 
 test("render input/change event", async () => {
-  let value: string
-  let multipleValues: string[]
+  let inputValue: string
+  let checkboxValue: boolean
+  let changeValue: string[]
 
   class Foo extends Purview.Component<{}, {}> {
     constructor(props: {}) {
@@ -219,14 +220,16 @@ test("render input/change event", async () => {
       this.state = {}
     }
 
-    handleInput = (event: InputEvent) => (value = event.value)
-    handleChange = (event: ChangeEvent) =>
-      (multipleValues = event.multipleValues as string[])
+    handleInput = (event: InputEvent) => (inputValue = event.value)
+    handleCheckbox = (event: InputEvent<boolean>) =>
+      (checkboxValue = event.value)
+    handleChange = (event: ChangeEvent<string[]>) => (changeValue = event.value)
 
     render(): JSX.Element {
       return (
         <div>
           <input onInput={this.handleInput} />
+          <input type="checkbox" onInput={this.handleCheckbox} />
           <select onChange={this.handleChange} multiple={true}>
             <option>Foo</option>
             <option>Bar</option>
@@ -249,15 +252,24 @@ test("render input/change event", async () => {
     const event2: EventMessage = {
       type: "event",
       rootID: conn.rootID,
-      eventID: conn.elem.children[1].getAttribute("data-change") as string,
-      event: { value: "", multipleValues: ["Bar", "Baz"] },
+      eventID: conn.elem.children[1].getAttribute("data-input") as string,
+      event: { value: true },
     }
     conn.ws.send(JSON.stringify(event2))
 
+    const event3: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[2].getAttribute("data-change") as string,
+      event: { value: ["Bar", "Baz"] },
+    }
+    conn.ws.send(JSON.stringify(event3))
+
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(value).toBe((event1.event as InputEvent).value)
-    expect(multipleValues).toEqual((event2.event as ChangeEvent).multipleValues)
+    expect(inputValue).toBe((event1.event as InputEvent).value)
+    expect(checkboxValue).toBe((event2.event as InputEvent).value)
+    expect(changeValue).toEqual((event3.event as ChangeEvent).value)
   })
 })
 

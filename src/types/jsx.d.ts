@@ -1,5 +1,5 @@
 import Component, { ComponentConstructor } from "../component"
-import { InputEvent, SubmitEvent, KeyEvent } from "./events"
+import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./events"
 
 /* tslint:disable no-namespace */
 declare global {
@@ -80,7 +80,10 @@ declare global {
       i: HTMLAttributes
       iframe: IframeHTMLAttributes<HTMLIFrameElement>
       img: ImgHTMLAttributes<HTMLImageElement>
-      input: InputHTMLAttributes<HTMLInputElement>
+      input:
+        | CheckboxInputHTMLAttributes<HTMLInputElement>
+        | NumberInputHTMLAttributes<HTMLInputElement>
+        | TextInputHTMLAttributes<HTMLInputElement>
       ins: InsHTMLAttributes<HTMLModElement>
       kbd: HTMLAttributes
       keygen: KeygenHTMLAttributes<HTMLElement>
@@ -115,7 +118,9 @@ declare global {
       samp: HTMLAttributes
       script: ScriptHTMLAttributes<HTMLScriptElement>
       section: HTMLAttributes
-      select: SelectHTMLAttributes<HTMLSelectElement>
+      select:
+        | MultiSelectHTMLAttributes<HTMLSelectElement>
+        | SingleSelectHTMLAttributes<HTMLSelectElement>
       small: HTMLAttributes
       source: SourceHTMLAttributes<HTMLSourceElement>
       span: HTMLAttributes<HTMLSpanElement>
@@ -296,6 +301,51 @@ declare global {
       datetime?: string
     }
 
+    export interface CheckboxInputHTMLAttributes<T>
+      extends InputHTMLAttributes<T> {
+      type: "checkbox"
+      onChange?: (event: ChangeEvent<boolean>) => void
+      onInput?: (event: InputEvent<boolean>) => void
+    }
+
+    export interface NumberInputHTMLAttributes<T>
+      extends InputHTMLAttributes<T> {
+      type: "number"
+      onChange?: (event: ChangeEvent<number>) => void
+      onInput?: (event: InputEvent<number>) => void
+    }
+
+    export interface TextInputHTMLAttributes<T> extends InputHTMLAttributes<T> {
+      type?: Exclude<InputType, "checkbox" | "number">
+      onChange?: (event: ChangeEvent<string>) => void
+      onInput?: (event: InputEvent<string>) => void
+    }
+
+    export type InputType =
+      | "button"
+      | "checkbox"
+      | "color"
+      | "date"
+      | "datetime"
+      | "datetime-local"
+      | "email"
+      | "file"
+      | "hidden"
+      | "image"
+      | "month"
+      | "number"
+      | "password"
+      | "radio"
+      | "range"
+      | "reset"
+      | "search"
+      | "submit"
+      | "tel"
+      | "text"
+      | "time"
+      | "url"
+      | "week"
+
     export interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
       // Purview specific
       forceValue?: string | number
@@ -342,7 +392,7 @@ declare global {
       size?: number
       src?: string
       step?: number | string
-      type?: string
+      type?: InputType
       value?: string | number
       width?: number | string
     }
@@ -489,6 +539,18 @@ declare global {
       nonce?: string
       src?: string
       type?: string
+    }
+
+    export interface MultiSelectHTMLAttributes<T>
+      extends SelectHTMLAttributes<T> {
+      multiple: true
+      onChange?: (event: ChangeEvent<string[]>) => void
+    }
+
+    export interface SingleSelectHTMLAttributes<T>
+      extends SelectHTMLAttributes<T> {
+      multiple?: false
+      onChange?: (event: ChangeEvent<string>) => void
     }
 
     export interface SelectHTMLAttributes<T> extends HTMLAttributes<T> {
@@ -954,10 +1016,10 @@ declare global {
       onBlurCapture?: () => void
 
       // Form Events
-      onChange?: (event: InputEvent) => void
-      onChangeCapture?: (event: InputEvent) => void
-      onInput?: (event: InputEvent) => void
-      onInputCapture?: (event: InputEvent) => void
+      onChange?: (event: InputEvent<any>) => void
+      onChangeCapture?: (event: InputEvent<any>) => void
+      onInput?: (event: InputEvent<any>) => void
+      onInputCapture?: (event: InputEvent<any>) => void
       onReset?: () => void
       onResetCapture?: () => void
       onSubmit?: (event: SubmitEvent) => void

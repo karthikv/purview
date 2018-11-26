@@ -1,4 +1,4 @@
-import { tryParseJSON, parseHTML, isSelect } from "./helpers"
+import { tryParseJSON, parseHTML, isSelect, isInput } from "./helpers"
 import morph from "./morph"
 import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
@@ -112,10 +112,11 @@ function handleEvent(
             const values = Array.from(target.options)
               .filter(option => option.selected)
               .map(option => option.value)
-            message.event = {
-              value: "Use .multipleValues instead of .value for multi-selects",
-              multipleValues: values,
-            }
+            message.event = { value: values }
+          } else if (isInput(target) && target.type === "checkbox") {
+            message.event = { value: target.checked }
+          } else if (isInput(target) && target.type === "number") {
+            message.event = { value: Number(target.value) }
           } else {
             message.event = { value: (target as HTMLInputElement).value }
           }
