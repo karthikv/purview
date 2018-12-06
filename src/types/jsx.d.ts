@@ -545,12 +545,14 @@ declare global {
       extends SelectHTMLAttributes<T> {
       multiple: true
       onChange?: (event: ChangeEvent<string[]>) => void
+      onInput?: (event: InputEvent<string[]>) => void
     }
 
     export interface SingleSelectHTMLAttributes<T>
       extends SelectHTMLAttributes<T> {
       multiple?: false
       onChange?: (event: ChangeEvent<string>) => void
+      onInput?: (event: InputEvent<string>) => void
     }
 
     export interface SelectHTMLAttributes<T> extends HTMLAttributes<T> {

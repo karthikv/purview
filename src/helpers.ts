@@ -1,6 +1,6 @@
 type EventAttribute = keyof JSX.DOMAttributes
 
-const EVENT_ATTRS_MAP: { [key in EventAttribute]: boolean } = {
+const EVENT_ATTRS_MAP: { [key in EventAttribute]: true } = {
   // Clipboard Events
   onCopy: true,
   onCopyCapture: true,

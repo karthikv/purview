@@ -253,6 +253,71 @@ test("key event", async () => {
   })
 })
 
+test("submit event", async () => {
+  document.body.innerHTML = `
+    <form data-root="true" data-component-id="foo" data-submit="bar">
+      <input name="input" value="input-value" />
+      <input name="input-disabled" disabled />
+
+      <input type="checkbox" name="checkbox" />
+      <input type="checkbox" />
+
+      <input type="radio" name="radio" value="radio-value1" />
+      <input type="radio" name="radio" value="radio-value2" checked />
+
+      <input type="number" name="number" value="17" />
+      <button name="button" value="button-value" />
+
+      <select name="select">
+        <option>select-value1</option>
+        <option value="select-value2" selected>sv2</option>
+      </select>
+
+      <select name="select-multiple" multiple>
+        <option selected>select-value1</option>
+        <option selected>select-value2</option>
+        <option>select-value3</option>
+      </select>
+
+      <textarea name="textarea">textarea-value</textarea>
+    </form>
+  `
+
+  await connect(async conn => {
+    const connectedMessage: ConnectedMessage = {
+      type: "connected",
+      newEventNames: ["submit"],
+    }
+    conn.ws.send(JSON.stringify(connectedMessage))
+
+    // Ignore connect and seenEventNames messages.
+    await conn.messages.next()
+    await conn.messages.next()
+
+    const event = new window.Event("submit", { bubbles: true })
+    const form = document.body.querySelector("form") as HTMLFormElement
+    form.dispatchEvent(event)
+
+    // Capture event should be triggered first.
+    const message = (await conn.messages.next()) as EventMessage
+    expect(message.type).toBe("event")
+    expect(message.rootID).toBe("foo")
+    expect(message.eventID).toBe("bar")
+    expect(message.event).toEqual({
+      fields: {
+        input: "input-value",
+        checkbox: false,
+        radio: "radio-value2",
+        number: 17,
+        button: "button-value",
+        select: "select-value2",
+        "select-multiple": ["select-value1", "select-value2"],
+        textarea: "textarea-value",
+      },
+    })
+  })
+})
+
 async function connect<T>(
   callback: (
     conn: {

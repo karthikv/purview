@@ -108,24 +108,27 @@ function handleEvent(
         }
 
         if (eventName === "input" || eventName === "change") {
-          if (eventName === "change" && isSelect(target) && target.multiple) {
-            const values = Array.from(target.options)
-              .filter(option => option.selected)
-              .map(option => option.value)
-            message.event = { value: values }
-          } else if (isInput(target) && target.type === "checkbox") {
-            message.event = { value: target.checked }
-          } else if (isInput(target) && target.type === "number") {
-            message.event = { value: Number(target.value) }
-          } else {
-            message.event = { value: (target as HTMLInputElement).value }
-          }
+          message.event = { value: inputValue(target) }
         } else if (
           eventName === "keydown" ||
           eventName === "keypress" ||
           eventName === "keyup"
         ) {
           message.event = { key: (event as KeyboardEvent).key }
+        } else if (eventName === "submit") {
+          const elems = target.querySelectorAll<HTMLInputElement>(
+            "input, select, textarea, button",
+          )
+          const fields: { [key: string]: any } = {}
+
+          Array.from(elems).forEach(elem => {
+            if (!elem.name || elem.disabled) {
+              return
+            }
+            fields[elem.name] = inputValue(elem)
+          })
+
+          message.event = { fields }
         }
 
         sendMessage(ws, message)
@@ -138,6 +141,20 @@ function handleEvent(
     },
     useCapture,
   )
+}
+
+function inputValue(elem: HTMLElement): string[] | boolean | number | string {
+  if (isSelect(elem) && elem.multiple) {
+    return Array.from(elem.options)
+      .filter(option => option.selected)
+      .map(option => option.value)
+  } else if (isInput(elem) && elem.type === "checkbox") {
+    return elem.checked
+  } else if (isInput(elem) && elem.type === "number") {
+    return Number(elem.value)
+  } else {
+    return (elem as HTMLInputElement).value
+  }
 }
 
 function sendMessage(ws: WebSocket, message: ClientMessage): void {
