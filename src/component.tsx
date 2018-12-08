@@ -2,6 +2,8 @@ import nanoid = require("nanoid")
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
+export type StatelessComponent<T> = (props: T) => JSX.Element<any>
+
 export interface ComponentConstructor<P, S> {
   _typeID: string
   new (props: P): Component<P, S>
@@ -25,6 +27,11 @@ export default abstract class Component<P, S> {
   public _childMap: ChildMap = {}
   public _newChildMap: ChildMap = {}
   public _handleUpdate: () => void
+
+  // This is set outside of the class and is used to disambiguate stateless
+  // functions from Purview components. We can't set it here because it'll
+  // only really get set when a Component is instantiated.
+  public _isPurviewComponent: boolean
 
   protected state: Readonly<S>
   private _changesets: Array<Partial<S> | UpdateFn<S>> = []
@@ -97,3 +104,5 @@ export default abstract class Component<P, S> {
     this.props = props
   }
 }
+
+Component.prototype._isPurviewComponent = true

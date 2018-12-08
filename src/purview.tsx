@@ -4,7 +4,10 @@ import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
 import * as t from "io-ts"
 
-import Component, { ComponentConstructor } from "./component"
+import Component, {
+  StatelessComponent,
+  ComponentConstructor,
+} from "./component"
 import {
   tryParseJSON,
   eachNested,
@@ -248,8 +251,15 @@ export function render(jsx: JSX.Element): string {
 }
 
 function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
-  // TODO: disambiguate between pure stateless func
-  return typeof jsx.nodeName === "function"
+  return (
+    typeof jsx.nodeName === "function" &&
+    jsx.nodeName.prototype &&
+    jsx.nodeName.prototype._isPurviewComponent
+  )
+}
+
+function isStatelessElem(jsx: JSX.Element): jsx is JSX.StatelessElement {
+  return typeof jsx.nodeName === "function" && !isComponentElem(jsx)
 }
 
 function makeElem(
@@ -280,7 +290,13 @@ function makeElem(
     return finalElem
   }
 
-  const { nodeName, attributes, children } = jsx
+  let { nodeName, attributes, children } = jsx
+  if (isStatelessElem(jsx)) {
+    ;({ nodeName, attributes, children } = jsx.nodeName(
+      Object.assign({ children }, attributes),
+    ))
+  }
+
   key = `${parentKey}/${nodeName}`
 
   const elem = document.createElement(nodeName as string)
@@ -456,7 +472,7 @@ function unalias(id: string, root: Root): string {
   return id
 }
 
-export { Component }
+export { Component, StatelessComponent }
 
 export default {
   createElem,

@@ -9,6 +9,7 @@ import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import Purview, {
+  StatelessComponent,
   InputEvent,
   ChangeEvent,
   KeyEvent,
@@ -122,6 +123,32 @@ test("render simple", () => {
 
   const p = parseHTML(Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
+  expect(p.getAttribute("data-root")).toBe("true")
+
+  const img = p.childNodes[1] as Element
+  expect(img.getAttribute("src")).toEqual("foo")
+  expect(img.getAttribute("class")).toEqual("bar")
+})
+
+test("render stateless component", () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render = () => <Bar text="foo" />
+  }
+
+  interface BarProps {
+    text: string
+  }
+  const Bar: StatelessComponent<BarProps> = (props: BarProps) => {
+    return (
+      <p>
+        {props.text}
+        <img src="foo" class="bar" />
+      </p>
+    )
+  }
+
+  const p = parseHTML(Purview.render(<Foo />))
+  expect(p.childNodes[0].textContent).toEqual("foo")
   expect(p.getAttribute("data-root")).toBe("true")
 
   const img = p.childNodes[1] as Element
@@ -350,7 +377,7 @@ test("render keydown event", async () => {
   })
 })
 
-test.only("render submit event", async () => {
+test("render submit event", async () => {
   let fields: { [key: string]: any }
   class Foo extends Purview.Component<{}, {}> {
     constructor(props: {}) {
