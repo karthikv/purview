@@ -2,6 +2,7 @@ import * as http from "http"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
+import * as t from "io-ts"
 
 import Component, { ComponentConstructor } from "./component"
 import {
@@ -10,9 +11,17 @@ import {
   isEventAttr,
   toEventName,
   CAPTURE_TEXT,
+  isInput,
+  isSelect,
 } from "./helpers"
-import { ServerMessage, ClientMessage } from "./types/ws"
-import { EventCallback } from "./types/events"
+import { ServerMessage, ClientMessage, EventCallback } from "./types/ws"
+import {
+  makeInputEventValidator,
+  makeChangeEventValidator,
+  submitEventValidator,
+  keyEventValidator,
+  clientMessageValidator,
+} from "./validators"
 
 interface WebSocketState {
   ws: WebSocket
@@ -25,6 +34,7 @@ interface Handler {
   eventName: string
   callback: EventCallback
   possibleValues?: string[]
+  validator?: t.Type<any, any, any>
 }
 
 interface Root {
@@ -34,6 +44,11 @@ interface Root {
   eventNames: Set<string>
   handlers: { [key: string]: Handler }
   aliases: { [key: string]: string }
+}
+
+const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
+  checkbox: t.boolean,
+  number: t.number,
 }
 
 const { document } = new JSDOM().window
@@ -131,9 +146,11 @@ export function handleWebSocket(server: http.Server): void {
     }
 
     ws.on("message", data => {
-      // TODO: validation
-      const message = tryParseJSON<ClientMessage>(data.toString())
-      handleMessage(message, wsState)
+      const parsed = tryParseJSON(data.toString())
+      const decoded = clientMessageValidator.decode(parsed)
+      if (decoded.isRight()) {
+        handleMessage(decoded.value, wsState)
+      }
     })
 
     ws.on("close", () => {
@@ -172,7 +189,6 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
         })
       })
 
-      // TODO: listen for this on client side
       sendMessage(wsState.ws, {
         type: "connected",
         newEventNames: Array.from(newEventNames),
@@ -191,18 +207,14 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
         break
       }
 
-      const { eventName } = handler
-      if (eventName === "input" || eventName === "change") {
-        // TODO: validate, including possible values
-      } else if (
-        eventName === "keydown" ||
-        eventName === "keypress" ||
-        eventName === "keyup"
-      ) {
-        // TODO: validate
+      if (handler.validator) {
+        const decoded = handler.validator.decode(message.event)
+        if (decoded.isRight()) {
+          handler.callback(decoded.value)
+        }
+      } else {
+        handler.callback()
       }
-
-      handler.callback(message.event)
       break
     }
 
@@ -296,6 +308,38 @@ function makeElem(
         callback,
       }
       root.eventNames.add(eventName)
+
+      let validator
+      switch (eventName) {
+        case "input":
+        case "change":
+          let makeValidator = makeInputEventValidator
+          if (eventName === "change") {
+            makeValidator = makeChangeEventValidator
+          }
+
+          if (isInput(elem)) {
+            const type = (attributes as JSX.InputHTMLAttributes<any>)
+              .type as string
+            validator = makeValidator(INPUT_TYPE_VALIDATOR[type] || t.string)
+          } else if (isSelect(elem)) {
+            const multiple = (attributes as JSX.SelectHTMLAttributes<any>)
+              .multiple
+            validator = makeValidator(multiple ? t.array(t.string) : t.string)
+          }
+          break
+
+        case "keydown":
+        case "keypress":
+        case "keyup":
+          validator = keyEventValidator
+          break
+
+        case "submit":
+          validator = submitEventValidator
+          break
+      }
+      root.handlers[eventID].validator = validator
 
       if (nodeName === "select" && eventName === "change") {
         changeHandler = root.handlers[eventID]
@@ -421,4 +465,10 @@ export default {
   Component,
 }
 
-export * from "./types/events"
+export {
+  InputEvent,
+  ChangeEvent,
+  SubmitEvent,
+  KeyEvent,
+  PurviewEvent,
+} from "./types/ws"

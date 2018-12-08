@@ -107,28 +107,33 @@ function handleEvent(
           eventID: triggerElem.getAttribute(attr) as string,
         }
 
-        if (eventName === "input" || eventName === "change") {
-          message.event = { value: inputValue(target) }
-        } else if (
-          eventName === "keydown" ||
-          eventName === "keypress" ||
-          eventName === "keyup"
-        ) {
-          message.event = { key: (event as KeyboardEvent).key }
-        } else if (eventName === "submit") {
-          const elems = target.querySelectorAll<HTMLInputElement>(
-            "input, select, textarea, button",
-          )
-          const fields: { [key: string]: any } = {}
+        switch (eventName) {
+          case "input":
+          case "change":
+            message.event = { value: inputValue(target) }
+            break
 
-          Array.from(elems).forEach(elem => {
-            if (!elem.name || elem.disabled) {
-              return
-            }
-            fields[elem.name] = inputValue(elem)
-          })
+          case "keydown":
+          case "keypress":
+          case "keyup":
+            message.event = { key: (event as KeyboardEvent).key }
+            break
 
-          message.event = { fields }
+          case "submit":
+            const elems = target.querySelectorAll<HTMLInputElement>(
+              "input, select, textarea, button",
+            )
+            const fields: { [key: string]: any } = {}
+
+            Array.from(elems).forEach(elem => {
+              if (!elem.name || elem.disabled) {
+                return
+              }
+              fields[elem.name] = inputValue(elem)
+            })
+
+            message.event = { fields }
+            break
         }
 
         sendMessage(ws, message)

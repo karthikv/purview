@@ -8,7 +8,12 @@ import * as WebSocket from "ws"
 import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
-import Purview, { InputEvent, ChangeEvent, KeyEvent } from "../src/purview"
+import Purview, {
+  InputEvent,
+  ChangeEvent,
+  KeyEvent,
+  SubmitEvent,
+} from "../src/purview"
 import { parseHTML } from "../src/helpers"
 import {
   UpdateMessage,
@@ -241,6 +246,36 @@ test("render input/change event", async () => {
   }
 
   await renderAndConnect(<Foo />, async conn => {
+    const invalidEvent1: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[0].getAttribute("data-input") as string,
+      event: { value: 13 },
+    }
+    conn.ws.send(JSON.stringify(invalidEvent1))
+
+    const invalidEvent2: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[1].getAttribute("data-input") as string,
+      event: { value: ["Bar", "Baz"] },
+    }
+    conn.ws.send(JSON.stringify(invalidEvent2))
+
+    const invalidEvent3: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[2].getAttribute("data-change") as string,
+      event: { value: true },
+    }
+    conn.ws.send(JSON.stringify(invalidEvent3))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(inputValue).toBe(undefined)
+    expect(checkboxValue).toBe(undefined)
+    expect(changeValue).toEqual(undefined)
+
     const event1: EventMessage = {
       type: "event",
       rootID: conn.rootID,
@@ -289,6 +324,18 @@ test("render keydown event", async () => {
   }
 
   await renderAndConnect(<Foo />, async conn => {
+    const invalidEvent: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-keydown") as string,
+      event: { key: 13 as any },
+    }
+    conn.ws.send(JSON.stringify(invalidEvent))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(key).toBe(undefined)
+
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
@@ -300,6 +347,48 @@ test("render keydown event", async () => {
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
     expect(key).toBe((event.event as KeyEvent).key)
+  })
+})
+
+test.only("render submit event", async () => {
+  let fields: { [key: string]: any }
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      this.state = {}
+    }
+
+    handleSubmit = (event: SubmitEvent) => (fields = event.fields)
+
+    render(): JSX.Element {
+      return <form onSubmit={this.handleSubmit} />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const invalidEvent: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-submit") as string,
+      event: { fields: true as any },
+    }
+    conn.ws.send(JSON.stringify(invalidEvent))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(fields).toEqual(undefined)
+
+    const event: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-submit") as string,
+      event: { fields: { foo: "hi", bar: 7, baz: ["hello"], other: true } },
+    }
+    conn.ws.send(JSON.stringify(event))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(fields).toEqual((event.event as SubmitEvent).fields)
   })
 })
 
@@ -588,6 +677,50 @@ test("event names", async () => {
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
     expect(message2.newEventNames).toEqual(["keydown"])
+  })
+})
+
+test("invalid event names", async () => {
+  let instance: Foo = null as any
+
+  class Foo extends Purview.Component<{}, { enabled: boolean }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { enabled: false }
+      instance = this
+    }
+
+    render(): JSX.Element {
+      if (this.state.enabled) {
+        return <input onKeyDown={() => null} />
+      }
+      return <input onChange={() => null} />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    expect(conn.connectedMessage.newEventNames).toEqual(["change"])
+    instance.setState({ enabled: true })
+
+    const message1 = (await conn.messages.next()) as UpdateMessage
+    expect(message1.type).toBe("update")
+    expect(message1.componentID).toBe(conn.rootID)
+    expect(message1.newEventNames).toEqual(["change", "keydown"])
+
+    const seenEventNames: SeenEventNamesMessage = {
+      type: "seenEventNames",
+      seenEventNames: ["change", false] as any,
+    }
+    conn.ws.send(JSON.stringify(seenEventNames))
+
+    // Must wait for seenEventNames to propagate to server.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    instance.setState({ enabled: true })
+
+    const message2 = (await conn.messages.next()) as UpdateMessage
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(conn.rootID)
+    expect(message2.newEventNames).toEqual(["change", "keydown"])
   })
 })
 

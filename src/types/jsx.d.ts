@@ -1,5 +1,5 @@
 import Component, { ComponentConstructor } from "../component"
-import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./events"
+import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./ws"
 
 /* tslint:disable no-namespace */
 declare global {
