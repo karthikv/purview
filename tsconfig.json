@@ -4,7 +4,7 @@
     "target": "es6",
     "module": "commonjs",
     "moduleResolution": "node",
-    "outDir": "./build",
+    "outDir": "./dist",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "jsx": "react",
     "jsxFactory": "Purview.createElem",
-    "plugins": [{ "name": "typescript-tslint-plugin" }]
+    "plugins": [{ "name": "typescript-tslint-plugin" }],
+    "declaration": true
   },
   "include": ["src/**/*", "test/**/*"],
   "exclude": ["node_modules"]

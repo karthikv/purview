@@ -4,7 +4,7 @@ import * as streamLib from "stream"
 import * as pathLib from "path"
 import * as urlLib from "url"
 
-import Purview from "./purview"
+import Purview from "../purview"
 import App from "./app"
 
 const BROWSER_JS = "browser.js"

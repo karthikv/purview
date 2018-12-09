@@ -1,4 +1,4 @@
-import Purview from "./purview"
+import Purview from "../purview"
 import Counter from "./counter"
 import Animation from "./animation"
 

@@ -1,4 +1,4 @@
-import Purview from "./purview"
+import Purview from "../purview"
 
 interface AnimationState {
   count: number

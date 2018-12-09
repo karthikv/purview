@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+
+npx tsc -p tsconfig_src.json
+npx parcel build src/browser.ts
