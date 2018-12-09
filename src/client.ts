@@ -27,7 +27,6 @@ export function connectWebSocket(location: Location): WebSocket {
   })
 
   ws.addEventListener("message", messageEvent => {
-    // TODO: validation
     const message = tryParseJSON<ServerMessage>(messageEvent.data)
 
     switch (message.type) {
