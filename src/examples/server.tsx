@@ -1,14 +1,10 @@
 import * as http from "http"
 import * as fs from "fs"
 import * as streamLib from "stream"
-import * as pathLib from "path"
 import * as urlLib from "url"
 
 import Purview from "../purview"
 import App from "./app"
-
-const BROWSER_JS = "browser.js"
-const BROWSER_JS_PATH = pathLib.join(__dirname, "..", "dist", BROWSER_JS)
 
 const server = http.createServer(async (req, res) => {
   if (!req.url) {
@@ -29,7 +25,7 @@ const server = http.createServer(async (req, res) => {
             <div id="root">
               ${Purview.render(<App />)}
             </div>
-            <script src="/${BROWSER_JS}"></script>
+            <script src="/script.js"></script>
           </body>
         </html>
       `
@@ -38,8 +34,8 @@ const server = http.createServer(async (req, res) => {
       res.end(html)
       break
 
-    case `/${BROWSER_JS}`:
-      const readStream = fs.createReadStream(BROWSER_JS_PATH)
+    case `/script.js`:
+      const readStream = fs.createReadStream(Purview.scriptPath)
       res.setHeader("Content-type", "application/javascript")
       streamLib.pipeline(readStream, res)
       break

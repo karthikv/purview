@@ -11,19 +11,26 @@
   },
   "main": "dist/purview.js",
   "types": "dist/purview.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
+    "@types/express": "^4.16.0",
     "@types/jest": "^23.3.1",
     "@types/jsdom": "^11.12.0",
     "@types/morphdom": "^2.3.0",
     "@types/nanoid": "^1.2.0",
     "@types/node": "^10.5.2",
+    "@types/sequelize": "^4.27.33",
     "@types/ws": "^6.0.1",
+    "express": "^4.16.4",
     "jest": "^23.4.2",
     "merge": "^1.2.1",
     "nodemon": "^1.18.6",
     "parcel": "^1.10.0",
     "prettier": "^1.13.7",
+    "sequelize": "^4.41.2",
+    "sqlite3": "^4.0.4",
     "ts-jest": "^23.1.2",
     "tslint": "^5.10.0",
     "tslint-config-prettier": "^1.13.0",
@@ -43,7 +50,7 @@
   },
   "nodemonConfig": {
     "watch": [
-      "build"
+      "dist"
     ]
   },
   "jest": {

@@ -54,7 +54,7 @@ export default class extends Purview.Component<{}, AppState> {
         <button onClick={this.toggleAnimation}>Toggle Animation</button>
         {animation}
 
-        <Counter initialCount={89} />
+        <Counter />
         <input type="text" />
         <input type="text" forceValue="value" />
         <br />
@@ -106,7 +106,6 @@ export default class extends Purview.Component<{}, AppState> {
         <textarea forceValue="foo" />
 
         {help}
-        <Counter initialCount={0} />
         <button onClick={this.toggleHelp}>Toggle Help</button>
       </div>
     )

@@ -1,4 +1,5 @@
 import * as http from "http"
+import * as pathLib from "path"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import { JSDOM } from "jsdom"
@@ -42,7 +43,7 @@ interface Handler {
 
 interface Root {
   component: Component<any, any>
-  mounted: boolean
+  dirtyComponents: Set<Component<any, any>>
   wsState?: WebSocketState
   eventNames: Set<string>
   handlers: { [key: string]: Handler }
@@ -182,7 +183,6 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
 
         root.wsState = wsState
         root.component._triggerMount()
-        root.mounted = true
 
         wsState.roots.push(root)
         root.eventNames.forEach(name => {
@@ -190,6 +190,8 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
             newEventNames.add(name)
           }
         })
+
+        root.dirtyComponents.forEach(c => c._handleUpdate())
       })
 
       sendMessage(wsState.ws, {
@@ -242,7 +244,7 @@ export function render(jsx: JSX.Element): string {
   const component = makeComponent(jsx)
   roots[component._id] = {
     component,
-    mounted: false,
+    dirtyComponents: new Set(),
     handlers: {},
     eventNames: new Set(),
     aliases: {},
@@ -281,7 +283,7 @@ function makeElem(
     parent._newChildMap[key].push(component)
 
     const finalElem = makeComponentElem(component, rootID)
-    if (!existing && roots[rootID] && roots[rootID].mounted) {
+    if (!existing && roots[rootID] && roots[rootID].wsState) {
       // Child components have already been mounted recursively. We don't call
       // _triggerMount() because that would recursively call componentDidMount()
       // on children again.
@@ -424,23 +426,30 @@ function makeComponentElem(
   if (!component._handleUpdate) {
     component._handleUpdate = () => {
       const root = roots[rootID]
-      if (root && root.wsState) {
-        const newElem = makeComponentElem(component, rootID)
-        const newEventNames = new Set()
-
-        root.eventNames.forEach(name => {
-          if (!(root.wsState as WebSocketState).seenEventNames.has(name)) {
-            newEventNames.add(name)
-          }
-        })
-
-        sendMessage(root.wsState.ws, {
-          type: "update",
-          componentID: unalias(component._id, root),
-          html: newElem.outerHTML,
-          newEventNames: Array.from(newEventNames),
-        })
+      if (!root) {
+        return
       }
+
+      if (!root.wsState) {
+        root.dirtyComponents.add(component)
+        return
+      }
+
+      const newElem = makeComponentElem(component, rootID)
+      const newEventNames = new Set()
+
+      root.eventNames.forEach(name => {
+        if (!(root.wsState as WebSocketState).seenEventNames.has(name)) {
+          newEventNames.add(name)
+        }
+      })
+
+      sendMessage(root.wsState.ws, {
+        type: "update",
+        componentID: unalias(component._id, root),
+        html: newElem.outerHTML,
+        newEventNames: Array.from(newEventNames),
+      })
     }
   }
 
@@ -472,15 +481,26 @@ function unalias(id: string, root: Root): string {
   return id
 }
 
-export { Component, StatelessComponent }
+export { Component }
+export const scriptPath = pathLib.resolve(
+  __dirname,
+  "..",
+  "dist",
+  "bundle",
+  "browser.js",
+)
 
+// Export all values above on the default object as well.
 export default {
   createElem,
   handleWebSocket,
   render,
   Component,
+  scriptPath,
 }
 
+// Export relevant types.
+export { StatelessComponent }
 export {
   InputEvent,
   ChangeEvent,
