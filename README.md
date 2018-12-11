@@ -1,4 +1,7 @@
 # Purview
+[![Linux build status][semaphore-img]][semaphore-url]
+[![Windows build status][appveyor-img]][appveyor-url]
+
 What if your React components ran on the server-side? The server renders
 components to HTML, sending it to the client. The client renders HTML and
 notifies the server of DOM events.
@@ -192,6 +195,10 @@ development team.
 ## License
 Purview is [MIT licensed](LICENSE).
 
+[semaphore-img]: https://semaphoreci.com/api/v1/karthikv/purview/branches/master/badge.svg
+[semaphore-url]: https://semaphoreci.com/karthikv/purview
+[appveyor-img]: https://img.shields.io/appveyor/ci/karthikv/purview/master.svg?label=windows
+[appveyor-url]: https://ci.appveyor.com/project/karthikv/purview
 [paint]: https://developers.google.com/web/tools/lighthouse/audits/first-meaningful-paint
 [key]: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key
 [disabled]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#disabled
