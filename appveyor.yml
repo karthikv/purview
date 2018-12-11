@@ -6,6 +6,6 @@ install:
   - ps: Install-Product node $env:nodejs_version
   - npm install
 test_script:
-  - bin/lint
-  - bin/test
+  - bin\lint
+  - bin\test
 build: off
