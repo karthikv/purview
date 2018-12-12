@@ -1,2 +1,2 @@
 @echo off
-npx jest -- "$@"
+npx jest -- %*
