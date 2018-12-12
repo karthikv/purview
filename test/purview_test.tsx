@@ -751,6 +751,30 @@ test("invalid event names", async () => {
   })
 })
 
+test("dirty components", async () => {
+  class Foo extends Purview.Component<{}, { text: string }> {
+    constructor(props: {}) {
+      super(props)
+      this.state = { text: "foo" }
+
+      // Update state right away, before the websocket connects. We should still
+      // receive an update message thanks to our tracking of dirty components.
+      process.nextTick(() => this.setState({ text: "bar" }))
+    }
+
+    render(): JSX.Element {
+      return <p>{this.state.text}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const message = (await conn.messages.next()) as UpdateMessage
+    expect(message.type).toBe("update")
+    expect(message.componentID).toBe(conn.rootID)
+    expect(parseHTML(message.html).textContent).toBe("bar")
+  })
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (
