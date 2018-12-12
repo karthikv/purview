@@ -3,6 +3,13 @@ import { isInput, isOption, isSelect, isTextArea } from "./helpers"
 
 const selectedValues = new WeakMap()
 const morphOpts = {
+  getNodeKey(node: Node): string | null {
+    if (node instanceof HTMLElement) {
+      return node.getAttribute("data-key") || node.id
+    }
+    return null
+  },
+
   onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
     if (
       isInput(from) &&

@@ -1,7 +1,7 @@
 import { JSDOM } from "jsdom"
 
-const { document } = new JSDOM().window
-Object.assign(global, { document })
+const { document, HTMLElement } = new JSDOM().window
+Object.assign(global, { document, HTMLElement })
 
 import Purview from "../src/purview"
 import morph from "../src/morph"
@@ -57,6 +57,29 @@ test("morph select multiple", async () => {
   expect((newSelect.children[0] as HTMLOptionElement).selected).toBe(true)
   expect((newSelect.children[1] as HTMLOptionElement).selected).toBe(true)
   expect((newSelect.children[2] as HTMLOptionElement).selected).toBe(false)
+})
+
+test("morph key", async () => {
+  const ul = populate(
+    <ul>
+      <li data-key="1">1</li>
+      <li data-key="2">2</li>
+      <li data-key="3">3</li>
+    </ul>,
+  )
+  ;(ul.children[1] as any).original = true
+
+  const to = toElem(
+    <ul>
+      <li data-key="2">2</li>
+      <li data-key="3">3</li>
+    </ul>,
+  )
+  morph(ul, to)
+
+  // Because of its key, the li object shouldn't have changed.
+  const li = document.body.querySelector("li[data-key='2']") as Element
+  expect((li as any).original).toBe(true)
 })
 
 function populate(jsx: JSX.Element): Element {

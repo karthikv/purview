@@ -123,6 +123,10 @@ export function createElem(
     delete attributes.forceChecked
   }
 
+  if (attributes.key) {
+    ;(attributes as any)["data-key"] = attributes.key
+  }
+
   Object.keys(attributes).forEach(key => {
     const value = (attributes as any)[key]
     if (value === null || value === undefined || value === false) {

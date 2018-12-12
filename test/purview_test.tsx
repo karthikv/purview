@@ -109,6 +109,11 @@ test("createElem falsy attributes", () => {
   expect(div.attributes).toEqual({ class: "" })
 })
 
+test("createElem key", () => {
+  const div = <div key="foo" />
+  expect((div.attributes as any)["data-key"]).toEqual("foo")
+})
+
 test("render simple", () => {
   class Foo extends Purview.Component<{}, {}> {
     render(): JSX.Element {
