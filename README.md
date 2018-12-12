@@ -2,7 +2,7 @@
 [![Linux build status][semaphore-img]][semaphore-url]
 [![Windows build status][appveyor-img]][appveyor-url]
 
-What if your React components ran on the server-side? The server renders
+**What if your React components ran on the server-side?** The server renders
 components to HTML, sending it to the client. The client renders HTML and
 notifies the server of DOM events.
 
@@ -11,7 +11,7 @@ contact external services, etc, as they're running exclusively on the server.
 There's no more REST or GraphQL; the RPC interface is abstracted away, and all
 you deal with are standard components, event handlers, and lifecycle events.
 
-```ts
+```tsx
 import Purview from "../purview"
 import * as Sequelize from "sequelize"
 
@@ -65,18 +65,19 @@ export default class extends Purview.Component<{}, { count: number }> {
 1) Write components by extending `Purview.Component`.
 2) Send down (a) the server-rendered HTML of your component and (b) a script tag
 pointing to Purview's client-side JS file.
-  - For (a), call `Purview.render(<Component />)`, where `Component` is your root component, to get the HTML.
-  - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
-    example below) or, in an existing client-side codebase, `import
-    "purview/dist/browser"`.
+    - For (a), call `Purview.render(<Component />)`, where `Component` is your
+      root component, to get the HTML.
+    - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
+      example below) or, in an existing client-side codebase, `import
+      "purview/dist/browser"`.
 3) Handle WebSocket connections by calling `Purview.handleWebSocket(server)`,
 where `server` is an `http.Server` object. If you're using Express, call
 `http.createServer(app)` to a create a server from your `app` object. Then call
 `server.listen()` instead of `app.listen()` to bind your server to a port.
 
-Here's a minimal example:
+Here's a working example:
 
-```ts
+```tsx
 import * as http from "http"
 import Purview, { InputEvent } from "purview"
 import * as express from "express"
@@ -145,10 +146,11 @@ various event types:
 - `onKeyDown`, `onKeyPress`, and `onKeyUp`: The event object is of type
   `KeyEvent = { key: string }`, where `key` is the [key that was pressed][key].
 
-- `onSubmit`: The event object is of type `SubmitEvent = { fields: [key:
-  string]: any }`. `fields` is a mapping of form field names to values. The
-  types of the values are the same as described in the `onChange` event above
-  for various input types.
+- `onSubmit`: The event object is of type `SubmitEvent = { fields: { [key:
+  string]: any } }`. `fields` is a mapping of form field names to values. It is
+  your responsibility to perform validation on `fields` for both the types and
+  values, just as you would do if you were writing a server-side route handler.
+  [class-validator][class-validator] is a helpful library here.
 
 All other event handlers are passed no arguments.
 
@@ -165,17 +167,17 @@ and the user would be unable to modify the value.
 
 If you want to control a form input, use the `forceValue` attribute. This will
 forcibly update the value during each re-render. Note that this doesn't prevent
-the user from changing the input; for that, simply use the [`disabled` attribute][disabled].
+the user from changing the input; for that, simply use the [`disabled`
+attribute][disabled].
 
 Purview does not let you specify a `value` attribute for `select` tags like
 React does. Instead, you must use the `selected` attribute on `option` tags,
 just like you would in regular HTML. In the same vein as `forceValue`, there's
-a `forceSelected` attribute to forcibly updated the selected option on each
+a `forceSelected` attribute to forcibly update the selected option(s) on each
 re-render.
 
 ### Other differences
-In addition to the above differences, Purview also differs from React in the
-following ways:
+In addition to the above, Purview also differs from React in the following ways:
 
 - The only supported lifecycle hooks are `componentDidMount()`,
   `componentWillReceiveProps()`, and `componentWillUnmount()`.
@@ -183,10 +185,10 @@ following ways:
   unsupported.
 
 ## Inspiration
-Phoenix Live View <https://www.youtube.com/watch?v=Z2DU0qLfPIY>
+Phoenix Live View -- https://www.youtube.com/watch?v=Z2DU0qLfPIY
 
 ## Contributors
-Karthik Viswanathan <karthik.ksv@gmail.com>
+Karthik Viswanathan -- karthik.ksv@gmail.com
 
 If you're interested in contributing to Purview, get in touch with me via the
 email above. I'd love to have you help out and potentially join the core
@@ -201,4 +203,5 @@ Purview is [MIT licensed](LICENSE).
 [appveyor-url]: https://ci.appveyor.com/project/karthikv/purview
 [paint]: https://developers.google.com/web/tools/lighthouse/audits/first-meaningful-paint
 [key]: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key
+[class-validator]: https://github.com/typestack/class-validator
 [disabled]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#disabled
