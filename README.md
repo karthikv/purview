@@ -12,7 +12,7 @@ There's no more REST or GraphQL; the RPC interface is abstracted away, and all
 you deal with are standard components, event handlers, and lifecycle events.
 
 ```tsx
-import Purview from "../purview"
+import Purview from "purview"
 import * as Sequelize from "sequelize"
 
 const db = new Sequelize("sqlite:purview.db")
