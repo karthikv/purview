@@ -3,5 +3,6 @@ set -euo pipefail
 SEMVER=${1:-patch}
 
 bin/build
+bin/lint
 bin/test
 npm version "$SEMVER" -m "Release %s"
