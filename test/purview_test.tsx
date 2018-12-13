@@ -114,7 +114,7 @@ test("createElem key", () => {
   expect((div.attributes as any)["data-key"]).toEqual("foo")
 })
 
-test("render simple", () => {
+test("render simple", async () => {
   class Foo extends Purview.Component<{}, {}> {
     render(): JSX.Element {
       return (
@@ -126,7 +126,7 @@ test("render simple", () => {
     }
   }
 
-  const p = parseHTML(Purview.render(<Foo />))
+  const p = parseHTML(await Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
   expect(p.getAttribute("data-root")).toBe("true")
 
@@ -135,7 +135,7 @@ test("render simple", () => {
   expect(img.getAttribute("class")).toEqual("bar")
 })
 
-test("render stateless component", () => {
+test("render stateless component", async () => {
   class Foo extends Purview.Component<{}, {}> {
     render = () => <Bar text="foo" />
   }
@@ -152,13 +152,30 @@ test("render stateless component", () => {
     )
   }
 
-  const p = parseHTML(Purview.render(<Foo />))
+  const p = parseHTML(await Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("foo")
   expect(p.getAttribute("data-root")).toBe("true")
 
   const img = p.childNodes[1] as Element
   expect(img.getAttribute("src")).toEqual("foo")
   expect(img.getAttribute("class")).toEqual("bar")
+})
+
+test("render getInitialState", async () => {
+  class Foo extends Purview.Component<{}, { text: string }> {
+    async getInitialState(): Promise<{ text: string }> {
+      // Simulate some work.
+      await new Promise(resolve => setTimeout(resolve, 10))
+      return { text: "foo" }
+    }
+
+    render(): JSX.Element {
+      return <p>{this.state.text}</p>
+    }
+  }
+
+  const p = parseHTML(await Purview.render(<Foo />))
+  expect(p.textContent).toEqual("foo")
 })
 
 test("render setState", async () => {
@@ -796,7 +813,7 @@ async function renderAndConnect<T>(
   await new Promise(resolve => server.listen(resolve))
 
   Purview.handleWebSocket(server)
-  const elem = parseHTML(Purview.render(jsxElem))
+  const elem = parseHTML(await Purview.render(jsxElem))
   const id = elem.getAttribute("data-component-id")
   if (!id) {
     throw new Error(`Expected component ID, but got: ${id}`)

@@ -11,7 +11,7 @@ import Component, {
 } from "./component"
 import {
   tryParseJSON,
-  eachNested,
+  mapNested,
   isEventAttr,
   toEventName,
   CAPTURE_TEXT,
@@ -240,20 +240,30 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
   }
 }
 
-export function render(jsx: JSX.Element): string {
+export async function render(jsx: JSX.Element): Promise<string> {
   if (!isComponentElem(jsx)) {
     throw new Error("Root element must be a Purview.Component")
   }
 
-  const component = makeComponent(jsx)
-  roots[component._id] = {
-    component,
-    dirtyComponents: new Set(),
-    handlers: {},
-    eventNames: new Set(),
-    aliases: {},
-  }
-  return makeComponentElem(component, component._id).outerHTML
+  return await withComponent(jsx, null, async component => {
+    if (!component) {
+      throw new Error("Expected non-null component")
+    }
+
+    roots[component._id] = {
+      component,
+      dirtyComponents: new Set(),
+      handlers: {},
+      eventNames: new Set(),
+      aliases: {},
+    }
+
+    const elem = await renderComponent(component, component._id)
+    if (!elem) {
+      throw new Error("Expected non-null element")
+    }
+    return elem.outerHTML
+  })
 }
 
 function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
@@ -268,32 +278,37 @@ function isStatelessElem(jsx: JSX.Element): jsx is JSX.StatelessElement {
   return typeof jsx.nodeName === "function" && !isComponentElem(jsx)
 }
 
-function makeElem(
+async function makeElem(
   jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
   parentKey: string,
-): Element {
+): Promise<Element | null> {
   let key: string
   if (isComponentElem(jsx)) {
     key = `${parentKey}/${jsx.nodeName._typeID}`
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
-    const component = makeComponent(jsx, existing)
 
-    if (!parent._newChildMap[key]) {
-      parent._newChildMap[key] = []
-    }
-    parent._newChildMap[key].push(component)
+    return await withComponent(jsx, existing, async component => {
+      if (!component) {
+        return null
+      }
 
-    const finalElem = makeComponentElem(component, rootID)
-    if (!existing && roots[rootID] && roots[rootID].wsState) {
-      // Child components have already been mounted recursively. We don't call
-      // _triggerMount() because that would recursively call componentDidMount()
-      // on children again.
-      component.componentDidMount()
-    }
-    return finalElem
+      if (!parent._newChildMap[key]) {
+        parent._newChildMap[key] = []
+      }
+      parent._newChildMap[key].push(component)
+
+      const finalElem = await renderComponent(component, rootID)
+      if (!existing && roots[rootID] && roots[rootID].wsState) {
+        // Child components have already been mounted recursively. We don't call
+        // _triggerMount() because that would recursively call componentDidMount()
+        // on children again.
+        component.componentDidMount()
+      }
+      return finalElem
+    })
   }
 
   let { nodeName, attributes, children } = jsx
@@ -376,18 +391,23 @@ function makeElem(
   })
 
   if (children) {
-    eachNested(children, child => {
+    const promises = mapNested(children, async child => {
       if (child === null) {
         return
       }
 
-      let node: Node
       if (typeof child === "object") {
-        node = makeElem(child, parent, rootID, key)
+        return await makeElem(child, parent, rootID, key)
       } else {
-        node = document.createTextNode(String(child))
+        return document.createTextNode(String(child))
       }
-      elem.appendChild(node)
+    })
+
+    const nodes = await Promise.all(promises)
+    nodes.forEach(node => {
+      if (node) {
+        elem.appendChild(node)
+      }
     })
   }
 
@@ -400,26 +420,40 @@ function makeElem(
   return elem
 }
 
-function makeComponent<P, S>(
-  { nodeName, attributes, children }: JSX.ComponentElement,
-  existing?: Component<any, any> | null,
-): Component<P, S> {
+async function withComponent<T>(
+  jsx: JSX.ComponentElement,
+  existing: Component<any, any> | null | undefined,
+  callback: (component: Component<any, any> | null) => T,
+): Promise<T> {
+  const { nodeName, attributes, children } = jsx
   const props = Object.assign({ children }, attributes)
-  if (existing) {
-    existing._setProps(props as any)
-    return existing
-  }
-  return new nodeName(props)
+  const component = existing || new nodeName(props)
+
+  return component._lock(async () => {
+    if (component._unmounted) {
+      return callback(null)
+    }
+
+    if (existing) {
+      component._setProps(props as any)
+    } else {
+      await component._initState()
+    }
+    return callback(component)
+  })
 }
 
-function makeComponentElem(
+async function renderComponent(
   component: Component<any, any>,
   rootID: string,
-): Element {
+): Promise<Element | null> {
   component._newChildMap = {}
-  let elem: Element
 
-  elem = makeElem(component.render(), component, rootID, "")
+  const elem = await makeElem(component.render(), component, rootID, "")
+  if (!elem) {
+    return null
+  }
+
   if (component._id === rootID) {
     elem.setAttribute("data-root", "true")
   }
@@ -428,7 +462,7 @@ function makeComponentElem(
   component._childMap = component._newChildMap
 
   if (!component._handleUpdate) {
-    component._handleUpdate = () => {
+    component._handleUpdate = async () => {
       const root = roots[rootID]
       if (!root) {
         return
@@ -439,9 +473,12 @@ function makeComponentElem(
         return
       }
 
-      const newElem = makeComponentElem(component, rootID)
-      const newEventNames = new Set()
+      const newElem = await renderComponent(component, rootID)
+      if (!newElem) {
+        return
+      }
 
+      const newEventNames = new Set()
       root.eventNames.forEach(name => {
         if (!(root.wsState as WebSocketState).seenEventNames.has(name)) {
           newEventNames.add(name)

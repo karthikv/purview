@@ -158,6 +158,15 @@ export function eachNested<T>(
   })
 }
 
+export function mapNested<T, U>(
+  array: NestedArray<T>,
+  callback: (elem: T) => U,
+): U[] {
+  const mapped: U[] = []
+  eachNested(array, e => mapped.push(callback(e)))
+  return mapped
+}
+
 export function toElem({
   nodeName,
   attributes,

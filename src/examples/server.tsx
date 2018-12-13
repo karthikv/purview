@@ -23,7 +23,7 @@ const server = http.createServer(async (req, res) => {
           <body>
             <h1>This is a counter</h1>
             <div id="root">
-              ${Purview.render(<App />)}
+              ${await Purview.render(<App />)}
             </div>
             <script src="/script.js"></script>
           </body>

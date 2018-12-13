@@ -18,21 +18,15 @@ import * as Sequelize from "sequelize"
 const db = new Sequelize("sqlite:purview.db")
 
 export default class extends Purview.Component<{}, { count: number }> {
-  constructor(props: {}) {
-    super(props)
-    this.state = { count: 0 }
-    this.loadCount()
-  }
-
-  async loadCount(): Promise<void> {
+  async getInitialState(): Promise<{ count: number }> {
     // Query the current count from the database.
     const [rows] = await db.query("SELECT count FROM counter LIMIT 1")
-    this.setState({ count: rows[0].count })
+    return { count: rows[0].count }
   }
 
   increment = async () => {
     await db.query("UPDATE counter SET count = count + 1")
-    await this.loadCount()
+    this.setState(await this.getInitialState())
   }
 
   render(): JSX.Element {
@@ -61,12 +55,21 @@ export default class extends Purview.Component<{}, { count: number }> {
 - Your front-end and back-end are both encapsulated into reusable components.
   It's easy to see and modify the functionality of any part of your page.
 
+## Caveats
+- Every event and re-render incurs a network round-trip cost. Applications that
+  require minimal latency (e.g. animations, games) are not well suited for
+  Purview. That being said, many applications are primarily CRUD-based, and
+  hence work well under Purview's architecture.
+- Not React compatible due to the [differences listed
+  below](#differences-from-react), so you can't use existing React
+  components/libraries with Purview.
+
 ## Usage
 1) Write components by extending `Purview.Component`.
 2) Send down (a) the server-rendered HTML of your component and (b) a script tag
 pointing to Purview's client-side JS file.
     - For (a), call `Purview.render(<Component />)`, where `Component` is your
-      root component, to get the HTML.
+      root component, to get a promise with the HTML.
     - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
       example below) or, in an existing client-side codebase, `import
       "purview/dist/browser"`.
@@ -109,10 +112,10 @@ const server = http.createServer(app)
 
 // (2) Send down server-rendered HTML and a script tag with Purview's
 // client-side JavaScript.
-app.get("/", (_, res) => {
+app.get("/", async (_, res) => {
   res.send(`
     <body>
-      ${Purview.render(<Example />)}
+      ${await Purview.render(<Example />)}
       <script src="/script.js"></script>
     </body>
   `)
@@ -126,7 +129,7 @@ server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))
 
 ## Differences from React
 Purview mimics React in many ways, but differs significantly when it comes to
-event handlers and controlled form inputs.
+event handlers, controlled form inputs, and `getInitialState()`.
 
 ### Event handlers
 Because your components run on the server-side, your event handlers are *not*
@@ -175,6 +178,15 @@ React does. Instead, you must use the `selected` attribute on `option` tags,
 just like you would in regular HTML. In the same vein as `forceValue`, there's
 a `forceSelected` attribute to forcibly update the selected option(s) on each
 re-render.
+
+### `getInitialState()`
+Components can define a `getInitialState()` function that returns a promise with
+the initial state of the component. This can be used to e.g. fetch information
+from a database or service prior to the component rendering.
+
+The call to `Purview.render()` returns a promise that resolves once all initial
+state has been fetched and components have been rendered. This prevents the user
+from seeing a flash of empty content before your components load their state.
 
 ### Other differences
 In addition to the above, Purview also differs from React in the following ways:
