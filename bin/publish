@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-rm -r dist
 npm install # updates version in package-lock.json
 bin/build
 npm publish .
