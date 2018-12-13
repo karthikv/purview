@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-npm install # updates version in package-lock.json
-bin/build
 npm publish .
+git push
+git push --tags
