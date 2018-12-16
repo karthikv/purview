@@ -8,10 +8,7 @@ interface AppState {
 }
 
 export default class extends Purview.Component<{}, AppState> {
-  constructor(props: {}) {
-    super(props)
-    this.state = { help: true, animation: false }
-  }
+  state = { help: true, animation: false }
 
   toggleHelp = () => {
     this.setState(state => ({ help: !state.help }))
