@@ -63,17 +63,35 @@ export default class extends Purview.Component<{}, { count: number }> {
 - Not React compatible due to the [differences listed
   below](#differences-from-react), so you can't use existing React
   components/libraries with Purview.
+- You can't directly access the DOM within your components. For example, if you
+  need to attach listeners to `window`, that's currently unsupported.
 
 ## Usage
+1) Set your JSX transform to be `Purview.createElem`. For TypeScript, in your
+tsconfig.json, you can do this like so:
+    ```json
+    {
+      "compilerOptions": {
+        "jsx": "react",
+        "jsxFactory": "Purview.createElem"
+      }
+    }
+    ```
+
+    For other compilers/transpilers, you can use the JSX comment pragma: `/*
+    @jsx Purview.createElem */`.
+
+    You can also reference our [full tsconfig.json](tsconfig.json), which
+    enables various strict TypeScript features that we'd recommend.
 1) Write components by extending `Purview.Component`.
-2) Send down (a) the server-rendered HTML of your component and (b) a script tag
+1) Send down (a) the server-rendered HTML of your component and (b) a script tag
 pointing to Purview's client-side JS file.
     - For (a), call `Purview.render(<Component />)`, where `Component` is your
       root component, to get a promise with the HTML.
     - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
       example below) or, in an existing client-side codebase, `import
       "purview/dist/browser"`.
-3) Handle WebSocket connections by calling `Purview.handleWebSocket(server)`,
+1) Handle WebSocket connections by calling `Purview.handleWebSocket(server)`,
 where `server` is an `http.Server` object. If you're using Express, call
 `http.createServer(app)` to a create a server from your `app` object. Then call
 `server.listen()` instead of `app.listen()` to bind your server to a port.
