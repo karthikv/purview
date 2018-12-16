@@ -15,7 +15,7 @@ declare global {
         | StatelessComponent<any>
         | ComponentConstructor<any, any>
       attributes: T
-      children: NestedArray<Child>
+      children: Child | NestedArray<Child>
     }
     interface StatelessElement<T = HTMLAttributes> extends Element<T> {
       nodeName: StatelessComponent<any>
@@ -661,7 +661,7 @@ declare global {
     export interface HTMLAttributes<T = HTMLElement> extends DOMAttributes {
       // Purview specific
       key?: string | number
-      children?: Child | Child[]
+      children?: Child | NestedArray<Child>
 
       // Standard HTML Attributes
       accessKey?: string

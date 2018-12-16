@@ -17,6 +17,8 @@ import {
   CAPTURE_TEXT,
   isInput,
   isSelect,
+  findNested,
+  eachNested,
 } from "./helpers"
 import { ServerMessage, ClientMessage, EventCallback } from "./types/ws"
 import {
@@ -65,13 +67,14 @@ export function createElem(
   attributes:
     | JSX.InputHTMLAttributes<any> & JSX.TextareaHTMLAttributes<any>
     | null,
-  ...children: JSX.Child[]
+  ...children: NestedArray<JSX.Child>
 ): JSX.Element {
   attributes = attributes || {}
 
   const hasForceSelected =
     nodeName === "select" &&
-    children.find(
+    findNested(
+      children,
       c => isJSXOption(c) && c.attributes.hasOwnProperty("forceSelected"),
     )
 
@@ -94,10 +97,13 @@ export function createElem(
   }
 
   if (hasForceSelected) {
-    children.forEach(c => {
-      if (isJSXOption(c) && c.attributes.hasOwnProperty("forceSelected")) {
-        c.attributes.selected = c.attributes.forceSelected
-        delete c.attributes.forceSelected
+    eachNested(children, child => {
+      if (
+        isJSXOption(child) &&
+        child.attributes.hasOwnProperty("forceSelected")
+      ) {
+        child.attributes.selected = child.attributes.forceSelected
+        delete child.attributes.forceSelected
       }
     })
   }
@@ -134,7 +140,11 @@ export function createElem(
     }
   })
 
-  return { nodeName, attributes, children }
+  if (children.length === 1) {
+    return { nodeName, attributes, children: children[0] }
+  } else {
+    return { nodeName, attributes, children }
+  }
 }
 
 function isJSXOption(
@@ -390,26 +400,27 @@ async function makeElem(
     }
   })
 
-  if (children) {
-    const promises = mapNested(children, async child => {
-      if (child === null) {
-        return
-      }
-
-      if (typeof child === "object") {
-        return await makeElem(child, parent, rootID, key)
-      } else {
-        return document.createTextNode(String(child))
-      }
-    })
-
-    const nodes = await Promise.all(promises)
-    nodes.forEach(node => {
-      if (node) {
-        elem.appendChild(node)
-      }
-    })
+  if (!(children instanceof Array)) {
+    children = [children]
   }
+  const promises = mapNested(children, async child => {
+    if (child === null) {
+      return
+    }
+
+    if (typeof child === "object") {
+      return await makeElem(child, parent, rootID, key)
+    } else {
+      return document.createTextNode(String(child))
+    }
+  })
+
+  const nodes = await Promise.all(promises)
+  nodes.forEach(node => {
+    if (node) {
+      elem.appendChild(node)
+    }
+  })
 
   if (changeHandler) {
     changeHandler.possibleValues = Array.from(

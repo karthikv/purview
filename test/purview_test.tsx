@@ -35,9 +35,9 @@ test("createElem", () => {
   expect(p.nodeName).toBe("p")
   expect(p.attributes).toEqual({})
   expect(p.children).toHaveLength(2)
-  expect(p.children[0]).toBe("A paragraph")
 
-  const img = p.children[1] as JSX.Element
+  const [text, img] = p.children as [string, JSX.Element]
+  expect(text).toBe("A paragraph")
   expect(img.nodeName).toBe("img")
   expect(img.attributes).toEqual({ src: "foo", class: "bar" })
   expect(img.children).toEqual([])
@@ -57,17 +57,17 @@ test("createElem select", () => {
     </select>
   )
   expect(select2.attributes).toEqual({ autocomplete: "off" })
-  expect(select2.children[0]).toHaveProperty("attributes", { selected: true })
+  expect(select2.children).toHaveProperty("attributes", { selected: true })
 })
 
 test("createElem textarea", () => {
   const textarea1 = <textarea value="foo" />
   expect(textarea1.attributes).toEqual({})
-  expect(textarea1.children).toEqual(["foo"])
+  expect(textarea1.children).toEqual("foo")
 
   const textarea2 = <textarea forceValue="foo" />
   expect(textarea2.attributes).toEqual({ autocomplete: "off" })
-  expect(textarea2.children).toEqual(["foo"])
+  expect(textarea2.children).toEqual("foo")
 })
 
 test("createElem checkbox", () => {
@@ -175,6 +175,17 @@ test("render getInitialState", async () => {
   }
 
   const p = parseHTML(await Purview.render(<Foo />))
+  expect(p.textContent).toEqual("foo")
+})
+
+test("render custom children", async () => {
+  class Foo extends Purview.Component<{ children: () => string }, {}> {
+    render(): JSX.Element {
+      return <p>{this.props.children()}</p>
+    }
+  }
+
+  const p = parseHTML(await Purview.render(<Foo>{() => "foo"}</Foo>))
   expect(p.textContent).toEqual("foo")
 })
 

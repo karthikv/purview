@@ -158,6 +158,20 @@ export function eachNested<T>(
   })
 }
 
+export function findNested<T>(
+  array: NestedArray<T>,
+  callback: (elem: T) => boolean,
+): T | null {
+  for (const elem of array) {
+    if (elem instanceof Array) {
+      findNested(elem, callback)
+    } else if (callback(elem)) {
+      return elem
+    }
+  }
+  return null
+}
+
 export function mapNested<T, U>(
   array: NestedArray<T>,
   callback: (elem: T) => U,
@@ -183,6 +197,9 @@ export function toElem({
     }
   }
 
+  if (!(children instanceof Array)) {
+    children = [children]
+  }
   eachNested(children, child => {
     if (isJSXChild(child)) {
       elem.appendChild(toElem(child))
