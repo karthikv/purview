@@ -49,7 +49,7 @@ const server = http.createServer(async (req, res) => {
 
 Purview.handleWebSocket(server)
 
-const port = 2597
+const port = 8000
 const host = "127.0.0.1"
 
 /* tslint:disable no-console */
