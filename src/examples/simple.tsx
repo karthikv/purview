@@ -21,11 +21,9 @@ class Example extends Purview.Component<{}, { text: string }> {
   }
 }
 
-const app = express()
-const server = http.createServer(app)
-
 // (2) Send down server-rendered HTML and a script tag with Purview's
 // client-side JavaScript.
+const app = express()
 app.get("/", async (_, res) => {
   res.send(`
     <body>
@@ -37,6 +35,7 @@ app.get("/", async (_, res) => {
 app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
 
 // (3) Handle WebSocket connections.
+const server = http.createServer(app)
 Purview.handleWebSocket(server)
 /* tslint:disable no-console */
 server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))

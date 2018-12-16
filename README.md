@@ -3,13 +3,14 @@
 [![Windows build status][appveyor-img]][appveyor-url]
 
 **What if your React components ran on the server-side?** The server renders
-components to HTML, sending it to the client. The client renders HTML and
+components to HTML and sends it to the client. The client renders HTML and
 notifies the server of DOM events.
 
 With this architecture, your components can directly make database queries,
 contact external services, etc, as they're running exclusively on the server.
-There's no more REST or GraphQL; the RPC interface is abstracted away, and all
-you deal with are standard components, event handlers, and lifecycle events.
+There's no more REST or GraphQL; the client-server interface is abstracted away,
+and all you deal with are standard components, event handlers, and lifecycle
+events.
 
 ```tsx
 import Purview from "purview"
@@ -122,11 +123,10 @@ class Example extends Purview.Component<{}, { text: string }> {
   }
 }
 
-const app = express()
-const server = http.createServer(app)
 
 // (2) Send down server-rendered HTML and a script tag with Purview's
 // client-side JavaScript.
+const app = express()
 app.get("/", async (_, res) => {
   res.send(`
     <body>
@@ -138,6 +138,7 @@ app.get("/", async (_, res) => {
 app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
 
 // (3) Handle WebSocket connections.
+const server = http.createServer(app)
 Purview.handleWebSocket(server)
 server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))
 ```
@@ -206,7 +207,7 @@ from seeing a flash of empty content before your components load their state.
 ### Other differences
 In addition to the above, Purview also differs from React in the following ways:
 
-- The only supported lifecycle hooks are `componentDidMount()`,
+- The only supported lifecycle methods are `componentDidMount()`,
   `componentWillReceiveProps()`, and `componentWillUnmount()`.
 - Context, refs, fragments, error boundaries, portals, and hooks are
   unsupported.
