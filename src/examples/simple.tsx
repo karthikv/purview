@@ -5,10 +5,7 @@ import * as express from "express"
 // (1) Write components by extending Purview.Component. The two type parameters
 // are the types of the props and state, respectively.
 class Example extends Purview.Component<{}, { text: string }> {
-  constructor(props: {}) {
-    super(props)
-    this.state = { text: "" }
-  }
+  state = { text: "" }
 
   handleInput = (event: InputEvent<string>) => {
     this.setState({ text: event.value })
