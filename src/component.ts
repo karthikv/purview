@@ -31,7 +31,7 @@ abstract class Component<P, S> {
   public _childMap: ChildMap = {}
   public _newChildMap: ChildMap = {}
   public _handleUpdate: () => Promise<void>
-  public _unmounted: boolean = false
+  public _unmounted = false
 
   // This is set outside of the class and is used to disambiguate stateless
   // functions from Purview components. We can't set it here because it'll

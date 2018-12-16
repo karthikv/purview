@@ -181,9 +181,10 @@ test("render getInitialState", async () => {
 test("render setState", async () => {
   let instance: Foo = null as any
   class Foo extends Purview.Component<{}, { text: string }> {
+    state = { text: "hi" }
+
     constructor(props: {}) {
       super(props)
-      this.state = { text: "hi" }
       instance = this
     }
 
@@ -207,11 +208,7 @@ test("render setState", async () => {
 
 test("render event", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
-    constructor(props: {}) {
-      super(props)
-      this.state = { text: "hi" }
-    }
-
+    state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
     render(): JSX.Element {
@@ -236,11 +233,7 @@ test("render event", async () => {
 
 test("render event capture", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
-    constructor(props: {}) {
-      super(props)
-      this.state = { text: "hi" }
-    }
-
+    state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
     render(): JSX.Element {
@@ -269,10 +262,7 @@ test("render input/change event", async () => {
   let changeValue: string[]
 
   class Foo extends Purview.Component<{}, {}> {
-    constructor(props: {}) {
-      super(props)
-      this.state = {}
-    }
+    state = {}
 
     handleInput = (event: InputEvent) => (inputValue = event.value)
     handleCheckbox = (event: InputEvent<boolean>) =>
@@ -360,11 +350,7 @@ test("render input/change event", async () => {
 test("render keydown event", async () => {
   let key: string
   class Foo extends Purview.Component<{}, {}> {
-    constructor(props: {}) {
-      super(props)
-      this.state = {}
-    }
-
+    state = {}
     handleKeyDown = (event: KeyEvent) => (key = event.key)
 
     render(): JSX.Element {
@@ -402,11 +388,7 @@ test("render keydown event", async () => {
 test("render submit event", async () => {
   let fields: { [key: string]: any }
   class Foo extends Purview.Component<{}, {}> {
-    constructor(props: {}) {
-      super(props)
-      this.state = {}
-    }
-
+    state = {}
     handleSubmit = (event: SubmitEvent) => (fields = event.fields)
 
     render(): JSX.Element {
@@ -443,11 +425,7 @@ test("render submit event", async () => {
 
 test("render retain state", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
-    constructor(props: {}) {
-      super(props)
-      this.state = { text: "hi" }
-    }
-
+    state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
     render(): JSX.Element {
@@ -511,9 +489,10 @@ test("render retain state", async () => {
 test("render directly nested", async () => {
   let foo: Foo = null as any
   class Foo extends Purview.Component<{}, { text: string }> {
+    state = { text: "" }
+
     constructor(props: {}) {
       super(props)
-      this.state = { text: "" }
       foo = this
     }
 
@@ -528,9 +507,10 @@ test("render directly nested", async () => {
 
   let bar: Bar = null as any
   class Bar extends Purview.Component<{}, { count: number }> {
+    state = { count: 0 }
+
     constructor(props: {}) {
       super(props)
-      this.state = { count: 0 }
       bar = this
     }
 
@@ -576,9 +556,10 @@ test("componentDidMount", async () => {
 test("nested mount cycle", async () => {
   let instance: Foo = null as any
   class Foo extends Purview.Component<{}, { on: boolean }> {
+    state = { on: false }
+
     constructor(props: {}) {
       super(props)
-      this.state = { on: false }
       instance = this
     }
 
@@ -656,9 +637,10 @@ test("componentWillReceiveProps", async () => {
   let receivedProps: { count: number } | null = null
 
   class Foo extends Purview.Component<{}, { count: number }> {
+    state = { count: 0 }
+
     constructor(props: {}) {
       super(props)
-      this.state = { count: 0 }
       instance = this
     }
 
@@ -689,9 +671,10 @@ test("event names", async () => {
   let instance: Foo = null as any
 
   class Foo extends Purview.Component<{}, { enabled: boolean }> {
+    state = { enabled: false }
+
     constructor(props: {}) {
       super(props)
-      this.state = { enabled: false }
       instance = this
     }
 
@@ -733,9 +716,10 @@ test("invalid event names", async () => {
   let instance: Foo = null as any
 
   class Foo extends Purview.Component<{}, { enabled: boolean }> {
+    state = { enabled: false }
+
     constructor(props: {}) {
       super(props)
-      this.state = { enabled: false }
       instance = this
     }
 
@@ -775,9 +759,10 @@ test("invalid event names", async () => {
 
 test("dirty components", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
+    state = { text: "foo" }
+
     constructor(props: {}) {
       super(props)
-      this.state = { text: "foo" }
 
       // Update state right away, before the websocket connects. We should still
       // receive an update message thanks to our tracking of dirty components.
