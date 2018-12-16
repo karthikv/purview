@@ -43,7 +43,7 @@ export default class extends Purview.Component<{}, { count: number }> {
 ## Benefits
 - Make database queries, contact external services, etc. directly within your
   components, with no need for REST or GraphQL.
-- Extensive type-checking: Comprehensive [JSX typings](src/types/jsx.d.ts)
+- Extensive type-checking: Comprehensive [JSX typings](src/types/jsx.ts)
   ensure that your HTML tags/attributes, event handlers, component props, etc.
   are all statically type-checked, courtesy of TypeScript.
 - Server-side rendering is the default, so you get fast [time to first
