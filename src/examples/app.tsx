@@ -1,5 +1,4 @@
 import Purview from "../purview"
-import Counter from "./counter"
 import Animation from "./animation"
 
 interface AppState {
@@ -51,7 +50,6 @@ export default class extends Purview.Component<{}, AppState> {
         <button onClick={this.toggleAnimation}>Toggle Animation</button>
         {animation}
 
-        <Counter />
         <input type="text" />
         <input type="text" forceValue="value" />
         <br />

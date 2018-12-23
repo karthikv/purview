@@ -12,21 +12,23 @@ There's no more REST or GraphQL; the client-server interface is abstracted away,
 and all you deal with are standard components, event handlers, and lifecycle
 events.
 
+Below is a snippet of an example; see [full example code here](#example).
+
 ```tsx
 import Purview from "purview"
 import * as Sequelize from "sequelize"
 
 const db = new Sequelize("sqlite:purview.db")
 
-export default class extends Purview.Component<{}, { count: number }> {
+class Counter extends Purview.Component<{}, { count: number }> {
   async getInitialState(): Promise<{ count: number }> {
     // Query the current count from the database.
-    const [rows] = await db.query("SELECT count FROM counter LIMIT 1")
+    const [rows] = await db.query("SELECT count FROM counters LIMIT 1")
     return { count: rows[0].count }
   }
 
   increment = async () => {
-    await db.query("UPDATE counter SET count = count + 1")
+    await db.query("UPDATE counters SET count = count + 1")
     this.setState(await this.getInitialState())
   }
 
@@ -67,7 +69,11 @@ export default class extends Purview.Component<{}, { count: number }> {
 - You can't directly access the DOM within your components. For example, if you
   need to attach listeners to `window`, that's currently unsupported.
 
-## Usage
+## Installation
+1) Install with npm:
+    ```bash
+    $ npm install purview
+    ```
 1) Set your JSX transform to be `Purview.createElem`. For TypeScript, in your
 tsconfig.json, you can do this like so:
     ```json
@@ -84,6 +90,8 @@ tsconfig.json, you can do this like so:
 
     You can also reference our [full tsconfig.json](tsconfig.json), which
     enables various strict TypeScript features that we'd recommend.
+
+## Usage
 1) Write components by extending `Purview.Component`.
 1) Send down (a) the server-rendered HTML of your component and (b) a script tag
 pointing to Purview's client-side JS file.
@@ -97,50 +105,66 @@ where `server` is an `http.Server` object. If you're using Express, call
 `http.createServer(app)` to a create a server from your `app` object. Then call
 `server.listen()` instead of `app.listen()` to bind your server to a port.
 
-Here's a working example:
-
+## Example - Counter
 ```tsx
+import Purview from "purview"
+import * as Sequelize from "sequelize"
 import * as http from "http"
-import Purview, { InputEvent } from "purview"
 import * as express from "express"
+
+const db = new Sequelize("sqlite:purview.db")
 
 // (1) Write components by extending Purview.Component. The two type parameters
 // are the types of the props and state, respectively.
-class Example extends Purview.Component<{}, { text: string }> {
-  state = { text: "" }
+class Counter extends Purview.Component<{}, { count: number }> {
+  async getInitialState(): Promise<{ count: number }> {
+    // Query the current count from the database.
+    const [rows] = await db.query("SELECT count FROM counters LIMIT 1")
+    return { count: rows[0].count }
+  }
 
-  handleInput = (event: InputEvent<string>) => {
-    this.setState({ text: event.value })
+  increment = async () => {
+    await db.query("UPDATE counters SET count = count + 1")
+    this.setState(await this.getInitialState())
   }
 
   render(): JSX.Element {
     return (
       <div>
-        <input type="text" onInput={this.handleInput} />
-        <p>You typed: {this.state.text}</p>
+        <p>The count is {this.state.count}</p>
+        <button onClick={this.increment}>Click to increment</button>
       </div>
     )
   }
 }
 
+async function startServer(): Promise<void> {
+  // (2) Send down server-rendered HTML and a script tag with Purview's
+  // client-side JavaScript.
+  const app = express()
+  app.get("/", async (_, res) => {
+    res.send(`
+      <body>
+        ${await Purview.render(<Counter />)}
+        <script src="/script.js"></script>
+      </body>
+    `)
+  })
+  app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
 
-// (2) Send down server-rendered HTML and a script tag with Purview's
-// client-side JavaScript.
-const app = express()
-app.get("/", async (_, res) => {
-  res.send(`
-    <body>
-      ${await Purview.render(<Example />)}
-      <script src="/script.js"></script>
-    </body>
-  `)
-})
-app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
+  // (3) Handle WebSocket connections.
+  const server = http.createServer(app)
+  Purview.handleWebSocket(server)
 
-// (3) Handle WebSocket connections.
-const server = http.createServer(app)
-Purview.handleWebSocket(server)
-server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))
+  // Reset database and insert our initial counter.
+  db.define("counter", { count: Sequelize.INTEGER }, { timestamps: false })
+  await db.sync({ force: true })
+  await db.query("INSERT INTO counters (count) VALUES (0)")
+
+  server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))
+}
+
+startServer()
 ```
 
 ## Differences from React
