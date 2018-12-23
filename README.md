@@ -12,7 +12,7 @@ There's no more REST or GraphQL; the client-server interface is abstracted away,
 and all you deal with are standard components, event handlers, and lifecycle
 events.
 
-Below is a snippet of an example; see [full example code here](#example).
+Below is a snippet of an example; see [full example code here](#usage).
 
 ```tsx
 import Purview from "purview"
@@ -105,7 +105,8 @@ where `server` is an `http.Server` object. If you're using Express, call
 `http.createServer(app)` to a create a server from your `app` object. Then call
 `server.listen()` instead of `app.listen()` to bind your server to a port.
 
-## Example - Counter
+Below is a full working example:
+
 ```tsx
 import Purview from "purview"
 import * as Sequelize from "sequelize"
