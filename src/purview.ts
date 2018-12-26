@@ -510,12 +510,20 @@ async function renderComponent(
   // data-component-id attribute, but keep track of the mapping in our aliases
   // map. This lets us send the proper ID in update messages to the client (see
   // the _handleUpdate function above).
+  //
+  // It's possible for componentID to equal component._id if this is the second
+  // time we're rendering a nested component, since the nested component will
+  // reflect the parent component's ID due to the unaliasing further below. We
+  // don't add an alias in this case to avoid cyles.
   const componentID = elem.getAttribute("data-component-id")
-  if (componentID) {
-    roots[rootID].aliases[componentID] = component._id
+  const id = component._id
+  if (componentID && componentID !== id) {
+    roots[rootID].aliases[componentID] = id
   }
 
-  elem.setAttribute("data-component-id", component._id)
+  // We may re-render a directly nested component without re-rendering the
+  // parent. In this case, we have to unalias to use the parent component's ID.
+  elem.setAttribute("data-component-id", unalias(id, roots[rootID]))
   return elem
 }
 

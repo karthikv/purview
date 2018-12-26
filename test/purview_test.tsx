@@ -536,13 +536,19 @@ test("render directly nested", async () => {
     expect(message1.type).toBe("update")
     // Since Foo and Bar should share the same component ID.
     expect(message1.componentID).toBe(conn.rootID)
-    expect(parseHTML(message1.html).textContent).toBe("1")
+
+    const p1 = parseHTML(message1.html)
+    expect(p1.getAttribute("data-component-id")).toBe(conn.rootID)
+    expect(p1.textContent).toBe("1")
 
     await foo.setState({ text: "hello" })
     const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
-    expect(parseHTML(message2.html).textContent).toBe("hello")
+
+    const p2 = parseHTML(message2.html)
+    expect(p2.getAttribute("data-component-id")).toBe(conn.rootID)
+    expect(p2.textContent).toBe("hello")
   })
 })
 
