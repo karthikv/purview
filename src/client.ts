@@ -1,5 +1,5 @@
 import { tryParseJSON, parseHTML, isSelect, isInput } from "./helpers"
-import morph from "./morph"
+import { initMorph, morph } from "./morph"
 import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
 export function connectWebSocket(location: Location): WebSocket {
@@ -23,6 +23,8 @@ export function connectWebSocket(location: Location): WebSocket {
     const rootIDs = rootElems.map(elem => {
       return elem.getAttribute("data-component-id") as string
     })
+
+    rootElems.forEach(initMorph)
     sendMessage(ws, { type: "connect", rootIDs })
   })
 

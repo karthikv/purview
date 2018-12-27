@@ -9,17 +9,10 @@ interface AppState {
 export default class extends Purview.Component<{}, AppState> {
   state = { help: true, animation: false }
 
-  toggleHelp = () => {
-    this.setState(state => ({ help: !state.help }))
-  }
-
-  toggleAnimation = () => {
-    this.setState(state => ({ animation: !state.animation }))
-  }
+  toggleHelp = () => this.setState(state => ({ help: !state.help }))
 
   render(): JSX.Element {
     const help = this.state.help ? <p>This is some help text</p> : null
-    const animation = this.state.animation ? <Animation /> : null
 
     return (
       <div>
@@ -47,8 +40,7 @@ export default class extends Purview.Component<{}, AppState> {
           }
         `}</style>
 
-        <button onClick={this.toggleAnimation}>Toggle Animation</button>
-        {animation}
+        <Animation />
 
         <input type="text" />
         <input type="text" forceValue="value" />

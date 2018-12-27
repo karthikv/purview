@@ -1,2 +1,2 @@
 #!/bin/bash
-npx jest -- "$@"
+npx jest "$@"

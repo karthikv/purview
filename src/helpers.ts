@@ -212,20 +212,20 @@ export function toElem({
   return elem
 }
 
-export function isInput(elem: HTMLElement): elem is HTMLInputElement {
-  return elem.nodeName === "INPUT"
+export function isInput(node: Node): node is HTMLInputElement {
+  return node.nodeName === "INPUT"
 }
 
-export function isOption(elem: HTMLElement): elem is HTMLOptionElement {
-  return elem.nodeName === "OPTION"
+export function isOption(node: Node): node is HTMLOptionElement {
+  return node.nodeName === "OPTION"
 }
 
-export function isSelect(elem: HTMLElement): elem is HTMLSelectElement {
-  return elem.nodeName === "SELECT"
+export function isSelect(node: Node): node is HTMLSelectElement {
+  return node.nodeName === "SELECT"
 }
 
-export function isTextArea(elem: HTMLElement): elem is HTMLTextAreaElement {
-  return elem.nodeName === "TEXTAREA"
+export function isTextArea(node: Node): node is HTMLTextAreaElement {
+  return node.nodeName === "TEXTAREA"
 }
 
 function isJSXChild(child: JSX.Child): child is JSX.Element {

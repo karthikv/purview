@@ -4,7 +4,7 @@ const { document, HTMLElement } = new JSDOM().window
 Object.assign(global, { document, HTMLElement })
 
 import Purview from "../src/purview"
-import morph from "../src/morph"
+import { initMorph, morph } from "../src/morph"
 import { toElem } from "../src/helpers"
 
 test("morph", () => {
@@ -32,6 +32,15 @@ test("morph text input value", () => {
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hey")
+})
+
+test("morph text input forceValue undefined", () => {
+  const input = populate(<input type="text" />) as HTMLInputElement
+  input.value = "Hello"
+  morph(input, toElem(<input type="text" forceValue={undefined} />))
+
+  const newInput = document.querySelector("input") as HTMLInputElement
+  expect(newInput.value).toBe("Hello")
 })
 
 test("morph select multiple", async () => {
@@ -82,9 +91,35 @@ test("morph key", async () => {
   expect((li as any).original).toBe(true)
 })
 
+test("morph retains other changes", async () => {
+  const div = populate(
+    <div>
+      <p>Hello</p>
+      <a href="#">Link</a>
+    </div>,
+  )
+  const span = document.createElement("span")
+  span.textContent = "Bye"
+  div.insertBefore(span, div.children[1])
+
+  const to = toElem(
+    <div>
+      <p>Hello there</p>
+      <a href="#">Link</a>
+      <br />
+    </div>,
+  )
+  morph(div, to)
+
+  const tags = Array.from(div.children).map(c => c.nodeName.toLowerCase())
+  expect(tags).toEqual(["p", "span", "a", "br"])
+  expect(div.children[1].textContent).toBe("Bye")
+})
+
 function populate(jsx: JSX.Element): Element {
-  document.body.innerHTML = ""
   const elem = toElem(jsx)
+  document.body.innerHTML = ""
   document.body.appendChild(elem)
+  initMorph(elem)
   return elem
 }

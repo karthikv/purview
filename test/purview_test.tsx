@@ -56,7 +56,10 @@ test("createElem select", () => {
       <option forceSelected>First</option>
     </select>
   )
-  expect(select2.attributes).toEqual({ autocomplete: "off" })
+  expect(select2.attributes).toEqual({
+    autocomplete: "off",
+    "data-controlled": true,
+  })
   expect(select2.children).toHaveProperty("attributes", { selected: true })
 })
 
@@ -66,7 +69,10 @@ test("createElem textarea", () => {
   expect(textarea1.children).toEqual("foo")
 
   const textarea2 = <textarea forceValue="foo" />
-  expect(textarea2.attributes).toEqual({ autocomplete: "off" })
+  expect(textarea2.attributes).toEqual({
+    autocomplete: "off",
+    "data-controlled": true,
+  })
   expect(textarea2.children).toEqual("foo")
 })
 
@@ -81,6 +87,7 @@ test("createElem checkbox", () => {
   expect(checkbox3.attributes).toEqual({
     type: "checkbox",
     autocomplete: "off",
+    "data-controlled": true,
     checked: true,
   })
 
@@ -88,6 +95,7 @@ test("createElem checkbox", () => {
   expect(checkbox4.attributes).toEqual({
     type: "checkbox",
     autocomplete: "off",
+    "data-controlled": true,
   })
 })
 
@@ -99,6 +107,7 @@ test("createElem input", () => {
   expect(input2.attributes).toEqual({
     type: "text",
     autocomplete: "off",
+    "data-controlled": true,
     value: "foo",
   })
 })

@@ -1,6 +1,4 @@
 import * as http from "http"
-import * as fs from "fs"
-import * as streamLib from "stream"
 import * as urlLib from "url"
 
 import Purview from "../purview"
@@ -25,19 +23,13 @@ const server = http.createServer(async (req, res) => {
             <div id="root">
               ${await Purview.render(<App />)}
             </div>
-            <script src="/script.js"></script>
+            <script src="http://localhost:8080/browser.js"></script>
           </body>
         </html>
       `
 
       res.setHeader("Content-type", "text/html")
       res.end(html)
-      break
-
-    case `/script.js`:
-      const readStream = fs.createReadStream(Purview.scriptPath)
-      res.setHeader("Content-type", "application/javascript")
-      streamLib.pipeline(readStream, res)
       break
 
     default:

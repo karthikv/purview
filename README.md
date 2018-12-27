@@ -54,7 +54,7 @@ class Counter extends Purview.Component<{}, { count: number }> {
 - Persistent two-way WebSocket connections allow the server to trigger updates
   at any time. You can push realtime changes from your database or external
   services directly to the client with a simple call to `this.setState()`.
-- Client-side DOM diffing for efficient updates.
+- Client-side virtual DOM diffing for efficient updates.
 - Your front-end and back-end are both encapsulated into reusable components.
   It's easy to see and modify the functionality of any part of your page.
 

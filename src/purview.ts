@@ -94,6 +94,7 @@ export function createElem(
   // we set autocomplete to off. The same applies to selects and textareas.
   if (hasForceSelected || hasForceValue || hasForceChecked) {
     attributes.autocomplete = "off"
+    ;(attributes as any)["data-controlled"] = true
   }
 
   if (hasForceSelected) {

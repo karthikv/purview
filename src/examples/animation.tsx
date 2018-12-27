@@ -1,13 +1,14 @@
 import Purview from "../purview"
 
 interface AnimationState {
+  visible: boolean
   count: number
   step: number
 }
 
 export default class extends Purview.Component<{}, AnimationState> {
   interval: NodeJS.Timer
-  state = { count: 0, step: 0.5 }
+  state = { visible: false, count: 0, step: 0.5 }
 
   componentDidMount(): void {
     this.interval = setInterval(this.next, 1000 / 60)
@@ -17,13 +18,9 @@ export default class extends Purview.Component<{}, AnimationState> {
     clearInterval(this.interval)
   }
 
-  next = () => {
-    this.setState(state => ({ count: state.count + state.step }))
-  }
-
-  flip = () => {
-    this.setState(state => ({ step: -state.step }))
-  }
+  toggle = () => this.setState(state => ({ visible: !state.visible }))
+  next = () => this.setState(state => ({ count: state.count + state.step }))
+  flip = () => this.setState(state => ({ step: -state.step }))
 
   render(): JSX.Element {
     const barCount = 80
@@ -49,9 +46,19 @@ export default class extends Purview.Component<{}, AnimationState> {
       bars.push(<div class="bar" style={style} />)
     }
 
+    let wave = null
+    if (this.state.visible) {
+      wave = (
+        <div onClick={this.flip} class="animated-sin-wave">
+          {bars}
+        </div>
+      )
+    }
+
     return (
-      <div onClick={this.flip} class="animated-sin-wave">
-        {bars}
+      <div>
+        <button onClick={this.toggle}>Toggle Animation</button>
+        {wave}
       </div>
     )
   }

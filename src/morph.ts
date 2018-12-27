@@ -1,63 +1,114 @@
-import morphdom = require("morphdom")
-import { isInput, isOption, isSelect, isTextArea } from "./helpers"
+import * as snabbdom from "snabbdom"
+import { VNode } from "snabbdom/vnode"
+import toVNode from "snabbdom/tovnode"
+import setAttrsMod from "snabbdom/modules/attributes"
+import { isInput, isOption, isTextArea } from "./helpers"
 
-const selectedValues = new WeakMap()
-const morphOpts = {
-  getNodeKey(node: Node): string | null {
-    if (node instanceof HTMLElement) {
-      return node.getAttribute("data-key") || node.id
-    }
-    return null
-  },
+declare global {
+  interface Node {
+    _vNode: VNode
+  }
+}
 
-  onBeforeElUpdated(from: HTMLElement, to: HTMLElement): boolean {
-    if (
-      isInput(from) &&
-      isInput(to) &&
-      to.getAttribute("autocomplete") !== "off"
-    ) {
-      to.checked = from.checked
-      to.value = from.value
-    }
+const controlInputsMod = {
+  update(_: VNode, to: VNode): void {
+    const elem = to.elm
+    const attrs = to.data && to.data.attrs
 
-    if (
-      isTextArea(from) &&
-      isTextArea(to) &&
-      to.getAttribute("autocomplete") !== "off"
-    ) {
-      to.value = from.value
+    if (!elem || !attrs) {
+      return
     }
 
-    if (isSelect(from) && isSelect(to)) {
-      selectedValues.delete(to)
-
-      if (to.getAttribute("autocomplete") !== "off") {
-        if (to.hasAttribute("multiple")) {
-          const values = Array.from(from.querySelectorAll("option"))
-            .filter(option => option.selected)
-            .map(option => option.value)
-          selectedValues.set(to, values)
-        } else {
-          selectedValues.set(to, [from.value])
-        }
+    if (isInput(elem) && attrs["data-controlled"] === "true") {
+      // If the user explicitly specifies forceValue={undefined}, attrs.value
+      // will be undefined, and we don't want to set the value.
+      if (attrs.hasOwnProperty("value")) {
+        elem.value = String(attrs.value)
       }
+
+      // Note that the checked attribute won't be set if it was false in JSX, so
+      // we need to do this even if attrs doesn't have this property.
+      elem.checked = Boolean(attrs.checked)
     }
 
-    if (isOption(from) && isOption(to) && to.parentNode) {
-      const values = selectedValues.get(to.parentNode)
-      if (values) {
-        if (values.includes(to.value)) {
-          to.setAttribute("selected", "true")
-        } else {
-          to.removeAttribute("selected")
-        }
-      }
+    if (
+      isOption(elem) &&
+      elem.parentElement &&
+      elem.parentElement.getAttribute("data-controlled") === "true"
+    ) {
+      // Note that the checked attribute won't be set if it was false in JSX, so
+      // we need to do this even if attrs doesn't have this property.
+      elem.selected = Boolean(attrs.selected)
     }
 
-    return true
+    if (isTextArea(elem) && attrs["data-controlled"] === "true") {
+      elem.value = elem.textContent || ""
+    }
   },
 }
 
-export default function morph(from: Node, to: Node): void {
-  morphdom(from, to, morphOpts)
+function trackSubtree(_: VNode, to: VNode): void {
+  const attrs = to.data && to.data.attrs
+  if (attrs && attrs["data-component-id"] && to.elm) {
+    to.elm._vNode = to
+  }
+}
+
+const trackSubtreeMod = {
+  create: trackSubtree,
+  update: trackSubtree,
+
+  destroy(vNode: VNode): void {
+    if (vNode.elm && vNode.elm._vNode) {
+      delete vNode.elm._vNode
+    }
+  },
+}
+
+const patch = snabbdom.init([setAttrsMod, controlInputsMod, trackSubtreeMod])
+
+export function initMorph(node: Node): void {
+  virtualize(node, true)
+}
+
+export function morph(from: Node, to: Node): void {
+  const parentVNode = from.parentElement && from.parentElement._vNode
+  let childIndex
+  if (parentVNode && parentVNode.children && from._vNode) {
+    childIndex = parentVNode.children.findIndex(c => c === from._vNode)
+  }
+
+  const vNode = virtualize(to, false)
+  const newVNode = patch(from._vNode, vNode)
+
+  if (childIndex && childIndex !== -1) {
+    parentVNode!.children![childIndex] = newVNode
+  }
+}
+
+function virtualize(node: Node, hydrate: boolean): VNode {
+  const vNode = toVNode(node)
+  walk(vNode, v => {
+    if (hydrate && v.elm) {
+      v.elm._vNode = v
+    } else {
+      delete v.elm
+    }
+
+    if (v.data && v.data.attrs && v.data.attrs["data-key"]) {
+      v.key = v.data.attrs["data-key"] as string
+    }
+  })
+  return vNode
+}
+
+function walk(vNode: VNode, callback: (v: VNode) => void): void {
+  callback(vNode)
+  if (vNode.children) {
+    vNode.children.forEach(child => {
+      if (typeof child !== "string") {
+        walk(child, callback)
+      }
+    })
+  }
 }

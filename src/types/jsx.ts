@@ -566,6 +566,8 @@ declare global {
 
     export interface SelectHTMLAttributes<T> extends HTMLAttributes<T> {
       autoFocus?: boolean
+      autoComplete?: string
+      autocomplete?: string
       disabled?: boolean
       form?: string
       multiple?: boolean

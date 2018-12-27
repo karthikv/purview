@@ -3,4 +3,4 @@ set -euo pipefail
 
 rm -r dist
 npx tsc -p tsconfig_src.json
-npx parcel build -d dist/bundle src/browser.ts
+BUILD_PROD=true npx webpack
