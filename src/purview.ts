@@ -312,7 +312,9 @@ async function makeElem(
       parent._newChildMap[key].push(component)
 
       const finalElem = await renderComponent(component, rootID)
-      if (!existing && roots[rootID] && roots[rootID].wsState) {
+      const wsState = roots[rootID] && roots[rootID].wsState
+
+      if (!existing && wsState && wsState.connected) {
         // Child components have already been mounted recursively. We don't call
         // _triggerMount() because that would recursively call componentDidMount()
         // on children again.
