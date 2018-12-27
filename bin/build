@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-rm -r dist
+rm -r dist > /dev/null 2>&1 || true
 npx tsc -p tsconfig_src.json
 BUILD_PROD=true npx webpack
