@@ -658,7 +658,13 @@ declare global {
       width?: number | string
     }
 
-    export type Child = string | number | JSX.Element | null
+    export type Child =
+      | string
+      | number
+      | boolean
+      | null
+      | undefined
+      | JSX.Element
 
     export interface HTMLAttributes<T = HTMLElement> extends DOMAttributes {
       // Purview specific

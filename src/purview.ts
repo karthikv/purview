@@ -138,12 +138,15 @@ export function createElem(
     ;(attributes as any)["data-ignore-children"] = true
   }
 
-  Object.keys(attributes).forEach(key => {
-    const value = (attributes as any)[key]
-    if (value === null || value === undefined || value === false) {
-      delete (attributes as any)[key]
-    }
-  })
+  // Remove falsy attributes from intrinsic elements.
+  if (typeof nodeName === "string") {
+    Object.keys(attributes).forEach(key => {
+      const value = (attributes as any)[key]
+      if (value === null || value === undefined || value === false) {
+        delete (attributes as any)[key]
+      }
+    })
+  }
 
   if (children.length === 1) {
     return { nodeName, attributes, children: children[0] }
@@ -415,7 +418,7 @@ async function makeElem(
     children = [children]
   }
   const promises = mapNested(children, async child => {
-    if (child === null) {
+    if (child === null || child === undefined || child === false) {
       return
     }
 

@@ -112,10 +112,22 @@ test("createElem input", () => {
   })
 })
 
-test("createElem falsy attributes", () => {
+test("createElem intrinsic falsy attributes", () => {
   const props = { foo: false, bar: null, baz: undefined, class: "" }
   const div = <div {...props} />
   expect(div.attributes).toEqual({ class: "" })
+})
+
+test("createElem component falsy attributes", () => {
+  const props = { foo: false, bar: null, baz: undefined, class: "" }
+  const Foo: StatelessComponent<any> = () => <div />
+  const foo = <Foo {...props} />
+  expect(foo.attributes).toEqual({
+    foo: false,
+    bar: null,
+    baz: undefined,
+    class: "",
+  })
 })
 
 test("createElem key", () => {
@@ -146,13 +158,15 @@ test("render simple", async () => {
 
 test("render stateless component", async () => {
   class Foo extends Purview.Component<{}, {}> {
-    render = () => <Bar text="foo" />
+    render(): JSX.Element {
+      return <Bar text="foo" />
+    }
   }
 
   interface BarProps {
     text: string
   }
-  const Bar: StatelessComponent<BarProps> = (props: BarProps) => {
+  const Bar: StatelessComponent<BarProps> = props => {
     return (
       <p>
         {props.text}
@@ -168,6 +182,21 @@ test("render stateless component", async () => {
   const img = p.childNodes[1] as Element
   expect(img.getAttribute("src")).toEqual("foo")
   expect(img.getAttribute("class")).toEqual("bar")
+})
+
+test("render special content", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return (
+        <p>
+          true: {true}, false: {false}, null: {null}, undefined: {undefined}
+        </p>
+      )
+    }
+  }
+
+  const p = parseHTML(await Purview.render(<Foo />))
+  expect(p.textContent).toBe("true: true, false: , null: , undefined: ")
 })
 
 test("render getInitialState", async () => {
