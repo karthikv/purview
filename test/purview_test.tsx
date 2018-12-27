@@ -367,6 +367,44 @@ test("render input/change event", async () => {
   })
 })
 
+test("render change event other element", async () => {
+  let value: number
+  class Foo extends Purview.Component<{}, {}> {
+    state = {}
+    handleChange = (event: ChangeEvent<any>) => (value = event.value)
+
+    render(): JSX.Element {
+      return <div onChange={this.handleChange} />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const invalidEvent: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-change") as string,
+      event: { foo: 3 } as any,
+    }
+    conn.ws.send(JSON.stringify(invalidEvent))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(value).toBe(undefined)
+
+    const event: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.getAttribute("data-change") as string,
+      event: { value: 3 },
+    }
+    conn.ws.send(JSON.stringify(event))
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(value).toBe((event.event as ChangeEvent).value)
+  })
+})
+
 test("render keydown event", async () => {
   let key: string
   class Foo extends Purview.Component<{}, {}> {
