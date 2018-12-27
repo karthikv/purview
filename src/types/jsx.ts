@@ -664,6 +664,7 @@ declare global {
       // Purview specific
       key?: string | number
       children?: Child | NestedArray<Child>
+      ignoreChildren?: boolean
 
       // Standard HTML Attributes
       accessKey?: string

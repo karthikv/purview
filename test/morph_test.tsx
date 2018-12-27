@@ -116,6 +116,26 @@ test("morph retains other changes", async () => {
   expect(div.children[1].textContent).toBe("Bye")
 })
 
+test("morph ignoreChildren", () => {
+  const div = populate(
+    <div ignoreChildren={true}>
+      <p>Hello</p>
+    </div>,
+  )
+
+  const to = toElem(
+    <div ignoreChildren={true}>
+      <span>Span</span>
+    </div>,
+  )
+  morph(div, to)
+
+  const p = div.children[0]
+  expect(p).toBeTruthy()
+  expect(p.nodeName).toBe("P")
+  expect(p.textContent).toBe("Hello")
+})
+
 function populate(jsx: JSX.Element): Element {
   const elem = toElem(jsx)
   document.body.innerHTML = ""

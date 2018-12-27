@@ -95,8 +95,14 @@ function virtualize(node: Node, hydrate: boolean): VNode {
       delete v.elm
     }
 
-    if (v.data && v.data.attrs && v.data.attrs["data-key"]) {
-      v.key = v.data.attrs["data-key"] as string
+    const attrs = v.data && v.data.attrs
+    if (attrs) {
+      if (attrs["data-key"]) {
+        v.key = attrs["data-key"] as string
+      }
+      if (attrs["data-ignore-children"] === "true") {
+        v.children = []
+      }
     }
   })
   return vNode

@@ -134,6 +134,10 @@ export function createElem(
     ;(attributes as any)["data-key"] = attributes.key
   }
 
+  if (attributes.ignoreChildren) {
+    ;(attributes as any)["data-ignore-children"] = true
+  }
+
   Object.keys(attributes).forEach(key => {
     const value = (attributes as any)[key]
     if (value === null || value === undefined || value === false) {
