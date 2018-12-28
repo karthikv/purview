@@ -253,7 +253,7 @@ test("key event", async () => {
   })
 })
 
-test("submit event", async () => {
+test.only("submit event", async () => {
   document.body.innerHTML = `
     <form data-root="true" data-component-id="foo" data-submit="bar">
       <input name="input" value="input-value" />
@@ -295,8 +295,12 @@ test("submit event", async () => {
     await conn.messages.next()
 
     const event = new window.Event("submit", { bubbles: true })
+    const preventDefault = jest.fn()
+    event.preventDefault = preventDefault
+
     const form = document.body.querySelector("form") as HTMLFormElement
     form.dispatchEvent(event)
+    expect(preventDefault).toBeCalled()
 
     // Capture event should be triggered first.
     const message = (await conn.messages.next()) as EventMessage

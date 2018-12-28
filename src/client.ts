@@ -93,6 +93,10 @@ function handleEvent(
       }
 
       let triggerElem = target.closest(`[${attr}]`)
+      if (triggerElem && eventName === "submit") {
+        event.preventDefault()
+      }
+
       while (triggerElem) {
         let rootID = elemRootIDs.get(triggerElem)
 
