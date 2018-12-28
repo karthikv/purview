@@ -195,7 +195,7 @@ various event types:
   your responsibility to perform validation on `fields` for both the types and
   values, just as you would do if you were writing a server-side route handler.
   [class-validator][class-validator] is a helpful library here.
-  
+
   When you add an `onSubmit` handler, the default action of the submit event is
   automatically prevented (i.e. via `event.preventDefault()`). This stops the
   browser from navigating to a different page.
