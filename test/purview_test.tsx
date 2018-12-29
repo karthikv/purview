@@ -859,7 +859,7 @@ test("dirty components", async () => {
 
       // Update state right away, before the websocket connects. We should still
       // receive an update message thanks to our tracking of dirty components.
-      process.nextTick(() => this.setState({ text: "bar" }))
+      setImmediate(() => this.setState({ text: "bar" }))
     }
 
     render(): JSX.Element {
@@ -872,6 +872,64 @@ test("dirty components", async () => {
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
     expect(parseHTML(message.html).textContent).toBe("bar")
+  })
+})
+
+test("child map ordering", async () => {
+  let foo: Foo
+  class Foo extends Purview.Component<{}, {}> {
+    state = {}
+
+    constructor(props: {}) {
+      super(props)
+      foo = this
+    }
+
+    render(): JSX.Element {
+      return (
+        <div>
+          <Bar key="first" />
+          <Bar key="second" />
+        </div>
+      )
+    }
+  }
+
+  let keyChanged = false
+  let firstBar: Bar
+  class Bar extends Purview.Component<{ key: string }, {}> {
+    state = {}
+
+    constructor(props: { key: string }) {
+      super(props)
+      if (props.key === "first") {
+        firstBar = this
+      }
+    }
+
+    componentWillReceiveProps(newProps: { key: string }): void {
+      if (newProps.key !== this.props.key) {
+        keyChanged = true
+      }
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    // Attempt to force reordering of the two <Bar /> elements in the child map
+    // by locking the first.
+    await firstBar._lock(async () => {
+      foo.setState({})
+      await new Promise(resolve => setTimeout(resolve, 25))
+    })
+    await conn.messages.next()
+
+    // Now re-render and confirm the ordering hasn't changed.
+    await foo.setState({})
+    expect(keyChanged).toBe(false)
   })
 })
 

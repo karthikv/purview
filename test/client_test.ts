@@ -253,7 +253,7 @@ test("key event", async () => {
   })
 })
 
-test.only("submit event", async () => {
+test("submit event", async () => {
   document.body.innerHTML = `
     <form data-root="true" data-component-id="foo" data-submit="bar">
       <input name="input" value="input-value" />

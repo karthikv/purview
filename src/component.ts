@@ -9,8 +9,8 @@ export interface ComponentConstructor<P, S> {
   new (props: P): Component<P, S>
 }
 
-interface ChildMap {
-  [key: string]: Array<Component<any, any>>
+export interface ChildMap<T = Component<any, any>> {
+  [key: string]: T[]
 }
 
 interface Component<P, S> {
@@ -29,7 +29,7 @@ abstract class Component<P, S> {
 
   public _id: string
   public _childMap: ChildMap = {}
-  public _newChildMap: ChildMap = {}
+  public _newChildMap: ChildMap<Component<any, any> | null> = {}
   public _handleUpdate: () => Promise<void>
   public _unmounted = false
 
@@ -67,7 +67,7 @@ abstract class Component<P, S> {
     }
 
     this._changesets.push(changes)
-    await new Promise(resolve => process.nextTick(resolve))
+    await new Promise(resolve => setImmediate(resolve))
 
     return this._lock(async () => {
       if (this._unmounted || this._changesets.length === 0) {

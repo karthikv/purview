@@ -8,6 +8,7 @@ import * as t from "io-ts"
 import Component, {
   StatelessComponent,
   ComponentConstructor,
+  ChildMap,
 } from "./component"
 import {
   tryParseJSON,
@@ -308,16 +309,20 @@ async function makeElem(
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
 
+    if (!parent._newChildMap[key]) {
+      parent._newChildMap[key] = []
+    }
+
+    // Retain the ordering of child elements by saving the index here.
+    const index = parent._newChildMap[key].length
+    parent._newChildMap[key].push(null)
+
     return await withComponent(jsx, existing, async component => {
       if (!component) {
         return null
       }
 
-      if (!parent._newChildMap[key]) {
-        parent._newChildMap[key] = []
-      }
-      parent._newChildMap[key].push(component)
-
+      parent._newChildMap[key][index] = component
       const finalElem = await renderComponent(component, rootID)
       const wsState = roots[rootID] && roots[rootID].wsState
 
@@ -484,7 +489,14 @@ async function renderComponent(
   }
 
   unmountChildren(component)
-  component._childMap = component._newChildMap
+
+  const newChildMap: ChildMap = {}
+  Object.keys(component._newChildMap).forEach(key => {
+    newChildMap[key] = component._newChildMap[key].filter(
+      c => c !== null,
+    ) as Array<Component<any, any>>
+  })
+  component._childMap = newChildMap
 
   if (!component._handleUpdate) {
     component._handleUpdate = async () => {
