@@ -4,3 +4,4 @@ node_modules/
 build/
 dist/
 purview.db
+tmp/
