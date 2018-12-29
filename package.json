@@ -1,6 +1,6 @@
 {
   "name": "purview",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Server-side component framework",
   "author": "Karthik Viswanathan",
   "license": "MIT",
