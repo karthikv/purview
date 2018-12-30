@@ -5,7 +5,7 @@ Object.assign(global, { document, HTMLElement })
 
 import Purview from "../src/purview"
 import { initMorph, morph } from "../src/morph"
-import { toElem } from "../src/helpers"
+import { toElem, parseHTML } from "../src/helpers"
 
 test("morph", () => {
   const div = populate(<div>foo</div>)
@@ -149,6 +149,14 @@ test("morph nested", () => {
   morph(li, toElem(<li>Foo</li>))
   morph(li, toElem(<li>Foo</li>))
   expect(li.textContent).toBe("Foo")
+})
+
+// Many methods of parsing HTML fail with tds, since they're required to be
+// inside tr elements.
+test("parseHTML td", () => {
+  const td = parseHTML(toElem(<td>foo</td>).outerHTML)
+  expect(td.nodeName).toBe("TD")
+  expect(td.textContent).toBe("foo")
 })
 
 function populate(jsx: JSX.Element): Element {
