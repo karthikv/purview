@@ -136,6 +136,21 @@ test("morph ignoreChildren", () => {
   expect(p.textContent).toBe("Hello")
 })
 
+test("morph nested", () => {
+  const div = populate(
+    <div>
+      <ul>
+        <li />
+      </ul>
+    </div>,
+  )
+
+  const li = div.querySelector("li")!
+  morph(li, toElem(<li>Foo</li>))
+  morph(li, toElem(<li>Foo</li>))
+  expect(li.textContent).toBe("Foo")
+})
+
 function populate(jsx: JSX.Element): Element {
   const elem = toElem(jsx)
   document.body.innerHTML = ""

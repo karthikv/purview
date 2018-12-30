@@ -48,8 +48,7 @@ const controlInputsMod = {
 }
 
 function trackSubtree(_: VNode, to: VNode): void {
-  const attrs = to.data && to.data.attrs
-  if (attrs && attrs["data-component-id"] && to.elm) {
+  if (to.elm) {
     to.elm._vNode = to
   }
 }
