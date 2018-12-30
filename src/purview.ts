@@ -131,16 +131,19 @@ export function createElem(
     delete attributes.forceChecked
   }
 
-  if (attributes.key) {
-    ;(attributes as any)["data-key"] = attributes.key
-  }
-
-  if (attributes.ignoreChildren) {
-    ;(attributes as any)["data-ignore-children"] = true
-  }
-
-  // Remove falsy attributes from intrinsic elements.
+  // For intrinsic elements, change special attributes to data-* equivalents and
+  // remove falsy attributes.
   if (typeof nodeName === "string") {
+    if (attributes.key) {
+      ;(attributes as any)["data-key"] = attributes.key
+      delete attributes.key
+    }
+
+    if (attributes.ignoreChildren) {
+      ;(attributes as any)["data-ignore-children"] = true
+      delete attributes.ignoreChildren
+    }
+
     Object.keys(attributes).forEach(key => {
       const value = (attributes as any)[key]
       if (value === null || value === undefined || value === false) {

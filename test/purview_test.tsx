@@ -131,8 +131,15 @@ test("createElem component falsy attributes", () => {
 })
 
 test("createElem key", () => {
-  const div = <div key="foo" />
+  const div: JSX.Element<JSX.HTMLAttributes> = <div key="foo" />
+  expect(div.attributes.key).toBeUndefined()
   expect((div.attributes as any)["data-key"]).toEqual("foo")
+})
+
+test("createElem ignoreChildren", () => {
+  const div: JSX.Element<JSX.HTMLAttributes> = <div ignoreChildren={true} />
+  expect(div.attributes.ignoreChildren).toBeUndefined()
+  expect((div.attributes as any)["data-ignore-children"]).toEqual(true)
 })
 
 test("render simple", async () => {
