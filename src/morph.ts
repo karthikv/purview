@@ -56,12 +56,6 @@ function trackSubtree(_: VNode, to: VNode): void {
 const trackSubtreeMod = {
   create: trackSubtree,
   update: trackSubtree,
-
-  destroy(vNode: VNode): void {
-    if (vNode.elm && vNode.elm._vNode) {
-      delete vNode.elm._vNode
-    }
-  },
 }
 
 const patch = snabbdom.init([setAttrsMod, controlInputsMod, trackSubtreeMod])
