@@ -82,6 +82,19 @@ export function morph(from: Node, to: Node): void {
 function virtualize(node: Node, hydrate: boolean): VNode {
   const vNode = toVNode(node)
   walk(vNode, v => {
+    // The id and classes are included in selectors by default. This means that
+    // we'll create a new node if the id or classes change. We want to avoid
+    // this and use the existing node so long as it has the same tag name.
+    if (v.elm instanceof HTMLElement) {
+      v.sel = v.elm.nodeName.toLowerCase()
+      if (v.elm.hasAttribute("id")) {
+        v.data!.attrs!.id = v.elm.getAttribute("id") as string
+      }
+      if (v.elm.hasAttribute("class")) {
+        v.data!.attrs!.class = v.elm.getAttribute("class") as string
+      }
+    }
+
     if (hydrate && v.elm) {
       v.elm._vNode = v
     } else {

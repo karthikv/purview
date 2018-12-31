@@ -171,6 +171,40 @@ test("morph first child", () => {
   expect(p.textContent).toBe("Bar")
 })
 
+test("morph id doesn't create node", () => {
+  const div = populate(
+    <div>
+      <p id="foo">Foo</p>
+    </div>,
+  )
+  const p = div.children[0]!
+  ;(p as any).original = true
+
+  morph(p, toElem(<p id="bar">Bar</p>))
+
+  const newP = div.children[0]!
+  expect((newP as any).original).toBe(true)
+  expect((newP as any).getAttribute("id")).toBe("bar")
+  expect((newP as any).textContent).toBe("Bar")
+})
+
+test("morph class doesn't create node", () => {
+  const div = populate(
+    <div>
+      <p class="foo">Foo</p>
+    </div>,
+  )
+  const p = div.children[0]!
+  ;(p as any).original = true
+
+  morph(p, toElem(<p class="bar">Bar</p>))
+
+  const newP = div.children[0]!
+  expect((newP as any).original).toBe(true)
+  expect((newP as any).getAttribute("class")).toBe("bar")
+  expect((newP as any).textContent).toBe("Bar")
+})
+
 // Many methods of parsing HTML fail with tds, since they're required to be
 // inside tr elements.
 test("parseHTML td", () => {
