@@ -74,7 +74,7 @@ export function morph(from: Node, to: Node): void {
   const vNode = virtualize(to, false)
   const newVNode = patch(from._vNode, vNode)
 
-  if (childIndex && childIndex !== -1) {
+  if (childIndex !== undefined && childIndex > -1) {
     parentVNode!.children![childIndex] = newVNode
   }
 }

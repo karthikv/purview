@@ -151,6 +151,26 @@ test("morph nested", () => {
   expect(li.textContent).toBe("Foo")
 })
 
+test("morph first child", () => {
+  const div = populate(
+    <div>
+      <p>Foo</p>
+    </div>,
+  )
+  morph(div.children[0]!, toElem(<p />))
+
+  const to = toElem(
+    <div>
+      <p>Bar</p>
+    </div>,
+  )
+  morph(div, to)
+
+  const p = div.children[0]!
+  expect(p.nodeName).toBe("P")
+  expect(p.textContent).toBe("Bar")
+})
+
 // Many methods of parsing HTML fail with tds, since they're required to be
 // inside tr elements.
 test("parseHTML td", () => {
