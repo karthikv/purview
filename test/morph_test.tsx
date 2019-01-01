@@ -5,11 +5,11 @@ Object.assign(global, { document, HTMLElement })
 
 import Purview from "../src/purview"
 import { initMorph, morph } from "../src/morph"
-import { toElem, parseHTML } from "../src/helpers"
+import { virtualize, parseHTML, concretize } from "../src/helpers"
 
 test("morph", () => {
   const div = populate(<div>foo</div>)
-  morph(div, toElem(<p class="bar">Hello</p>))
+  morph(div, virtualize(<p class="bar">Hello</p>))
 
   const p = document.body.querySelector("p") as Element
   expect(p.getAttribute("class")).toBe("bar")
@@ -19,7 +19,7 @@ test("morph", () => {
 test("morph checkbox", () => {
   const input = populate(<input type="checkbox" />) as HTMLInputElement
   input.checked = true
-  morph(input, toElem(<input type="checkbox" />))
+  morph(input, virtualize(<input type="checkbox" />))
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.checked).toBe(true)
@@ -28,7 +28,7 @@ test("morph checkbox", () => {
 test("morph text input value", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
-  morph(input, toElem(<input type="text" forceValue="Hey" />))
+  morph(input, virtualize(<input type="text" forceValue="Hey" />))
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hey")
@@ -37,7 +37,7 @@ test("morph text input value", () => {
 test("morph text input forceValue undefined", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
-  morph(input, toElem(<input type="text" forceValue={undefined} />))
+  morph(input, virtualize(<input type="text" forceValue={undefined} />))
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hello")
@@ -53,7 +53,7 @@ test("morph select multiple", async () => {
   ;(select.children[0] as HTMLOptionElement).selected = true
   ;(select.children[1] as HTMLOptionElement).selected = true
 
-  const to = toElem(
+  const to = virtualize(
     <select multiple>
       <option>Foo</option>
       <option>Bar</option>
@@ -78,7 +78,7 @@ test("morph key", async () => {
   )
   ;(ul.children[1] as any).original = true
 
-  const to = toElem(
+  const to = virtualize(
     <ul>
       <li data-key="2">2</li>
       <li data-key="3">3</li>
@@ -102,7 +102,7 @@ test("morph retains other changes", async () => {
   span.textContent = "Bye"
   div.insertBefore(span, div.children[1])
 
-  const to = toElem(
+  const to = virtualize(
     <div>
       <p>Hello there</p>
       <a href="#">Link</a>
@@ -123,7 +123,7 @@ test("morph ignoreChildren", () => {
     </div>,
   )
 
-  const to = toElem(
+  const to = virtualize(
     <div ignoreChildren={true}>
       <span>Span</span>
     </div>,
@@ -146,8 +146,8 @@ test("morph nested", () => {
   )
 
   const li = div.querySelector("li")!
-  morph(li, toElem(<li>Foo</li>))
-  morph(li, toElem(<li>Foo</li>))
+  morph(li, virtualize(<li>Foo</li>))
+  morph(li, virtualize(<li>Foo</li>))
   expect(li.textContent).toBe("Foo")
 })
 
@@ -157,9 +157,9 @@ test("morph first child", () => {
       <p>Foo</p>
     </div>,
   )
-  morph(div.children[0]!, toElem(<p />))
+  morph(div.children[0]!, virtualize(<p />))
 
-  const to = toElem(
+  const to = virtualize(
     <div>
       <p>Bar</p>
     </div>,
@@ -180,7 +180,7 @@ test("morph id doesn't create node", () => {
   const p = div.children[0]!
   ;(p as any).original = true
 
-  morph(p, toElem(<p id="bar">Bar</p>))
+  morph(p, virtualize(<p id="bar">Bar</p>))
 
   const newP = div.children[0]!
   expect((newP as any).original).toBe(true)
@@ -197,7 +197,7 @@ test("morph class doesn't create node", () => {
   const p = div.children[0]!
   ;(p as any).original = true
 
-  morph(p, toElem(<p class="bar">Bar</p>))
+  morph(p, virtualize(<p class="bar">Bar</p>))
 
   const newP = div.children[0]!
   expect((newP as any).original).toBe(true)
@@ -208,13 +208,13 @@ test("morph class doesn't create node", () => {
 // Many methods of parsing HTML fail with tds, since they're required to be
 // inside tr elements.
 test("parseHTML td", () => {
-  const td = parseHTML(toElem(<td>foo</td>).outerHTML)
+  const td = parseHTML("<td>foo</td>")
   expect(td.nodeName).toBe("TD")
   expect(td.textContent).toBe("foo")
 })
 
 function populate(jsx: JSX.Element): Element {
-  const elem = toElem(jsx)
+  const elem = concretize(virtualize(jsx))
   document.body.innerHTML = ""
   document.body.appendChild(elem)
   initMorph(elem)

@@ -9,13 +9,12 @@ import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import Purview, {
-  StatelessComponent,
   InputEvent,
   ChangeEvent,
   KeyEvent,
   SubmitEvent,
 } from "../src/purview"
-import { parseHTML } from "../src/helpers"
+import { parseHTML, concretize } from "../src/helpers"
 import {
   UpdateMessage,
   EventMessage,
@@ -120,7 +119,12 @@ test("createElem intrinsic falsy attributes", () => {
 
 test("createElem component falsy attributes", () => {
   const props = { foo: false, bar: null, baz: undefined, class: "" }
-  const Foo: StatelessComponent<any> = () => <div />
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
   const foo = <Foo {...props} />
   expect(foo.attributes).toEqual({
     foo: false,
@@ -156,34 +160,6 @@ test("render simple", async () => {
 
   const p = parseHTML(await Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
-  expect(p.getAttribute("data-root")).toBe("true")
-
-  const img = p.childNodes[1] as Element
-  expect(img.getAttribute("src")).toEqual("foo")
-  expect(img.getAttribute("class")).toEqual("bar")
-})
-
-test("render stateless component", async () => {
-  class Foo extends Purview.Component<{}, {}> {
-    render(): JSX.Element {
-      return <Bar text="foo" />
-    }
-  }
-
-  interface BarProps {
-    text: string
-  }
-  const Bar: StatelessComponent<BarProps> = props => {
-    return (
-      <p>
-        {props.text}
-        <img src="foo" class="bar" />
-      </p>
-    )
-  }
-
-  const p = parseHTML(await Purview.render(<Foo />))
-  expect(p.childNodes[0].textContent).toEqual("foo")
   expect(p.getAttribute("data-root")).toBe("true")
 
   const img = p.childNodes[1] as Element
@@ -256,7 +232,7 @@ test("render setState", async () => {
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
 
-    const p = parseHTML(message.html)
+    const p = concretize(message.vNode)
     expect(p.textContent).toBe("hello")
     expect(p.getAttribute("data-root")).toBe("true")
   })
@@ -283,7 +259,7 @@ test("render event", async () => {
     const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
-    expect(parseHTML(message.html).textContent).toBe("hello")
+    expect(concretize(message.vNode).textContent).toBe("hello")
   })
 })
 
@@ -308,7 +284,7 @@ test("render event capture", async () => {
     const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
-    expect(parseHTML(message.html).textContent).toBe("hello")
+    expect(concretize(message.vNode).textContent).toBe("hello")
   })
 })
 
@@ -560,7 +536,7 @@ test("render retain state", async () => {
     const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(span.getAttribute("data-component-id"))
-    expect(parseHTML(message1.html).textContent).toBe("101")
+    expect(concretize(message1.vNode).textContent).toBe("101")
 
     const event2: EventMessage = {
       type: "event",
@@ -574,7 +550,7 @@ test("render retain state", async () => {
     expect(message2.componentID).toBe(conn.rootID)
 
     // 101 should be retained from the previous state update.
-    const div = parseHTML(message2.html)
+    const div = concretize(message2.vNode)
     expect((div.querySelector("p") as Element).textContent).toBe("hello")
     expect((div.querySelector("span") as Element).textContent).toBe("101")
   })
@@ -620,7 +596,7 @@ test("render directly nested", async () => {
     // Since Foo and Bar should share the same component ID.
     expect(message1.componentID).toBe(conn.rootID)
 
-    const p1 = parseHTML(message1.html)
+    const p1 = concretize(message1.vNode)
     expect(p1.getAttribute("data-component-id")).toBe(conn.rootID)
     expect(p1.textContent).toBe("1")
 
@@ -629,7 +605,7 @@ test("render directly nested", async () => {
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
 
-    const p2 = parseHTML(message2.html)
+    const p2 = concretize(message2.vNode)
     expect(p2.getAttribute("data-component-id")).toBe(conn.rootID)
     expect(p2.textContent).toBe("hello")
   })
@@ -878,7 +854,7 @@ test("dirty components", async () => {
     const message = (await conn.messages.next()) as UpdateMessage
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
-    expect(parseHTML(message.html).textContent).toBe("bar")
+    expect(concretize(message.vNode).textContent).toBe("bar")
   })
 })
 

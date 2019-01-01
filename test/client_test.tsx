@@ -9,6 +9,7 @@ Object.assign(global, { window, document, HTMLElement, WebSocket })
 
 import * as http from "http"
 import * as net from "net"
+import Purview from "../src/purview"
 import AsyncQueue from "./async_queue"
 import { connectWebSocket } from "../src/client"
 import {
@@ -19,6 +20,7 @@ import {
   ClientMessage,
   ConnectedMessage,
 } from "../src/types/ws"
+import { virtualize } from "../src/helpers"
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
@@ -49,11 +51,11 @@ test("connectWebSocket update", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      html: `
-          <div data-root="true" data-component-id="foo">
-            <a href="#">Link</a>
-          </div>
-        `,
+      vNode: virtualize(
+        <div data-root="true" data-component-id="foo">
+          <a href="#">Link</a>
+        </div>,
+      ),
       newEventNames: [],
     }
 
@@ -127,11 +129,13 @@ test("events after update", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      html: `
-          <p data-root="true" data-component-id="foo" data-click-capture="bar">
-            <a href="#" data-click="baz">Link</a>
-          </p
-        `,
+      vNode: virtualize(
+        <p data-root="true" data-component-id="foo" data-click-capture="bar">
+          <a href="#" data-click="baz">
+            Link
+          </a>
+        </p>,
+      ),
       newEventNames: ["click"],
     }
     conn.ws.send(JSON.stringify(updateMessage))

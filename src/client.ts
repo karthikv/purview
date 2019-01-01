@@ -1,4 +1,4 @@
-import { tryParseJSON, parseHTML, isSelect, isInput } from "./helpers"
+import { tryParseJSON, isSelect, isInput } from "./helpers"
 import { initMorph, morph } from "./morph"
 import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
@@ -42,7 +42,7 @@ export function connectWebSocket(location: Location): WebSocket {
         const elem = document.querySelector(selector)
 
         if (elem) {
-          morph(elem, parseHTML(message.html))
+          morph(elem, message.vNode)
         }
         break
     }

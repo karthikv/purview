@@ -19,7 +19,7 @@ const controlInputsMod = {
       return
     }
 
-    if (isInput(elem) && attrs["data-controlled"] === "true") {
+    if (isInput(elem) && attrs["data-controlled"] === true) {
       // If the user explicitly specifies forceValue={undefined}, attrs.value
       // will be undefined, and we don't want to set the value.
       if (attrs.hasOwnProperty("value")) {
@@ -41,7 +41,7 @@ const controlInputsMod = {
       elem.selected = Boolean(attrs.selected)
     }
 
-    if (isTextArea(elem) && attrs["data-controlled"] === "true") {
+    if (isTextArea(elem) && attrs["data-controlled"] === true) {
       elem.value = elem.textContent || ""
     }
   },
@@ -61,26 +61,25 @@ const trackSubtreeMod = {
 const patch = snabbdom.init([setAttrsMod, controlInputsMod, trackSubtreeMod])
 
 export function initMorph(node: Node): void {
-  virtualize(node, true)
+  normalize(toVNode(node), true)
 }
 
-export function morph(from: Node, to: Node): void {
+export function morph(from: Node, to: VNode): void {
   const parentVNode = from.parentElement && from.parentElement._vNode
   let childIndex
   if (parentVNode && parentVNode.children && from._vNode) {
     childIndex = parentVNode.children.findIndex(c => c === from._vNode)
   }
 
-  const vNode = virtualize(to, false)
-  const newVNode = patch(from._vNode, vNode)
+  normalize(to, false)
+  const newVNode = patch(from._vNode, to)
 
   if (childIndex !== undefined && childIndex > -1) {
     parentVNode!.children![childIndex] = newVNode
   }
 }
 
-function virtualize(node: Node, hydrate: boolean): VNode {
-  const vNode = toVNode(node)
+function normalize(vNode: VNode, hydrate: boolean): void {
   walk(vNode, v => {
     // The id and classes are included in selectors by default. This means that
     // we'll create a new node if the id or classes change. We want to avoid
@@ -111,7 +110,6 @@ function virtualize(node: Node, hydrate: boolean): VNode {
       }
     }
   })
-  return vNode
 }
 
 function walk(vNode: VNode, callback: (v: VNode) => void): void {

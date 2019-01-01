@@ -8,9 +8,6 @@ import {
   EventMessage,
   SeenEventNamesMessage,
   ClientMessage,
-  ConnectedMessage,
-  UpdateMessage,
-  ServerMessage,
 } from "./types/ws"
 
 // --------------------------------------------------------------------------
@@ -78,32 +75,6 @@ export const clientMessageValidator = t.taggedUnion("type", [
 type ClientMessageValidator = t.TypeOf<typeof clientMessageValidator>
 check<ClientMessageValidator, ClientMessage>()
 check<ClientMessage, ClientMessageValidator>()
-
-const connectedMessageValidator = t.type({
-  type: t.literal("connected"),
-  newEventNames: t.array(t.string),
-})
-type ConnectedMessageValidator = t.TypeOf<typeof connectedMessageValidator>
-check<ConnectedMessageValidator, ConnectedMessage>()
-check<ConnectedMessage, ConnectedMessageValidator>()
-
-const updateMessageValidator = t.type({
-  type: t.literal("update"),
-  componentID: t.string,
-  html: t.string,
-  newEventNames: t.array(t.string),
-})
-type UpdateMessageValidator = t.TypeOf<typeof updateMessageValidator>
-check<UpdateMessageValidator, UpdateMessage>()
-check<UpdateMessage, UpdateMessageValidator>()
-
-export const serverMessageValidator = t.taggedUnion("type", [
-  connectedMessageValidator,
-  updateMessageValidator,
-])
-type ServerMessageValidator = t.TypeOf<typeof serverMessageValidator>
-check<ServerMessageValidator, ServerMessage>()
-check<ServerMessage, ServerMessageValidator>()
 
 function check<A, _ extends A>(): true {
   return true

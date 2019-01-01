@@ -2,8 +2,6 @@ import nanoid = require("nanoid")
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
-export type StatelessComponent<T> = (props: T) => JSX.Element<any>
-
 export interface ComponentConstructor<P, S> {
   _typeID: string
   new (props: P): Component<P, S>

@@ -1,7 +1,4 @@
-import Component, {
-  StatelessComponent,
-  ComponentConstructor,
-} from "../component"
+import Component, { ComponentConstructor } from "../component"
 import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./ws"
 
 /* tslint:disable no-namespace */
@@ -10,18 +7,15 @@ declare global {
 
   namespace JSX {
     interface Element<T = HTMLAttributes> {
-      nodeName:
-        | string
-        | StatelessComponent<any>
-        | ComponentConstructor<any, any>
+      nodeName: string | ComponentConstructor<any, any>
       attributes: T
       children: Child | NestedArray<Child>
     }
-    interface StatelessElement<T = HTMLAttributes> extends Element<T> {
-      nodeName: StatelessComponent<any>
-    }
     interface ComponentElement<T = HTMLAttributes> extends Element<T> {
       nodeName: ComponentConstructor<any, any>
+    }
+    interface NormalElement<T = HTMLAttributes> extends Element<T> {
+      nodeName: string
     }
 
     interface ElementClass extends Component<any, any> {}

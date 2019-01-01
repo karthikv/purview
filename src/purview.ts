@@ -2,24 +2,18 @@ import * as http from "http"
 import * as pathLib from "path"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
-import { JSDOM } from "jsdom"
 import * as t from "io-ts"
 
-import Component, {
-  StatelessComponent,
-  ComponentConstructor,
-  ChildMap,
-} from "./component"
+import Component, { ComponentConstructor, ChildMap } from "./component"
 import {
   tryParseJSON,
   mapNested,
   isEventAttr,
   toEventName,
   CAPTURE_TEXT,
-  isInput,
-  isSelect,
   findNested,
   eachNested,
+  concretize,
 } from "./helpers"
 import { ServerMessage, ClientMessage, EventCallback } from "./types/ws"
 import {
@@ -29,6 +23,8 @@ import {
   keyEventValidator,
   clientMessageValidator,
 } from "./validators"
+import { VNode, VNodeData } from "snabbdom/vnode"
+import { Attrs } from "snabbdom/modules/attributes"
 
 interface WebSocketState {
   ws: WebSocket
@@ -53,12 +49,19 @@ interface Root {
   aliases: { [key: string]: string }
 }
 
+export interface PNode extends VNode {
+  data: PNodeData
+  children: Array<VNode | string>
+}
+
+interface PNodeData extends VNodeData {
+  component?: Component<any, any>
+}
+
 const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
   checkbox: t.boolean,
   number: t.number,
 }
-
-const { document } = new JSDOM().window
 
 const roots: { [key: string]: Root } = {}
 const cachedEventIDs = new WeakMap()
@@ -280,11 +283,11 @@ export async function render(jsx: JSX.Element): Promise<string> {
       aliases: {},
     }
 
-    const elem = await renderComponent(component, component._id)
-    if (!elem) {
-      throw new Error("Expected non-null element")
+    const pNode = await renderComponent(component, component._id)
+    if (!pNode) {
+      throw new Error("Expected non-null node")
     }
-    return elem.outerHTML
+    return concretize(pNode).outerHTML
   })
 }
 
@@ -296,16 +299,12 @@ function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
   )
 }
 
-function isStatelessElem(jsx: JSX.Element): jsx is JSX.StatelessElement {
-  return typeof jsx.nodeName === "function" && !isComponentElem(jsx)
-}
-
 async function makeElem(
   jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
   parentKey: string,
-): Promise<Element | null> {
+): Promise<PNode | null> {
   let key: string
   if (isComponentElem(jsx)) {
     key = `${parentKey}/${jsx.nodeName._typeID}`
@@ -326,7 +325,7 @@ async function makeElem(
       }
 
       parent._newChildMap[key][index] = component
-      const finalElem = await renderComponent(component, rootID)
+      const pNode = await renderComponent(component, rootID)
       const wsState = roots[rootID] && roots[rootID].wsState
 
       if (!existing && wsState && wsState.connected) {
@@ -335,26 +334,33 @@ async function makeElem(
         // on children again.
         component.componentDidMount()
       }
-      return finalElem
+      return pNode
     })
   }
 
-  let { nodeName, attributes, children } = jsx
-  if (isStatelessElem(jsx)) {
-    ;({ nodeName, attributes, children } = jsx.nodeName(
-      Object.assign({ children }, attributes),
-    ))
+  if (typeof jsx.nodeName !== "string") {
+    throw new Error(
+      `Invalid JSX node: ${
+        jsx.nodeName
+      }. Nodes must be classes that extend Purview.Component or HTML tag names.`,
+    )
   }
 
+  const { nodeName, attributes } = jsx
   key = `${parentKey}/${nodeName}`
 
-  const elem = document.createElement(nodeName as string)
+  const attrs: Attrs = {}
   const root = roots[rootID]
   let changeHandler: Handler | undefined
 
   Object.keys(attributes).forEach(attr => {
     if (!isEventAttr(attr)) {
-      elem.setAttribute(attr, (attributes as any)[attr])
+      const value = (attributes as any)[attr]
+      const type = typeof value
+
+      if (type === "string" || type === "boolean" || type === "number") {
+        attrs[attr] = value
+      }
       return
     }
 
@@ -383,11 +389,11 @@ async function makeElem(
             makeValidator = makeChangeEventValidator
           }
 
-          if (isInput(elem)) {
+          if (nodeName === "input") {
             const type = (attributes as JSX.InputHTMLAttributes<any>)
               .type as string
             validator = makeValidator(INPUT_TYPE_VALIDATOR[type] || t.string)
-          } else if (isSelect(elem)) {
+          } else if (nodeName === "select") {
             const multiple = (attributes as JSX.SelectHTMLAttributes<any>)
               .multiple
             validator = makeValidator(multiple ? t.array(t.string) : t.string)
@@ -416,41 +422,46 @@ async function makeElem(
     }
 
     if (attr.indexOf(CAPTURE_TEXT) !== -1) {
-      elem.setAttribute(`data-${eventName}-capture`, eventID)
+      attrs[`data-${eventName}-capture`] = eventID
     } else {
-      elem.setAttribute(`data-${eventName}`, eventID)
+      attrs[`data-${eventName}`] = eventID
     }
   })
 
+  let { children } = jsx
   if (!(children instanceof Array)) {
     children = [children]
   }
   const promises = mapNested(children, async child => {
     if (child === null || child === undefined || child === false) {
-      return
+      return null
     }
 
     if (typeof child === "object") {
       return await makeElem(child, parent, rootID, key)
     } else {
-      return document.createTextNode(String(child))
+      return createTextPNode(String(child))
     }
   })
 
-  const nodes = await Promise.all(promises)
-  nodes.forEach(node => {
-    if (node) {
-      elem.appendChild(node)
+  const vChildren: PNode[] = []
+  ;(await Promise.all(promises)).forEach(child => {
+    if (child) {
+      vChildren.push(child)
     }
   })
 
   if (changeHandler) {
-    changeHandler.possibleValues = Array.from(
-      (elem as HTMLSelectElement).options,
-    ).map(option => option.value)
+    const possibleValues: string[] = []
+    vChildren.forEach(({ data }) => {
+      if (data && data.attrs && typeof data.attrs.value === "string") {
+        possibleValues.push(data.attrs.value)
+      }
+    })
+    changeHandler.possibleValues = possibleValues
   }
 
-  return elem
+  return createPNode(nodeName, attrs, vChildren)
 }
 
 async function withComponent<T>(
@@ -479,16 +490,16 @@ async function withComponent<T>(
 async function renderComponent(
   component: Component<any, any>,
   rootID: string,
-): Promise<Element | null> {
+): Promise<PNode | null> {
   component._newChildMap = {}
 
-  const elem = await makeElem(component.render(), component, rootID, "")
-  if (!elem) {
+  const pNode = await makeElem(component.render(), component, rootID, "")
+  if (!pNode) {
     return null
   }
 
   if (component._id === rootID) {
-    elem.setAttribute("data-root", "true")
+    pNode.data.attrs!["data-root"] = "true"
   }
 
   unmountChildren(component)
@@ -513,8 +524,8 @@ async function renderComponent(
         return
       }
 
-      const newElem = await renderComponent(component, rootID)
-      if (!newElem) {
+      const newPNode = await renderComponent(component, rootID)
+      if (!newPNode) {
         return
       }
 
@@ -528,7 +539,7 @@ async function renderComponent(
       sendMessage(root.wsState.ws, {
         type: "update",
         componentID: unalias(component._id, root),
-        html: newElem.outerHTML,
+        vNode: newPNode,
         newEventNames: Array.from(newEventNames),
       })
     }
@@ -544,7 +555,7 @@ async function renderComponent(
   // time we're rendering a nested component, since the nested component will
   // reflect the parent component's ID due to the unaliasing further below. We
   // don't add an alias in this case to avoid cyles.
-  const componentID = elem.getAttribute("data-component-id")
+  const componentID = pNode.data.attrs!["data-component-id"] as string
   const id = component._id
   if (componentID && componentID !== id) {
     roots[rootID].aliases[componentID] = id
@@ -552,8 +563,35 @@ async function renderComponent(
 
   // We may re-render a directly nested component without re-rendering the
   // parent. In this case, we have to unalias to use the parent component's ID.
-  elem.setAttribute("data-component-id", unalias(id, roots[rootID]))
-  return elem
+  pNode.data.attrs!["data-component-id"] = unalias(id, roots[rootID])
+  return pNode
+}
+
+function createPNode(
+  sel: string,
+  attrs: Attrs,
+  children: PNode[],
+  text?: string,
+): PNode {
+  return {
+    sel,
+    data: { attrs },
+    children,
+    text,
+    elm: undefined,
+    key: undefined,
+  }
+}
+
+function createTextPNode(text: string): PNode {
+  return {
+    sel: undefined,
+    data: {},
+    children: [],
+    text,
+    elm: undefined,
+    key: undefined,
+  }
 }
 
 function unmountChildren(component: Component<any, any>): void {
@@ -589,7 +627,6 @@ export default {
 }
 
 // Export relevant types.
-export { StatelessComponent }
 export {
   InputEvent,
   ChangeEvent,

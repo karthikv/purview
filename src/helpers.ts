@@ -1,3 +1,6 @@
+import vnode, { VNode } from "snabbdom/vnode"
+import { Attrs } from "snabbdom/modules/attributes"
+
 type EventAttribute = keyof JSX.DOMAttributes
 
 const EVENT_ATTRS_MAP: { [key in EventAttribute]: true } = {
@@ -182,33 +185,67 @@ export function mapNested<T, U>(
   return mapped
 }
 
-export function toElem({
+export function virtualize({
   nodeName,
   attributes,
   children,
-}: JSX.Element): Element {
+}: JSX.Element): VNode {
   if (typeof nodeName !== "string") {
-    throw new Error("toHTML() doesn't work with components")
+    throw new Error("toVNode() doesn't work with components")
   }
 
-  const elem = document.createElement(nodeName)
+  const attrs: Attrs = {}
   for (const key in attributes) {
     if (attributes.hasOwnProperty(key)) {
-      elem.setAttribute(key, (attributes as any)[key])
+      attrs[key] = (attributes as any)[key]
     }
   }
 
   if (!(children instanceof Array)) {
     children = [children]
   }
+  const vChildren: VNode[] = []
   eachNested(children, child => {
     if (isJSXChild(child)) {
-      elem.appendChild(toElem(child))
+      vChildren.push(virtualize(child))
     } else if (child) {
       const text = String(child)
-      elem.appendChild(document.createTextNode(text))
+      const vNode = vnode(undefined, undefined, undefined, text, undefined)
+      vChildren.push(vNode)
     }
   })
+
+  return vnode(nodeName, { attrs }, vChildren, undefined, undefined)
+}
+
+export function concretize(vNode: VNode): Element {
+  if (!vNode.sel) {
+    throw new Error("Expected non-text root node")
+  }
+
+  const elem = document.createElement(vNode.sel)
+  const { data, children } = vNode
+
+  if (data && data.attrs) {
+    const attrs = data.attrs
+    for (const key in attrs) {
+      if (attrs.hasOwnProperty(key)) {
+        elem.setAttribute(key, attrs[key])
+      }
+    }
+  }
+
+  if (children) {
+    children.forEach(child => {
+      if (typeof child === "string") {
+        elem.appendChild(document.createTextNode(child))
+      } else if (!child.sel) {
+        elem.appendChild(document.createTextNode(child.text as string))
+      } else {
+        elem.appendChild(concretize(child))
+      }
+    })
+  }
 
   return elem
 }

@@ -1,3 +1,5 @@
+import { VNode } from "snabbdom/vnode"
+
 // ---------------------------------------------------------------------
 // N.B. If you change types here, make sure to update src/validators.ts!
 // ---------------------------------------------------------------------
@@ -53,7 +55,7 @@ export interface ConnectedMessage {
 export interface UpdateMessage {
   type: "update"
   componentID: string
-  html: string
+  vNode: VNode
   newEventNames: string[]
 }
 
