@@ -191,7 +191,7 @@ export function virtualize({
   children,
 }: JSX.Element): VNode {
   if (typeof nodeName !== "string") {
-    throw new Error("toVNode() doesn't work with components")
+    throw new Error("Expected an intrinsic JSX element.")
   }
 
   const attrs: Attrs = {}
