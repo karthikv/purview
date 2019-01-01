@@ -49,12 +49,21 @@ interface Root {
   aliases: { [key: string]: string }
 }
 
-export interface PNode extends VNode {
-  data: PNodeData
-  children: Array<VNode | string>
+export type PNode = PNodeRegular | PNodeText
+
+interface PNodeRegular extends PNodeBase {
+  sel: string
+  text: undefined
 }
 
-interface PNodeData extends VNodeData {
+interface PNodeText extends PNodeBase {
+  sel: undefined
+  text: string
+}
+
+interface PNodeBase extends VNode {
+  data: VNodeData
+  children: PNode[]
   component?: Component<any, any>
 }
 
@@ -498,6 +507,8 @@ async function renderComponent(
     return null
   }
 
+  pNode.component = component
+  component._pNode = pNode
   if (component._id === rootID) {
     pNode.data.attrs!["data-root"] = "true"
   }
@@ -539,7 +550,7 @@ async function renderComponent(
       sendMessage(root.wsState.ws, {
         type: "update",
         componentID: unalias(component._id, root),
-        vNode: newPNode,
+        vNode: toLatestVNode(newPNode),
         newEventNames: Array.from(newEventNames),
       })
     }
@@ -567,17 +578,12 @@ async function renderComponent(
   return pNode
 }
 
-function createPNode(
-  sel: string,
-  attrs: Attrs,
-  children: PNode[],
-  text?: string,
-): PNode {
+function createPNode(sel: string, attrs: Attrs, children: PNode[]): PNode {
   return {
     sel,
     data: { attrs },
     children,
-    text,
+    text: undefined,
     elm: undefined,
     key: undefined,
   }
@@ -589,6 +595,22 @@ function createTextPNode(text: string): PNode {
     data: {},
     children: [],
     text,
+    elm: undefined,
+    key: undefined,
+  }
+}
+
+function toLatestVNode(pNode: PNode): VNode {
+  if (pNode.component) {
+    pNode = pNode.component._pNode
+  }
+  const newChildren = pNode.children.map(child => toLatestVNode(child))
+
+  return {
+    sel: pNode.sel,
+    data: { attrs: { ...pNode.data.attrs } },
+    children: newChildren,
+    text: pNode.text,
     elm: undefined,
     key: undefined,
   }

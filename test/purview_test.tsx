@@ -916,6 +916,73 @@ test("child map ordering", async () => {
   })
 })
 
+test("render consistency", async () => {
+  let foo: Foo
+  class Foo extends Purview.Component<{}, { showBaz: boolean }> {
+    state = { showBaz: false }
+
+    constructor(props: {}) {
+      super(props)
+      foo = this
+    }
+
+    render(): JSX.Element {
+      return (
+        <div>
+          <Bar />
+          {this.state.showBaz && <Baz />}
+        </div>
+      )
+    }
+  }
+
+  let bar: Bar
+  class Bar extends Purview.Component<{}, { text: string }> {
+    state = { text: "Bar" }
+
+    constructor(props: {}) {
+      super(props)
+      bar = this
+    }
+
+    render(): JSX.Element {
+      return <p>{this.state.text}</p>
+    }
+  }
+
+  class Baz extends Purview.Component<{}, {}> {
+    async getInitialState(): Promise<{}> {
+      await new Promise(resolve => setTimeout(resolve, 25))
+      return {}
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    foo.setState({ showBaz: true })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    bar.setState({ text: "Hi" })
+
+    const p1 = conn.elem.querySelector("p")!
+    const message1 = (await conn.messages.next()) as UpdateMessage
+    expect(message1.type).toBe("update")
+    expect(message1.componentID).toBe(p1.getAttribute("data-component-id"))
+
+    const p2 = concretize(message1.vNode)
+    expect(p2.textContent).toBe("Hi")
+
+    const message2 = (await conn.messages.next()) as UpdateMessage
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(conn.rootID)
+
+    const p3 = concretize(message2.vNode).querySelector("p")!
+    expect(p3.textContent).toBe("Hi")
+  })
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (
