@@ -952,7 +952,7 @@ test("render consistency", async () => {
 
   class Baz extends Purview.Component<{}, {}> {
     async getInitialState(): Promise<{}> {
-      await new Promise(resolve => setTimeout(resolve, 25))
+      await new Promise(resolve => setTimeout(resolve, 100))
       return {}
     }
 
@@ -963,7 +963,7 @@ test("render consistency", async () => {
 
   await renderAndConnect(<Foo />, async conn => {
     foo.setState({ showBaz: true })
-    await new Promise(resolve => setTimeout(resolve, 10))
+    await new Promise(resolve => setTimeout(resolve, 50))
     bar.setState({ text: "Hi" })
 
     const p1 = conn.elem.querySelector("p")!
