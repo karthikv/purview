@@ -25,7 +25,7 @@ test("morph checkbox", () => {
   expect(newInput.checked).toBe(true)
 })
 
-test("morph text input value", () => {
+test("morph text input forceValue", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
   morph(input, virtualize(<input type="text" forceValue="Hey" />))
@@ -41,6 +41,31 @@ test("morph text input forceValue undefined", () => {
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hello")
+})
+
+test("morph select forceValue", async () => {
+  const select = populate(
+    <select>
+      <option>Foo</option>
+      <option forceSelected={true}>Bar</option>
+      <option>Baz</option>
+    </select>,
+  ) as HTMLInputElement
+  ;(select.children[0] as HTMLOptionElement).selected = true
+  ;(select.children[1] as HTMLOptionElement).selected = false
+  expect(document.querySelector("select")!.value).toBe("Foo")
+
+  morph(
+    select,
+    virtualize(
+      <select>
+        <option>Foo</option>
+        <option forceSelected={true}>Bar</option>
+        <option>Baz</option>
+      </select>,
+    ),
+  )
+  expect(document.querySelector("select")!.value).toBe("Bar")
 })
 
 test("morph select multiple", async () => {
@@ -214,7 +239,7 @@ test("parseHTML td", () => {
 })
 
 function populate(jsx: JSX.Element): Element {
-  const elem = concretize(virtualize(jsx))
+  const elem = concretize(virtualize(jsx), document)
   document.body.innerHTML = ""
   document.body.appendChild(elem)
   initMorph(elem)

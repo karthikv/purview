@@ -3,6 +3,7 @@ import * as pathLib from "path"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import * as t from "io-ts"
+import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor, ChildMap } from "./component"
 import {
@@ -72,6 +73,7 @@ const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
   number: t.number,
 }
 
+const { document } = new JSDOM().window
 const roots: { [key: string]: Root } = {}
 const cachedEventIDs = new WeakMap()
 
@@ -296,7 +298,7 @@ export async function render(jsx: JSX.Element): Promise<string> {
     if (!pNode) {
       throw new Error("Expected non-null node")
     }
-    return concretize(pNode).outerHTML
+    return concretize(pNode, document).outerHTML
   })
 }
 
@@ -510,7 +512,7 @@ async function renderComponent(
   pNode.component = component
   component._pNode = pNode
   if (component._id === rootID) {
-    pNode.data.attrs!["data-root"] = "true"
+    pNode.data.attrs!["data-root"] = true
   }
 
   unmountChildren(component)

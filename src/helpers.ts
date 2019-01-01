@@ -218,19 +218,26 @@ export function virtualize({
   return vnode(nodeName, { attrs }, vChildren, undefined, undefined)
 }
 
-export function concretize(vNode: VNode): Element {
+export function concretize(vNode: VNode, doc?: Document): Element {
+  if (!doc) {
+    doc = document
+  }
   if (!vNode.sel) {
     throw new Error("Expected non-text root node")
   }
 
-  const elem = document.createElement(vNode.sel)
+  const elem = doc.createElement(vNode.sel)
   const { data, children } = vNode
 
   if (data && data.attrs) {
     const attrs = data.attrs
     for (const key in attrs) {
       if (attrs.hasOwnProperty(key)) {
-        elem.setAttribute(key, attrs[key])
+        if (attrs[key] === true) {
+          elem.setAttribute(key, "")
+        } else {
+          elem.setAttribute(key, attrs[key])
+        }
       }
     }
   }
@@ -238,11 +245,11 @@ export function concretize(vNode: VNode): Element {
   if (children) {
     children.forEach(child => {
       if (typeof child === "string") {
-        elem.appendChild(document.createTextNode(child))
+        elem.appendChild(doc!.createTextNode(child))
       } else if (!child.sel) {
-        elem.appendChild(document.createTextNode(child.text as string))
+        elem.appendChild(doc!.createTextNode(child.text as string))
       } else {
-        elem.appendChild(concretize(child))
+        elem.appendChild(concretize(child, doc))
       }
     })
   }

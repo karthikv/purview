@@ -160,7 +160,7 @@ test("render simple", async () => {
 
   const p = parseHTML(await Purview.render(<Foo />))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
-  expect(p.getAttribute("data-root")).toBe("true")
+  expect(p.hasAttribute("data-root")).toBe(true)
 
   const img = p.childNodes[1] as Element
   expect(img.getAttribute("src")).toEqual("foo")
@@ -234,7 +234,7 @@ test("render setState", async () => {
 
     const p = concretize(message.vNode)
     expect(p.textContent).toBe("hello")
-    expect(p.getAttribute("data-root")).toBe("true")
+    expect(p.hasAttribute("data-root")).toBe(true)
   })
 })
 

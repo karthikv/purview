@@ -7,18 +7,30 @@ interface AnimationState {
 }
 
 export default class extends Purview.Component<{}, AnimationState> {
-  interval: NodeJS.Timer
+  interval: NodeJS.Timer | null = null
   state = { visible: false, count: 0, step: 0.5 }
 
-  componentDidMount(): void {
-    this.interval = setInterval(this.next, 1000 / 60)
-  }
-
   componentWillUnmount(): void {
-    clearInterval(this.interval)
+    if (this.interval) {
+      clearInterval(this.interval)
+      this.interval = null
+    }
   }
 
-  toggle = () => this.setState(state => ({ visible: !state.visible }))
+  toggle = () => {
+    this.setState(state => {
+      if (state.visible) {
+        if (this.interval) {
+          clearInterval(this.interval)
+          this.interval = null
+        }
+      } else {
+        this.interval = setInterval(this.next, 1000 / 60)
+      }
+
+      return { visible: !state.visible }
+    })
+  }
   next = () => this.setState(state => ({ count: state.count + state.step }))
   flip = () => this.setState(state => ({ step: -state.step }))
 

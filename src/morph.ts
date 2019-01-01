@@ -19,7 +19,7 @@ const controlInputsMod = {
       return
     }
 
-    if (isInput(elem) && attrs["data-controlled"] === true) {
+    if (isInput(elem) && "data-controlled" in attrs) {
       // If the user explicitly specifies forceValue={undefined}, attrs.value
       // will be undefined, and we don't want to set the value.
       if (attrs.hasOwnProperty("value")) {
@@ -34,14 +34,14 @@ const controlInputsMod = {
     if (
       isOption(elem) &&
       elem.parentElement &&
-      elem.parentElement.getAttribute("data-controlled") === "true"
+      elem.parentElement.hasAttribute("data-controlled")
     ) {
       // Note that the checked attribute won't be set if it was false in JSX, so
       // we need to do this even if attrs doesn't have this property.
       elem.selected = Boolean(attrs.selected)
     }
 
-    if (isTextArea(elem) && attrs["data-controlled"] === true) {
+    if (isTextArea(elem) && "data-controlled" in attrs) {
       elem.value = elem.textContent || ""
     }
   },
@@ -81,6 +81,12 @@ export function morph(from: Node, to: VNode): void {
 
 function normalize(vNode: VNode, hydrate: boolean): void {
   walk(vNode, v => {
+    // During hydration, data isn't set in some cases, which causes an error
+    // when morphing.
+    if (hydrate && !v.data) {
+      v.data = {}
+    }
+
     // The id and classes are included in selectors by default. This means that
     // we'll create a new node if the id or classes change. We want to avoid
     // this and use the existing node so long as it has the same tag name.
@@ -105,7 +111,7 @@ function normalize(vNode: VNode, hydrate: boolean): void {
       if (attrs["data-key"]) {
         v.key = attrs["data-key"] as string
       }
-      if (attrs["data-ignore-children"] === "true") {
+      if ("data-ignore-children" in attrs) {
         v.children = []
       }
     }
