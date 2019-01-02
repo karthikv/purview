@@ -100,10 +100,21 @@ pointing to Purview's client-side JS file.
     - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
       example below) or, in an existing client-side codebase, `import
       "purview/dist/browser"`.
-1) Handle WebSocket connections by calling `Purview.handleWebSocket(server)`,
-where `server` is an `http.Server` object. If you're using Express, call
-`http.createServer(app)` to a create a server from your `app` object. Then call
-`server.listen()` instead of `app.listen()` to bind your server to a port.
+1) Handle WebSocket connections by calling `Purview.handleWebSocket(server,
+options)`, where `server` is an `http.Server` object. If you're using Express,
+call `http.createServer(app)` to a create a server from your `app` object. Then
+call `server.listen()` instead of `app.listen()` to bind your server to a port.
+    - `options` should be an object with two keys: `origin` (string) and
+      `secure` (boolean).
+    - `origin` should be the protocol and hostname (along with the port if it's
+      non-standard) of the server (e.g. `https://example.com`). This is used to
+      perform WebSocket origin validation, ensuring requests originate from your
+      server. You can set `origin` to `null` to skip origin validation, but this
+      is not recommended.
+    - `secure` should be `true` to only accept encrypted connections (HTTPS/WSS)
+      or `false` to allow unecrypted connections (not recommended).
+    - Note that, if you incorrectly specify `origin` or `secure`, the page will
+      keep refreshing in an attempt to re-connect the WebSocket.
 
 Below is a full working example:
 
@@ -155,14 +166,18 @@ async function startServer(): Promise<void> {
 
   // (3) Handle WebSocket connections.
   const server = http.createServer(app)
-  Purview.handleWebSocket(server)
+  const port = 8000
+  Purview.handleWebSocket(server, {
+    origin: `http://localhost:${port}`,
+    secure: false,
+  })
 
   // Reset database and insert our initial counter.
   db.define("counter", { count: Sequelize.INTEGER }, { timestamps: false })
   await db.sync({ force: true })
   await db.query("INSERT INTO counters (count) VALUES (0)")
 
-  server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))
+  server.listen(port, () => console.log(`Listening on localhost:${port}`))
 }
 
 startServer()

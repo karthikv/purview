@@ -345,7 +345,7 @@ async function connect<T>(
   const reload = jest.fn()
   const location: Location = {
     protocol: "http:",
-    host: `127.0.0.1:${addr.port}`,
+    host: `localhost:${addr.port}`,
     pathname: "",
     search: "",
     reload,

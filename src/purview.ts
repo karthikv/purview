@@ -27,6 +27,11 @@ import {
 import { VNode, VNodeData } from "snabbdom/vnode"
 import { Attrs } from "snabbdom/modules/attributes"
 
+export interface WebSocketOptions {
+  origin: string | null
+  secure: boolean
+}
+
 interface WebSocketState {
   ws: WebSocket
   roots: Root[]
@@ -179,8 +184,20 @@ function isJSXOption(
   return typeof child === "object" && (child as any).nodeName === "option"
 }
 
-export function handleWebSocket(server: http.Server): void {
-  const wsServer = new WebSocket.Server({ server })
+export function handleWebSocket(
+  server: http.Server,
+  options: WebSocketOptions,
+): void {
+  const wsServer = new WebSocket.Server({
+    server,
+    verifyClient(info: { origin: string; secure: boolean }): boolean {
+      return (
+        (options.origin === null || info.origin === options.origin) &&
+        (!options.secure || info.secure)
+      )
+    },
+  })
+
   wsServer.on("connection", ws => {
     const wsState: WebSocketState = {
       ws,

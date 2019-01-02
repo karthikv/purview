@@ -39,11 +39,12 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
-Purview.handleWebSocket(server)
-
 const port = 8000
-const host = "127.0.0.1"
+Purview.handleWebSocket(server, {
+  origin: `http://localhost:${port}`,
+  secure: false,
+})
 
 /* tslint:disable no-console */
-server.listen(port, host, () => console.log(`Listening on ${host}:${port}`))
+server.listen(port, () => console.log(`Listening on localhost:${port}`))
 /* tslint:enable no-console */

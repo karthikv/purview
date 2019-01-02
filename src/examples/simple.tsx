@@ -36,7 +36,12 @@ app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
 
 // (3) Handle WebSocket connections.
 const server = http.createServer(app)
-Purview.handleWebSocket(server)
+const port = 8000
+Purview.handleWebSocket(server, {
+  origin: `http://localhost:${port}`,
+  secure: false,
+})
+
 /* tslint:disable no-console */
-server.listen(8000, () => console.log(`Listening on 127.0.0.1:8000`))
+server.listen(port, () => console.log(`Listening on localhost:${port}`))
 /* tslint:enable no-console */

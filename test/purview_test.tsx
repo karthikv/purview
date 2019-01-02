@@ -983,6 +983,46 @@ test("render consistency", async () => {
   })
 })
 
+test("origin validation", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const addr = server.address() as net.AddressInfo
+  const origin = `http://localhost:${addr.port}`
+  Purview.handleWebSocket(server, { origin, secure: false })
+
+  const ws = new WebSocket(`ws://localhost:${addr.port}`, {
+    origin: `http://example.com`,
+  })
+  const error = await new Promise<Error>(resolve =>
+    ws.addEventListener("error", resolve),
+  )
+  expect(error.message).toBe("Unexpected server response: 401")
+
+  server.close()
+  ws.close()
+})
+
+test("secure validation", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const addr = server.address() as net.AddressInfo
+  const origin = `http://localhost:${addr.port}`
+  Purview.handleWebSocket(server, { origin, secure: true })
+
+  const ws = new WebSocket(`ws://localhost:${addr.port}`, {
+    origin,
+  })
+  const error = await new Promise<Error>(resolve =>
+    ws.addEventListener("error", resolve),
+  )
+  expect(error.message).toBe("Unexpected server response: 401")
+
+  server.close()
+  ws.close()
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (
@@ -998,7 +1038,6 @@ async function renderAndConnect<T>(
   const server = http.createServer()
   await new Promise(resolve => server.listen(resolve))
 
-  Purview.handleWebSocket(server)
   const elem = parseHTML(await Purview.render(jsxElem))
   const id = elem.getAttribute("data-component-id")
   if (!id) {
@@ -1006,7 +1045,9 @@ async function renderAndConnect<T>(
   }
 
   const addr = server.address() as net.AddressInfo
-  const ws = new WebSocket(`ws://127.0.0.1:${addr.port}`)
+  const origin = `http://localhost:${addr.port}`
+  Purview.handleWebSocket(server, { origin, secure: false })
+  const ws = new WebSocket(`ws://localhost:${addr.port}`, { origin })
   await new Promise(resolve => ws.addEventListener("open", resolve))
 
   const messages = new AsyncQueue<ServerMessage>()

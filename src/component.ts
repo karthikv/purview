@@ -38,7 +38,7 @@ abstract class Component<P, S> {
   // only really get set when a Component is instantiated.
   public _isPurviewComponent: boolean
 
-  protected state: Readonly<S>
+  protected state: Readonly<S> = {} as any
   private _changesets: Array<Partial<S> | UpdateFn<S>> = []
   private _lockedPromise: Promise<any> | null = null
   /* tslint:enable variable-name */
