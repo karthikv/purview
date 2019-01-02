@@ -22,7 +22,6 @@
     "@types/nanoid": "^1.2.0",
     "@types/node": "^10.5.2",
     "@types/sequelize": "^4.27.33",
-    "@types/ws": "^6.0.1",
     "express": "^4.16.4",
     "jest": "^23.4.2",
     "merge": "^1.2.1",
@@ -46,6 +45,7 @@
     "morphdom": "^2.3.3",
     "nanoid": "^1.2.3",
     "snabbdom": "^0.7.3",
+    "@types/ws": "^6.0.1",
     "ws": "^6.0.0"
   },
   "prettier": {
