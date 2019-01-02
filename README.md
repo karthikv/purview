@@ -104,17 +104,15 @@ pointing to Purview's client-side JS file.
 options)`, where `server` is an `http.Server` object. If you're using Express,
 call `http.createServer(app)` to a create a server from your `app` object. Then
 call `server.listen()` instead of `app.listen()` to bind your server to a port.
-    - `options` should be an object with two keys: `origin` (string) and
-      `secure` (boolean).
+    - `options` should be an object with one key: `origin`, whose value is
+      a string.
     - `origin` should be the protocol and hostname (along with the port if it's
       non-standard) of the server (e.g. `https://example.com`). This is used to
       perform WebSocket origin validation, ensuring requests originate from your
       server. You can set `origin` to `null` to skip origin validation, but this
       is not recommended.
-    - `secure` should be `true` to only accept encrypted connections (HTTPS/WSS)
-      or `false` to allow unecrypted connections (not recommended).
-    - Note that, if you incorrectly specify `origin` or `secure`, the page will
-      keep refreshing in an attempt to re-connect the WebSocket.
+    - Note that, if you incorrectly specify `origin`, the page will keep
+      refreshing in an attempt to re-connect the WebSocket.
 
 Below is a full working example:
 

@@ -29,7 +29,6 @@ import { Attrs } from "snabbdom/modules/attributes"
 
 export interface WebSocketOptions {
   origin: string | null
-  secure: boolean
 }
 
 interface WebSocketState {
@@ -191,10 +190,7 @@ export function handleWebSocket(
   const wsServer = new WebSocket.Server({
     server,
     verifyClient(info: { origin: string; secure: boolean }): boolean {
-      return (
-        (options.origin === null || info.origin === options.origin) &&
-        (!options.secure || info.secure)
-      )
+      return options.origin === null || info.origin === options.origin
     },
   })
 

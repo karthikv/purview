@@ -989,30 +989,10 @@ test("origin validation", async () => {
 
   const addr = server.address() as net.AddressInfo
   const origin = `http://localhost:${addr.port}`
-  Purview.handleWebSocket(server, { origin, secure: false })
+  Purview.handleWebSocket(server, { origin })
 
   const ws = new WebSocket(`ws://localhost:${addr.port}`, {
     origin: `http://example.com`,
-  })
-  const error = await new Promise<Error>(resolve =>
-    ws.addEventListener("error", resolve),
-  )
-  expect(error.message).toBe("Unexpected server response: 401")
-
-  server.close()
-  ws.close()
-})
-
-test("secure validation", async () => {
-  const server = http.createServer()
-  await new Promise(resolve => server.listen(resolve))
-
-  const addr = server.address() as net.AddressInfo
-  const origin = `http://localhost:${addr.port}`
-  Purview.handleWebSocket(server, { origin, secure: true })
-
-  const ws = new WebSocket(`ws://localhost:${addr.port}`, {
-    origin,
   })
   const error = await new Promise<Error>(resolve =>
     ws.addEventListener("error", resolve),
@@ -1046,7 +1026,7 @@ async function renderAndConnect<T>(
 
   const addr = server.address() as net.AddressInfo
   const origin = `http://localhost:${addr.port}`
-  Purview.handleWebSocket(server, { origin, secure: false })
+  Purview.handleWebSocket(server, { origin })
   const ws = new WebSocket(`ws://localhost:${addr.port}`, { origin })
   await new Promise(resolve => ws.addEventListener("open", resolve))
 
