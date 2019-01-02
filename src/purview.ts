@@ -187,7 +187,7 @@ function isJSXOption(
 export function handleWebSocket(
   server: http.Server,
   options: WebSocketOptions,
-): void {
+): WebSocket.Server {
   const wsServer = new WebSocket.Server({
     server,
     verifyClient(info: { origin: string; secure: boolean }): boolean {
@@ -221,6 +221,8 @@ export function handleWebSocket(
       })
     })
   })
+
+  return wsServer
 }
 
 function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
