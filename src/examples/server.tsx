@@ -42,7 +42,6 @@ const server = http.createServer(async (req, res) => {
 const port = 8000
 Purview.handleWebSocket(server, {
   origin: `http://localhost:${port}`,
-  secure: false,
 })
 
 /* tslint:disable no-console */

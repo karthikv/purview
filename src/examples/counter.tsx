@@ -50,7 +50,6 @@ async function startServer(): Promise<void> {
   const port = 8000
   Purview.handleWebSocket(server, {
     origin: `http://localhost:${port}`,
-    secure: false,
   })
 
   // Reset database and insert our initial counter.
