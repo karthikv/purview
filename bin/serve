@@ -4,9 +4,11 @@ set -euo pipefail
 ESC=$(printf '\033')
 trap 'kill %1; kill %2' SIGINT
 
+rm -r dist > /dev/null 2>&1 || true
 npx tsc -p tsconfig_src.json -w 2>&1 | sed -e "s/^/$ESC[33;1m[tsc]$ESC[0m /" &
 npx webpack-dev-server 2>&1 | sed -e "s/^/$ESC[34;1m[wds]$ESC[0m /" &
 
-sleep 5 # Wait for first compile to finish.
 MAIN=${1:-dist/examples/server.js}
+# Wait for first compile to finish.
+while [ ! -f "$MAIN" ]; do sleep 1; done
 npx nodemon "$MAIN" 2>&1

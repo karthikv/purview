@@ -238,6 +238,12 @@ test("parseHTML td", () => {
   expect(td.textContent).toBe("foo")
 })
 
+// Snabbdom may replace an element if the vNode's attribute case is different.
+test("virtualize lowercase attributes", () => {
+  const vNode = virtualize(<input autoFocus={true} />)
+  expect(vNode.data!.attrs).toEqual({ autofocus: true })
+})
+
 function populate(jsx: JSX.Element): Element {
   const elem = concretize(virtualize(jsx), document)
   document.body.innerHTML = ""

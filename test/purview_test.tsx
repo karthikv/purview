@@ -182,6 +182,30 @@ test("render special content", async () => {
   expect(p.textContent).toBe("true: true, false: , null: , undefined: ")
 })
 
+// Snabbdom may replace an element if the vNode's attribute case is different.
+test("render lowercase attributes", async () => {
+  let instance: Foo
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      instance = this
+    }
+
+    render(): JSX.Element {
+      return <select autoComplete="on" />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    await instance.setState({})
+
+    const message = (await conn.messages.next()) as UpdateMessage
+    expect(message.type).toBe("update")
+    expect(message.vNode.data!.attrs).toHaveProperty("autocomplete", "on")
+    expect(message.componentID).toBe(conn.rootID)
+  })
+})
+
 test("render getInitialState", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
     async getInitialState(): Promise<{ text: string }> {

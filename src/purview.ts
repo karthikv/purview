@@ -385,7 +385,7 @@ async function makeElem(
       const type = typeof value
 
       if (type === "string" || type === "boolean" || type === "number") {
-        attrs[attr] = value
+        attrs[attr.toLowerCase()] = value
       }
       return
     }

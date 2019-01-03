@@ -197,7 +197,7 @@ export function virtualize({
   const attrs: Attrs = {}
   for (const key in attributes) {
     if (attributes.hasOwnProperty(key)) {
-      attrs[key] = (attributes as any)[key]
+      attrs[key.toLowerCase()] = (attributes as any)[key]
     }
   }
 
