@@ -1,6 +1,5 @@
 import * as http from "http"
 import * as pathLib from "path"
-import * as fs from "fs"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import * as t from "io-ts"
@@ -27,6 +26,7 @@ import {
 } from "./validators"
 import { VNode, VNodeData } from "snabbdom/vnode"
 import { Attrs } from "snabbdom/modules/attributes"
+import * as DevNull from "dev-null"
 
 export interface WebSocketOptions {
   origin: string | null
@@ -290,7 +290,7 @@ async function handleMessage(
       }
 
       const res = new http.ServerResponse(req)
-      const nullStream = fs.createWriteStream("/dev/null")
+      const nullStream = new DevNull()
       res.assignSocket(nullStream as any)
       server.emit("request", req, res)
 
