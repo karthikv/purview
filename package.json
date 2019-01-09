@@ -33,19 +33,19 @@
     "ts-loader": "^5.3.2",
     "tslint": "^5.10.0",
     "tslint-config-prettier": "^1.13.0",
-    "typescript": "^3.1.0",
+    "typescript": "^3.1.6",
     "typescript-tslint-plugin": "0.0.4",
     "webpack": "^4.28.2",
     "webpack-cli": "^3.1.2",
     "webpack-dev-server": "^3.1.14"
   },
   "dependencies": {
+    "@types/ws": "^6.0.1",
     "io-ts": "^1.4.2",
     "jsdom": "^12.0.0",
     "morphdom": "^2.3.3",
     "nanoid": "^1.2.3",
     "snabbdom": "^0.7.3",
-    "@types/ws": "^6.0.1",
     "ws": "^6.0.0"
   },
   "prettier": {

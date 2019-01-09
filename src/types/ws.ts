@@ -47,11 +47,6 @@ export type ClientMessage =
   | EventMessage
   | SeenEventNamesMessage
 
-export interface ConnectedMessage {
-  type: "connected"
-  newEventNames: string[]
-}
-
 export interface UpdateMessage {
   type: "update"
   componentID: string
@@ -59,4 +54,4 @@ export interface UpdateMessage {
   newEventNames: string[]
 }
 
-export type ServerMessage = ConnectedMessage | UpdateMessage
+export type ServerMessage = UpdateMessage

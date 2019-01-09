@@ -24,10 +24,10 @@ class Example extends Purview.Component<{}, { text: string }> {
 // (2) Send down server-rendered HTML and a script tag with Purview's
 // client-side JavaScript.
 const app = express()
-app.get("/", async (_, res) => {
+app.get("/", async (req, res) => {
   res.send(`
     <body>
-      ${await Purview.render(<Example />)}
+      ${await Purview.render(<Example />, req)}
       <script src="/script.js"></script>
     </body>
   `)

@@ -1,5 +1,6 @@
 import * as http from "http"
 import * as pathLib from "path"
+import * as fs from "fs"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import * as t from "io-ts"
@@ -47,8 +48,7 @@ interface Handler {
 
 interface Root {
   component: Component<any, any>
-  dirtyComponents: Set<Component<any, any>>
-  wsState?: WebSocketState
+  wsState: WebSocketState
   eventNames: Set<string>
   handlers: { [key: string]: Handler }
   aliases: { [key: string]: string }
@@ -72,13 +72,33 @@ interface PNodeBase extends VNode {
   component?: Component<any, any>
 }
 
+export interface StateTree {
+  name: string
+  value: Record<string, any>
+  childMap: ChildMap<StateTree>
+}
+
+interface IDStateTree {
+  id: string
+  stateTree: StateTree
+}
+
+declare module "http" {
+  interface IncomingMessage {
+    purviewState?: {
+      wsState: WebSocketState
+      idStateTrees: IDStateTree[]
+      roots?: Root[]
+    }
+  }
+}
+
 const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
   checkbox: t.boolean,
   number: t.number,
 }
 
 const { document } = new JSDOM().window
-const roots: { [key: string]: Root } = {}
 const cachedEventIDs = new WeakMap()
 
 export function createElem(
@@ -98,7 +118,8 @@ export function createElem(
     )
 
   const hasForceValue =
-    ((nodeName === "input" && attributes.type === "text") ||
+    ((nodeName === "input" &&
+      (!("type" in attributes) || attributes.type === "text")) ||
       nodeName === "textarea") &&
     attributes.hasOwnProperty("forceValue")
 
@@ -194,7 +215,11 @@ export function handleWebSocket(
     },
   })
 
-  wsServer.on("connection", ws => {
+  wsServer.on("connection", (ws, req) => {
+    if (req.method !== "GET") {
+      throw new Error("Only GET requests are supported")
+    }
+
     const wsState: WebSocketState = {
       ws,
       roots: [] as Root[],
@@ -206,22 +231,43 @@ export function handleWebSocket(
       const parsed = tryParseJSON(data.toString())
       const decoded = clientMessageValidator.decode(parsed)
       if (decoded.isRight()) {
-        handleMessage(decoded.value, wsState)
+        handleMessage(decoded.value, wsState, req, server)
       }
     })
 
-    ws.on("close", () => {
-      wsState.roots.forEach(root => {
+    ws.on("close", async () => {
+      const promises = wsState.roots.map(async root => {
+        const stateTree = makeStateTree(root.component)
+        await reloadOptions.saveStateTree(root.component._id, stateTree)
         root.component._triggerUnmount()
-        delete roots[root.component._id]
       })
+      await Promise.all(promises)
     })
   })
 
   return wsServer
 }
 
-function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
+function makeStateTree(component: Component<any, any>): StateTree {
+  const childMap: ChildMap<StateTree> = {}
+  Object.keys(component._childMap).forEach(key => {
+    const children = component._childMap[key]
+    childMap[key] = children.map(c => makeStateTree(c as Component<any, any>))
+  })
+
+  return {
+    name: component.constructor.name,
+    value: (component as any).state,
+    childMap,
+  }
+}
+
+async function handleMessage(
+  message: ClientMessage,
+  wsState: WebSocketState,
+  req: http.IncomingMessage,
+  server: http.Server,
+): Promise<void> {
   switch (message.type) {
     case "connect": {
       if (wsState.connected) {
@@ -229,30 +275,41 @@ function handleMessage(message: ClientMessage, wsState: WebSocketState): void {
       }
       wsState.connected = true
 
-      const newEventNames = new Set()
-      message.rootIDs.forEach(id => {
-        const root = roots[id]
-        if (!root) {
-          return
-        }
+      const promises = message.rootIDs.map(async id => {
+        return { id, stateTree: await reloadOptions.getStateTree(id) }
+      })
+      const idStateTrees = await Promise.all(promises)
+      if (idStateTrees.some(ist => !ist.stateTree)) {
+        wsState.ws.close()
+        return
+      }
 
+      req.purviewState = {
+        wsState,
+        idStateTrees: idStateTrees as IDStateTree[],
+      }
+
+      const res = new http.ServerResponse(req)
+      const nullStream = fs.createWriteStream("/dev/null")
+      res.assignSocket(nullStream as any)
+      server.emit("request", req, res)
+
+      const roots = await new Promise<Root[] | undefined>(resolve => {
+        res.on("finish", () => resolve(req.purviewState!.roots))
+      })
+      if (!roots) {
+        throw new Error("Couldn't start WebSocket, found no components.")
+      }
+
+      roots.forEach(root => {
         root.wsState = wsState
-        root.component._triggerMount()
-
         wsState.roots.push(root)
-        root.eventNames.forEach(name => {
-          if (!wsState.seenEventNames.has(name)) {
-            newEventNames.add(name)
-          }
-        })
-
-        root.dirtyComponents.forEach(c => c._handleUpdate())
+        root.component._triggerMount()
       })
 
-      sendMessage(wsState.ws, {
-        type: "connected",
-        newEventNames: Array.from(newEventNames),
-      })
+      await Promise.all(
+        message.rootIDs.map(id => reloadOptions.deleteStateTree(id)),
+      )
       break
     }
 
@@ -291,27 +348,56 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
   }
 }
 
-export async function render(jsx: JSX.Element): Promise<string> {
+export async function render(
+  jsx: JSX.Element,
+  req: http.IncomingMessage,
+): Promise<string> {
   if (!isComponentElem(jsx)) {
     throw new Error("Root element must be a Purview.Component")
   }
 
-  return await withComponent(jsx, null, async component => {
+  const purviewState = req.purviewState
+  let idStateTree: IDStateTree | undefined
+  if (purviewState) {
+    idStateTree = purviewState.idStateTrees.find(
+      ist => ist.stateTree.name === jsx.nodeName.name,
+    )
+  }
+
+  const stateTree = idStateTree && idStateTree.stateTree
+  return await withComponent(jsx, stateTree, async component => {
     if (!component) {
       throw new Error("Expected non-null component")
     }
 
-    roots[component._id] = {
-      component,
-      dirtyComponents: new Set(),
-      handlers: {},
-      eventNames: new Set(),
-      aliases: {},
+    let root: Root | null = null
+    if (purviewState) {
+      component._id = idStateTree!.id
+      root = {
+        component,
+        wsState: purviewState.wsState,
+        eventNames: new Set(),
+        handlers: {},
+        aliases: {},
+      }
+      purviewState.roots = purviewState.roots || []
+      purviewState.roots.push(root)
     }
 
-    const pNode = await renderComponent(component, component._id)
+    const pNode = await renderComponent(component, component._id, root)
     if (!pNode) {
       throw new Error("Expected non-null node")
+    }
+
+    if (purviewState) {
+      sendMessage(root!.wsState.ws, {
+        type: "update",
+        componentID: component._id,
+        vNode: toLatestVNode(pNode),
+        newEventNames: Array.from(root!.eventNames),
+      })
+    } else {
+      await reloadOptions.saveStateTree(component._id, makeStateTree(component))
     }
     return concretize(pNode, document).outerHTML
   })
@@ -329,11 +415,12 @@ async function makeElem(
   jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
+  root: Root | null,
   parentKey: string,
 ): Promise<PNode | null> {
   let key: string
   if (isComponentElem(jsx)) {
-    key = `${parentKey}/${jsx.nodeName._typeID}`
+    key = `${parentKey}/${jsx.nodeName.name}`
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
 
@@ -351,8 +438,8 @@ async function makeElem(
       }
 
       parent._newChildMap[key][index] = component
-      const pNode = await renderComponent(component, rootID)
-      const wsState = roots[rootID] && roots[rootID].wsState
+      const pNode = await renderComponent(component, rootID, root)
+      const wsState = root && root.wsState
 
       if (!existing && wsState && wsState.connected) {
         // Child components have already been mounted recursively. We don't call
@@ -376,7 +463,6 @@ async function makeElem(
   key = `${parentKey}/${nodeName}`
 
   const attrs: Attrs = {}
-  const root = roots[rootID]
   let changeHandler: Handler | undefined
 
   Object.keys(attributes).forEach(attr => {
@@ -464,7 +550,7 @@ async function makeElem(
     }
 
     if (typeof child === "object") {
-      return await makeElem(child, parent, rootID, key)
+      return await makeElem(child, parent, rootID, root, key)
     } else {
       return createTextPNode(String(child))
     }
@@ -492,20 +578,29 @@ async function makeElem(
 
 async function withComponent<T>(
   jsx: JSX.ComponentElement,
-  existing: Component<any, any> | null | undefined,
+  existing: Component<any, any> | StateTree | null | undefined,
   callback: (component: Component<any, any> | null) => T,
 ): Promise<T> {
   const { nodeName, attributes, children } = jsx
   const props = Object.assign({ children }, attributes)
-  const component = existing || new nodeName(props)
+
+  let component: Component<any, any>
+  if (existing instanceof Component) {
+    component = existing
+  } else {
+    component = new nodeName(props)
+  }
 
   return component._lock(async () => {
     if (component._unmounted) {
       return callback(null)
     }
 
-    if (existing) {
-      component._setProps(props as any)
+    if (existing instanceof Component) {
+      component._setProps(props)
+    } else if (existing) {
+      component._childMap = existing.childMap
+      await component._initState(existing.value)
     } else {
       await component._initState()
     }
@@ -516,10 +611,11 @@ async function withComponent<T>(
 async function renderComponent(
   component: Component<any, any>,
   rootID: string,
+  root: Root | null,
 ): Promise<PNode | null> {
   component._newChildMap = {}
 
-  const pNode = await makeElem(component.render(), component, rootID, "")
+  const pNode = await makeElem(component.render(), component, rootID, root, "")
   if (!pNode) {
     return null
   }
@@ -532,7 +628,7 @@ async function renderComponent(
 
   unmountChildren(component)
 
-  const newChildMap: ChildMap = {}
+  const newChildMap: ChildMap<Component<any, any>> = {}
   Object.keys(component._newChildMap).forEach(key => {
     newChildMap[key] = component._newChildMap[key].filter(
       c => c !== null,
@@ -540,26 +636,16 @@ async function renderComponent(
   })
   component._childMap = newChildMap
 
-  if (!component._handleUpdate) {
+  if (root && !component._handleUpdate) {
     component._handleUpdate = async () => {
-      const root = roots[rootID]
-      if (!root) {
-        return
-      }
-
-      if (!root.wsState) {
-        root.dirtyComponents.add(component)
-        return
-      }
-
-      const newPNode = await renderComponent(component, rootID)
+      const newPNode = await renderComponent(component, rootID, root)
       if (!newPNode) {
         return
       }
 
       const newEventNames = new Set()
       root.eventNames.forEach(name => {
-        if (!(root.wsState as WebSocketState).seenEventNames.has(name)) {
+        if (!root.wsState.seenEventNames.has(name)) {
           newEventNames.add(name)
         }
       })
@@ -585,13 +671,14 @@ async function renderComponent(
   // don't add an alias in this case to avoid cyles.
   const componentID = pNode.data.attrs!["data-component-id"] as string
   const id = component._id
-  if (componentID && componentID !== id) {
-    roots[rootID].aliases[componentID] = id
+  if (root && componentID && componentID !== id) {
+    root.aliases[componentID] = id
   }
 
   // We may re-render a directly nested component without re-rendering the
   // parent. In this case, we have to unalias to use the parent component's ID.
-  pNode.data.attrs!["data-component-id"] = unalias(id, roots[rootID])
+  const unaliasedID = root ? unalias(id, root) : id
+  pNode.data.attrs!["data-component-id"] = unaliasedID
   return pNode
 }
 
@@ -636,7 +723,11 @@ function toLatestVNode(pNode: PNode): VNode {
 function unmountChildren(component: Component<any, any>): void {
   Object.keys(component._childMap).forEach(key => {
     const children = component._childMap[key]
-    children.forEach(child => child._triggerUnmount())
+    children.forEach(child => {
+      if (child instanceof Component) {
+        child._triggerUnmount()
+      }
+    })
   })
 }
 
@@ -645,6 +736,24 @@ function unalias(id: string, root: Root): string {
     id = root.aliases[id]
   }
   return id
+}
+
+const globalStateTrees: Record<string, StateTree> = {}
+export const reloadOptions = {
+  async saveStateTree(id: string, tree: StateTree): Promise<void> {
+    globalStateTrees[id] = tree
+    if (process.env.NODE_ENV !== "test") {
+      setTimeout(() => this.deleteStateTree(id), 60 * 1000)
+    }
+  },
+
+  async getStateTree(id: string): Promise<StateTree | null> {
+    return globalStateTrees[id]
+  },
+
+  async deleteStateTree(id: string): Promise<void> {
+    delete globalStateTrees[id]
+  },
 }
 
 export { Component }
@@ -663,6 +772,7 @@ export default {
   render,
   Component,
   scriptPath,
+  reloadOptions,
 }
 
 // Export relevant types.

@@ -95,8 +95,10 @@ tsconfig.json, you can do this like so:
 1) Write components by extending `Purview.Component`.
 1) Send down (a) the server-rendered HTML of your component and (b) a script tag
 pointing to Purview's client-side JS file.
-    - For (a), call `Purview.render(<Component />)`, where `Component` is your
-      root component, to get a promise with the HTML.
+    - For (a), call `Purview.render(<Component />, req)`, where `Component` is
+      your root component, and `req` is the standard request object, of type
+      `http.IncomingMessage`, from express or `http.createServer`. This returns
+      a promise with HTML.
     - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
       example below) or, in an existing client-side codebase, `import
       "purview/dist/browser"`.
@@ -152,10 +154,10 @@ async function startServer(): Promise<void> {
   // (2) Send down server-rendered HTML and a script tag with Purview's
   // client-side JavaScript.
   const app = express()
-  app.get("/", async (_, res) => {
+  app.get("/", async (req, res) => {
     res.send(`
       <body>
-        ${await Purview.render(<Counter />)}
+        ${await Purview.render(<Counter />, req)}
         <script src="/script.js"></script>
       </body>
     `)

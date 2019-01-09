@@ -19,7 +19,6 @@ import {
   UpdateMessage,
   EventMessage,
   SeenEventNamesMessage,
-  ConnectedMessage,
   ServerMessage,
   ClientMessage,
 } from "../src/types/ws"
@@ -158,7 +157,7 @@ test("render simple", async () => {
     }
   }
 
-  const p = parseHTML(await Purview.render(<Foo />))
+  const p = parseHTML(await Purview.render(<Foo />, {} as any))
   expect(p.childNodes[0].textContent).toEqual("A paragraph")
   expect(p.hasAttribute("data-root")).toBe(true)
 
@@ -178,7 +177,7 @@ test("render special content", async () => {
     }
   }
 
-  const p = parseHTML(await Purview.render(<Foo />))
+  const p = parseHTML(await Purview.render(<Foo />, {} as any))
   expect(p.textContent).toBe("true: true, false: , null: , undefined: ")
 })
 
@@ -219,7 +218,7 @@ test("render getInitialState", async () => {
     }
   }
 
-  const p = parseHTML(await Purview.render(<Foo />))
+  const p = parseHTML(await Purview.render(<Foo />, {} as any))
   expect(p.textContent).toEqual("foo")
 })
 
@@ -230,7 +229,7 @@ test("render custom children", async () => {
     }
   }
 
-  const p = parseHTML(await Purview.render(<Foo>{() => "foo"}</Foo>))
+  const p = parseHTML(await Purview.render(<Foo>{() => "foo"}</Foo>, {} as any))
   expect(p.textContent).toEqual("foo")
 })
 
@@ -787,7 +786,7 @@ test("event names", async () => {
   }
 
   await renderAndConnect(<Foo />, async conn => {
-    expect(conn.connectedMessage.newEventNames).toEqual(["change"])
+    expect(conn.updateMessage.newEventNames).toEqual(["change"])
     instance.setState({ enabled: true })
 
     const message1 = (await conn.messages.next()) as UpdateMessage
@@ -832,7 +831,7 @@ test("invalid event names", async () => {
   }
 
   await renderAndConnect(<Foo />, async conn => {
-    expect(conn.connectedMessage.newEventNames).toEqual(["change"])
+    expect(conn.updateMessage.newEventNames).toEqual(["change"])
     instance.setState({ enabled: true })
 
     const message1 = (await conn.messages.next()) as UpdateMessage
@@ -854,31 +853,6 @@ test("invalid event names", async () => {
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
     expect(message2.newEventNames).toEqual(["change", "keydown"])
-  })
-})
-
-test("dirty components", async () => {
-  class Foo extends Purview.Component<{}, { text: string }> {
-    state = { text: "foo" }
-
-    constructor(props: {}) {
-      super(props)
-
-      // Update state right away, before the websocket connects. We should still
-      // receive an update message thanks to our tracking of dirty components.
-      setImmediate(() => this.setState({ text: "bar" }))
-    }
-
-    render(): JSX.Element {
-      return <p>{this.state.text}</p>
-    }
-  }
-
-  await renderAndConnect(<Foo />, async conn => {
-    const message = (await conn.messages.next()) as UpdateMessage
-    expect(message.type).toBe("update")
-    expect(message.componentID).toBe(conn.rootID)
-    expect(concretize(message.vNode).textContent).toBe("bar")
   })
 })
 
@@ -1027,40 +1001,147 @@ test("origin validation", async () => {
   ws.close()
 })
 
+test("reconnect", async () => {
+  let instance: Foo
+  let mountCount = 0
+  let unmountCount = 0
+
+  class Foo extends Purview.Component<{}, { text: string }> {
+    state = { text: "hi" }
+
+    constructor(props: {}) {
+      super(props)
+      instance = this
+    }
+
+    componentDidMount(): void {
+      mountCount += 1
+    }
+
+    componentWillUnmount(): void {
+      unmountCount += 1
+    }
+
+    render(): JSX.Element {
+      return <p>{this.state.text}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(0)
+
+    instance.setState({ text: "hello" })
+    await conn.messages.next()
+    conn.ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(1)
+
+    const origin = `http://localhost:${conn.port}`
+    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
+    await new Promise(resolve => ws.addEventListener("open", resolve))
+
+    const connect: ClientMessage = {
+      type: "connect",
+      rootIDs: [conn.rootID],
+    }
+    ws.send(JSON.stringify(connect))
+
+    await new Promise(resolve => {
+      ws.addEventListener("message", messageEvent => {
+        const message: ServerMessage = JSON.parse(messageEvent.data.toString())
+        expect(message.type).toBe("update")
+        expect(concretize(message.vNode).textContent).toBe("hello")
+        resolve()
+      })
+    })
+
+    expect(mountCount).toBe(2)
+    expect(unmountCount).toBe(1)
+    ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(mountCount).toBe(2)
+    expect(unmountCount).toBe(2)
+  })
+})
+
+test("reconnect early", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <p>Hi</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const origin = `http://localhost:${conn.port}`
+    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
+    await new Promise(resolve => ws.addEventListener("open", resolve))
+
+    const connect: ClientMessage = {
+      type: "connect",
+      rootIDs: [conn.rootID],
+    }
+    ws.send(JSON.stringify(connect))
+    await new Promise(resolve => ws.addEventListener("close", resolve))
+  })
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (
     conn: {
       ws: WebSocket
+      port: number
       rootID: string
       elem: Element
-      connectedMessage: ConnectedMessage
+      updateMessage: UpdateMessage
       messages: AsyncQueue<ServerMessage>
     },
   ) => Promise<T>,
 ): Promise<T> {
-  const server = http.createServer()
+  const server = http.createServer(async (req, res) => {
+    res.end(await Purview.render(jsxElem, req))
+  })
   await new Promise(resolve => server.listen(resolve))
 
-  const elem = parseHTML(await Purview.render(jsxElem))
-  const id = elem.getAttribute("data-component-id")
+  const port = (server.address() as net.AddressInfo).port
+  const html = await new Promise<string>(resolve => {
+    http.get(`http://localhost:${port}`, res => {
+      let data = ""
+      res.setEncoding("utf8")
+      res.on("data", chunk => (data += chunk))
+      res.on("end", () => resolve(data))
+    })
+  })
+
+  const id = parseHTML(html).getAttribute("data-component-id")
   if (!id) {
     throw new Error(`Expected component ID, but got: ${id}`)
   }
 
-  const addr = server.address() as net.AddressInfo
-  const origin = `http://localhost:${addr.port}`
+  const origin = `http://localhost:${port}`
   Purview.handleWebSocket(server, { origin })
-  const ws = new WebSocket(`ws://localhost:${addr.port}`, { origin })
+  const ws = new WebSocket(`ws://localhost:${port}`, { origin })
   await new Promise(resolve => ws.addEventListener("open", resolve))
 
   const messages = new AsyncQueue<ServerMessage>()
-  const connectedMessage = await new Promise<ConnectedMessage>(resolve => {
+  const updateMessage = await new Promise<UpdateMessage>(resolve => {
+    let resolved = false
     ws.addEventListener("message", messageEvent => {
-      const message = JSON.parse(messageEvent.data.toString())
+      const message: ServerMessage = JSON.parse(messageEvent.data.toString())
       switch (message.type) {
-        case "connected":
-          resolve(message)
+        case "update":
+          if (resolved) {
+            messages.push(message)
+          } else {
+            resolve(message)
+            resolved = true
+          }
           break
 
         default:
@@ -1079,9 +1160,10 @@ async function renderAndConnect<T>(
   try {
     result = await callback({
       ws,
+      port,
       rootID: id,
-      elem,
-      connectedMessage,
+      elem: concretize(updateMessage.vNode),
+      updateMessage,
       messages,
     })
   } finally {

@@ -1,5 +1,7 @@
 import * as http from "http"
 import * as urlLib from "url"
+import * as fs from "fs"
+import * as pathLib from "path"
 
 import Purview from "../purview"
 import App from "./app"
@@ -21,7 +23,7 @@ const server = http.createServer(async (req, res) => {
           <body>
             <h1>This is a counter</h1>
             <div id="root">
-              ${await Purview.render(<App />)}
+              ${await Purview.render(<App />, req)}
             </div>
             <script src="http://localhost:8080/browser.js"></script>
           </body>
@@ -40,10 +42,46 @@ const server = http.createServer(async (req, res) => {
 })
 
 const port = 8000
-Purview.handleWebSocket(server, {
+const wsServer = Purview.handleWebSocket(server, {
   origin: `http://localhost:${port}`,
 })
 
 /* tslint:disable no-console */
 server.listen(port, () => console.log(`Listening on localhost:${port}`))
 /* tslint:enable no-console */
+
+const TMP_DIR = pathLib.join(__dirname, "..", "..", "tmp")
+Purview.reloadOptions.saveStateTree = async (id, stateTree) => {
+  const path = stateTreePath(id)
+  await fs.promises.writeFile(path, JSON.stringify(stateTree))
+  setTimeout(() => Purview.reloadOptions.deleteStateTree(id), 60000)
+}
+
+Purview.reloadOptions.getStateTree = async id => {
+  const path = stateTreePath(id)
+  let contents
+
+  try {
+    contents = await fs.promises.readFile(path, "utf8")
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null
+    }
+    throw error
+  }
+  return JSON.parse(contents)
+}
+
+Purview.reloadOptions.deleteStateTree = async id => {
+  const path = stateTreePath(id)
+  await fs.promises.unlink(path)
+}
+
+function stateTreePath(id: string): string {
+  return pathLib.join(TMP_DIR, `state_tree_${id}`)
+}
+
+process.once("SIGUSR2", () => {
+  wsServer.close()
+  setTimeout(() => process.kill(process.pid, "SIGUSR2"), 250)
+})

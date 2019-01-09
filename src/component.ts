@@ -1,5 +1,5 @@
 import nanoid = require("nanoid")
-import { PNode } from "./purview"
+import { PNode, StateTree } from "./purview"
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
@@ -8,9 +8,7 @@ export interface ComponentConstructor<P, S> {
   new (props: P): Component<P, S>
 }
 
-export interface ChildMap<T = Component<any, any>> {
-  [key: string]: T[]
-}
+export type ChildMap<T> = Record<string, T[]>
 
 interface Component<P, S> {
   getInitialState?(): Promise<S>
@@ -18,16 +16,8 @@ interface Component<P, S> {
 
 abstract class Component<P, S> {
   /* tslint:disable variable-name */
-  static _cachedTypeID: string
-  static get _typeID(): string {
-    if (!this._cachedTypeID) {
-      this._cachedTypeID = nanoid()
-    }
-    return this._cachedTypeID
-  }
-
   public _id: string
-  public _childMap: ChildMap = {}
+  public _childMap: ChildMap<Component<any, any> | StateTree> = {}
   public _newChildMap: ChildMap<Component<any, any> | null> = {}
   public _handleUpdate: () => Promise<void>
   public _pNode: PNode
@@ -104,17 +94,24 @@ abstract class Component<P, S> {
     return this._lockedPromise
   }
 
-  async _initState(): Promise<void> {
+  async _initState(savedState?: S): Promise<void> {
+    let initialState = this.state
     if (this.getInitialState) {
-      this.state = await this.getInitialState()
+      initialState = await this.getInitialState()
     }
+    this.state = Object.assign(initialState, savedState)
   }
 
   async _triggerMount(): Promise<void> {
     return this._lock(async () => {
-      const promises = Object.keys(this._childMap).map(key =>
-        Promise.all(this._childMap[key].map(c => c._triggerMount())),
-      )
+      const promises = Object.keys(this._childMap).map(key => {
+        const childPromises = this._childMap[key].map(child => {
+          if (child instanceof Component) {
+            child._triggerMount()
+          }
+        })
+        return Promise.all(childPromises)
+      })
       await Promise.all(promises)
       this.componentDidMount()
     })
@@ -122,9 +119,14 @@ abstract class Component<P, S> {
 
   async _triggerUnmount(): Promise<void> {
     return this._lock(async () => {
-      const promises = Object.keys(this._childMap).map(key =>
-        Promise.all(this._childMap[key].map(c => c._triggerUnmount())),
-      )
+      const promises = Object.keys(this._childMap).map(key => {
+        const childPromises = this._childMap[key].map(child => {
+          if (child instanceof Component) {
+            child._triggerUnmount()
+          }
+        })
+        return Promise.all(childPromises)
+      })
       await Promise.all(promises)
       this._unmounted = true
       this.componentWillUnmount()

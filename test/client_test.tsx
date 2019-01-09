@@ -18,9 +18,9 @@ import {
   ConnectMessage,
   UpdateMessage,
   ClientMessage,
-  ConnectedMessage,
 } from "../src/types/ws"
-import { virtualize } from "../src/helpers"
+import { virtualize, concretize } from "../src/helpers"
+import { VNode } from "snabbdom/vnode"
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
@@ -29,23 +29,20 @@ test("connectWebSocket", async () => {
     <section><a data-root="true" data-component-id="baz"></a></section>
   `
 
-  const { wsClient, reload } = await connect(async conn => {
+  await connect(async conn => {
     const message = (await conn.messages.next()) as ConnectMessage
     expect(message.type).toBe("connect")
     expect(message.rootIDs).toEqual(["foo", "baz"])
     return conn
   })
-
-  await new Promise(resolve => wsClient.addEventListener("close", resolve))
-  expect(reload).toBeCalled()
 })
 
 test("connectWebSocket update", async () => {
-  document.body.innerHTML = `
+  populate(
     <p data-root="true" data-component-id="foo">
       This is a paragraph.
-    </p>
-  `
+    </p>,
+  )
 
   await connect(async conn => {
     const updateMessage: UpdateMessage = {
@@ -76,22 +73,24 @@ test("connectWebSocket update", async () => {
 })
 
 test("events", async () => {
-  document.body.innerHTML = `
+  const vNode = populate(
     <p data-root="true" data-component-id="foo" data-click-capture="bar">
       This is <a data-click="baz">a link</a>.
-    </p>
-  `
+    </p>,
+  )
 
   await connect(async conn => {
     const message1 = (await conn.messages.next()) as ConnectMessage
     expect(message1.type).toBe("connect")
     expect(message1.rootIDs).toEqual(["foo"])
 
-    const connectedMessage: ConnectedMessage = {
-      type: "connected",
+    const updateMessage: UpdateMessage = {
+      type: "update",
+      componentID: "foo",
+      vNode,
       newEventNames: ["click"],
     }
-    conn.ws.send(JSON.stringify(connectedMessage))
+    conn.ws.send(JSON.stringify(updateMessage))
 
     const message2 = (await conn.messages.next()) as SeenEventNamesMessage
     expect(message2.type).toBe("seenEventNames")
@@ -115,11 +114,11 @@ test("events", async () => {
 })
 
 test("events after update", async () => {
-  document.body.innerHTML = `
+  populate(
     <p data-root="true" data-component-id="foo">
       This is a paragraph.
-    </p>
-  `
+    </p>,
+  )
 
   await connect(async conn => {
     const message1 = (await conn.messages.next()) as ConnectMessage
@@ -162,24 +161,26 @@ test("events after update", async () => {
 })
 
 test("input/change event", async () => {
-  document.body.innerHTML = `
+  const vNode = populate(
     <div data-root="true" data-component-id="foo">
-      <input data-input="bar" />
+      <input type="text" data-input="bar" />
       <input type="checkbox" data-input="baz" />
       <select multiple data-change="other">
         <option>Foo</option>
         <option>Bar</option>
         <option>Baz</option>
       </select>
-    </div>
-  `
+    </div>,
+  )
 
   await connect(async conn => {
-    const connectedMessage: ConnectedMessage = {
-      type: "connected",
+    const updateMessage: UpdateMessage = {
+      type: "update",
+      componentID: "foo",
+      vNode,
       newEventNames: ["input", "change"],
     }
-    conn.ws.send(JSON.stringify(connectedMessage))
+    conn.ws.send(JSON.stringify(updateMessage))
 
     // Ignore connect and seenEventNames messages.
     await conn.messages.next()
@@ -226,18 +227,20 @@ test("input/change event", async () => {
 })
 
 test("key event", async () => {
-  document.body.innerHTML = `
+  const vNode = populate(
     <div data-root="true" data-component-id="foo">
-      <input data-keydown="bar" />
-    </div>
-  `
+      <input type="text" data-keydown="bar" />
+    </div>,
+  )
 
   await connect(async conn => {
-    const connectedMessage: ConnectedMessage = {
-      type: "connected",
+    const updateMessage: UpdateMessage = {
+      type: "update",
+      componentID: "foo",
+      vNode,
       newEventNames: ["keydown"],
     }
-    conn.ws.send(JSON.stringify(connectedMessage))
+    conn.ws.send(JSON.stringify(updateMessage))
 
     // Ignore connect and seenEventNames messages.
     await conn.messages.next()
@@ -258,7 +261,7 @@ test("key event", async () => {
 })
 
 test("submit event", async () => {
-  document.body.innerHTML = `
+  const vNode = populate(
     <form data-root="true" data-component-id="foo" data-submit="bar">
       <input name="input" value="input-value" />
       <input name="input-disabled" disabled />
@@ -274,7 +277,9 @@ test("submit event", async () => {
 
       <select name="select">
         <option>select-value1</option>
-        <option value="select-value2" selected>sv2</option>
+        <option value="select-value2" selected>
+          sv2
+        </option>
       </select>
 
       <select name="select-multiple" multiple>
@@ -284,15 +289,17 @@ test("submit event", async () => {
       </select>
 
       <textarea name="textarea">textarea-value</textarea>
-    </form>
-  `
+    </form>,
+  )
 
   await connect(async conn => {
-    const connectedMessage: ConnectedMessage = {
-      type: "connected",
+    const updateMessage: UpdateMessage = {
+      type: "update",
+      componentID: "foo",
+      vNode,
       newEventNames: ["submit"],
     }
-    conn.ws.send(JSON.stringify(connectedMessage))
+    conn.ws.send(JSON.stringify(updateMessage))
 
     // Ignore connect and seenEventNames messages.
     await conn.messages.next()
@@ -326,13 +333,20 @@ test("submit event", async () => {
   })
 })
 
+function populate(jsx: JSX.Element): VNode {
+  const vNode = virtualize(jsx)
+  const elem = concretize(vNode, document)
+  document.body.innerHTML = ""
+  document.body.appendChild(elem)
+  return vNode
+}
+
 async function connect<T>(
   callback: (
     conn: {
       ws: WebSocket
       wsClient: WebSocket
       messages: AsyncQueue<ClientMessage>
-      reload: jest.Mock<{}>
     },
   ) => Promise<T>,
 ): Promise<T> {
@@ -342,28 +356,27 @@ async function connect<T>(
   const addr = server.address() as net.AddressInfo
   const wsServer = new WebSocket.Server({ server })
 
-  const reload = jest.fn()
-  const location: Location = {
-    protocol: "http:",
-    host: `localhost:${addr.port}`,
-    pathname: "",
-    search: "",
-    reload,
-  } as any
-
-  const wsClient: WebSocket = connectWebSocket(location) as any
   const messages = new AsyncQueue<ClientMessage>()
-
-  const wsConn = await new Promise((resolve: (ws: WebSocket) => void) => {
+  const wsConnPromise = new Promise((resolve: (ws: WebSocket) => void) => {
     wsServer.on("connection", ws => {
       ws.on("message", data => messages.push(JSON.parse(data.toString())))
       resolve(ws)
     })
   })
 
+  const location: Location = {
+    protocol: "http:",
+    host: `localhost:${addr.port}`,
+    pathname: "",
+    search: "",
+  } as any
+
+  const wsClient: WebSocket = connectWebSocket(location) as any
+  const wsConn = await wsConnPromise
+
   let result
   try {
-    result = await callback({ ws: wsConn, wsClient, messages, reload })
+    result = await callback({ ws: wsConn, wsClient, messages })
   } finally {
     server.close()
     wsConn.close()

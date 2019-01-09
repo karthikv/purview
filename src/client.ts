@@ -2,6 +2,18 @@ import { tryParseJSON, isSelect, isInput } from "./helpers"
 import { initMorph, morph } from "./morph"
 import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
+interface WebSocketState {
+  ws: WebSocket
+  url: string
+  seenEventNames: Set<string>
+  numRetries: number
+  waitTime: number
+}
+
+const MAX_RETRIES = 7
+const RETRY_FACTOR = 1.5
+const INITIAL_WAIT_TIME = 250
+
 export function connectWebSocket(location: Location): WebSocket {
   const { protocol, host, pathname, search } = location
   let wsProtocol: string
@@ -14,9 +26,20 @@ export function connectWebSocket(location: Location): WebSocket {
     throw new Error(`Invalid protocol ${protocol}`)
   }
 
-  const wsURL = `${wsProtocol}//${host}${pathname}${search}`
-  const ws = new WebSocket(wsURL)
-  const seenEventNames = new Set()
+  const url = `${wsProtocol}//${host}${pathname}${search}`
+  const state: WebSocketState = {
+    url,
+    ws: new WebSocket(url),
+    seenEventNames: new Set(),
+    numRetries: 0,
+    waitTime: INITIAL_WAIT_TIME,
+  }
+  addWebSocketHandlers(state)
+  return state.ws
+}
+
+function addWebSocketHandlers(state: WebSocketState): void {
+  const ws = state.ws
 
   ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
@@ -28,40 +51,50 @@ export function connectWebSocket(location: Location): WebSocket {
     sendMessage(ws, { type: "connect", rootIDs })
   })
 
-  ws.addEventListener("message", messageEvent => {
+  ws.addEventListener("message", (messageEvent: MessageEvent) => {
     const message = tryParseJSON<ServerMessage>(messageEvent.data)
 
     switch (message.type) {
-      case "connected":
-        addEventHandlers(ws, seenEventNames, message.newEventNames)
-        break
-
       case "update":
-        addEventHandlers(ws, seenEventNames, message.newEventNames)
+        addEventHandlers(state, state.seenEventNames, message.newEventNames)
         const selector = `[data-component-id="${message.componentID}"]`
         const elem = document.querySelector(selector)
 
         if (elem) {
           morph(elem, message.vNode)
         }
+        state.numRetries = 0
+        state.waitTime = INITIAL_WAIT_TIME
         break
     }
   })
 
-  ws.addEventListener("close", () => location.reload())
-  return ws
+  ws.addEventListener("close", () => {
+    if (state.numRetries === MAX_RETRIES) {
+      location.reload()
+    } else {
+      if (process.env.NODE_ENV !== "test") {
+        setTimeout(() => {
+          state.ws = new WebSocket(state.url)
+          addWebSocketHandlers(state)
+        }, state.waitTime)
+      }
+      state.numRetries += 1
+      state.waitTime *= RETRY_FACTOR
+    }
+  })
 }
 
 function addEventHandlers(
-  ws: WebSocket,
+  state: WebSocketState,
   seenEventNames: Set<string>,
   newEventNames: string[],
 ): void {
   let added = false
   newEventNames.forEach(name => {
     if (!seenEventNames.has(name)) {
-      handleEvent(ws, name, false)
-      handleEvent(ws, name, true)
+      handleEvent(state, name, false)
+      handleEvent(state, name, true)
 
       seenEventNames.add(name)
       added = true
@@ -69,7 +102,7 @@ function addEventHandlers(
   })
 
   if (added) {
-    sendMessage(ws, {
+    sendMessage(state.ws, {
       type: "seenEventNames",
       seenEventNames: Array.from(seenEventNames),
     })
@@ -77,7 +110,7 @@ function addEventHandlers(
 }
 
 function handleEvent(
-  ws: WebSocket,
+  state: WebSocketState,
   eventName: string,
   useCapture: boolean,
 ): void {
@@ -141,7 +174,7 @@ function handleEvent(
             break
         }
 
-        sendMessage(ws, message)
+        sendMessage(state.ws, message)
 
         triggerElem = triggerElem.parentElement
         if (triggerElem) {
