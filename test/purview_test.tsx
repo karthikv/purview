@@ -22,6 +22,7 @@ import {
   ServerMessage,
   ClientMessage,
 } from "../src/types/ws"
+import { MAX_SET_STATE_AFTER_UNMOUNT } from "../src/component"
 
 test("createElem", () => {
   const p = (
@@ -1089,6 +1090,31 @@ test("reconnect early", async () => {
     ws.send(JSON.stringify(connect))
     await new Promise(resolve => ws.addEventListener("close", resolve))
   })
+})
+
+test("setState() after unmount", async () => {
+  let instance: Foo
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      instance = this
+    }
+
+    render(): JSX.Element {
+      return <p>Hi</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async () => null)
+  // Wait for unmount.
+  await new Promise(resolve => setTimeout(resolve, 25))
+
+  for (let i = 0; i < MAX_SET_STATE_AFTER_UNMOUNT; i++) {
+    await instance!.setState({})
+  }
+  await expect(instance!.setState({})).rejects.toThrow(
+    "setState() called after unmount",
+  )
 })
 
 async function renderAndConnect<T>(

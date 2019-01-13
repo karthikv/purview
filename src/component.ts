@@ -14,6 +14,8 @@ interface Component<P, S> {
   getInitialState?(): Promise<S>
 }
 
+export const MAX_SET_STATE_AFTER_UNMOUNT = 10
+
 abstract class Component<P, S> {
   /* tslint:disable variable-name */
   public _id: string
@@ -31,6 +33,7 @@ abstract class Component<P, S> {
   protected state: Readonly<S> = {} as any
   private _changesets: Array<Partial<S> | UpdateFn<S>> = []
   private _lockedPromise: Promise<any> | null = null
+  private _numSetStateAfterUnmount = 0
   /* tslint:enable variable-name */
 
   constructor(protected props: Readonly<P>) {
@@ -53,7 +56,13 @@ abstract class Component<P, S> {
 
   async setState(changes: Partial<S> | UpdateFn<S>): Promise<void> {
     if (this._unmounted) {
-      throw new Error("setState() called after unmount")
+      this._numSetStateAfterUnmount++
+      if (this._numSetStateAfterUnmount > MAX_SET_STATE_AFTER_UNMOUNT) {
+        throw new Error(
+          `setState() called after unmount more than ${MAX_SET_STATE_AFTER_UNMOUNT} times`,
+        )
+      }
+      return
     }
 
     this._changesets.push(changes)
