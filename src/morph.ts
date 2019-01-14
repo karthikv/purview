@@ -65,17 +65,30 @@ export function initMorph(node: Node): void {
 }
 
 export function morph(from: Node, to: VNode): void {
+  if (!from._vNode) {
+    throw new Error("Can't morph: node has no associated virtual node")
+  }
+  if (!from._vNode.elm) {
+    throw new Error("Can't morph: virtual node lacks an element")
+  }
+  if (from._vNode.elm !== from) {
+    throw new Error("Can't morph: virtual node has invalid element")
+  }
+
   const parentVNode = from.parentElement && from.parentElement._vNode
   let childIndex
-  if (parentVNode && parentVNode.children && from._vNode) {
-    childIndex = parentVNode.children.findIndex(c => c === from._vNode)
+  if (parentVNode) {
+    childIndex = parentVNode.children!.findIndex(c => c === from._vNode)
+    if (childIndex === -1) {
+      throw new Error("Can't morph: virtual node isn't a child of parent")
+    }
   }
 
   normalize(to, false)
-  const newVNode = patch(from._vNode, to)
+  from._vNode = patch(from._vNode, to)
 
   if (childIndex !== undefined && childIndex > -1) {
-    parentVNode!.children![childIndex] = newVNode
+    parentVNode!.children![childIndex] = from._vNode
   }
 }
 
