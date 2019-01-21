@@ -1,5 +1,6 @@
 import * as http from "http"
 import * as pathLib from "path"
+import * as util from "util"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import * as t from "io-ts"
@@ -100,6 +101,11 @@ const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
 
 const { document } = new JSDOM().window
 const cachedEventIDs = new WeakMap()
+
+const WEBSOCKET_BAD_STATUS_FORMAT =
+  "Purview: request to your server (GET %s) returned status code %d, so we couldn't start the WebSocket connection."
+const WEBSOCKET_NO_RENDER_FORMAT =
+  "Purview: request to your server (GET %s) didn't render any components, so we couldn't start the WebSocket connection."
 
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
@@ -294,12 +300,26 @@ async function handleMessage(
       res.assignSocket(nullStream as any)
       server.emit("request", req, res)
 
-      const roots = await new Promise<Root[] | undefined>(resolve => {
-        res.on("finish", () => resolve(req.purviewState!.roots))
+      const roots = await new Promise<Root[]>((resolve, reject) => {
+        res.on("finish", () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            const errorMessage = util.format(
+              WEBSOCKET_BAD_STATUS_FORMAT,
+              req.url,
+              res.statusCode,
+            )
+            reject(new Error(errorMessage))
+          } else if (req.purviewState!.roots) {
+            resolve(req.purviewState!.roots)
+          } else {
+            const errorMessage = util.format(
+              WEBSOCKET_NO_RENDER_FORMAT,
+              req.url,
+            )
+            reject(new Error(errorMessage))
+          }
+        })
       })
-      if (!roots) {
-        throw new Error("Couldn't start WebSocket, found no components.")
-      }
 
       roots.forEach(root => {
         root.wsState = wsState
