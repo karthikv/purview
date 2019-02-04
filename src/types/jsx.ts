@@ -351,8 +351,8 @@ declare global {
 
     export interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
       // Purview specific
-      forceValue?: string | number
-      forceChecked?: boolean
+      defaultValue?: string | number
+      defaultChecked?: boolean
 
       // Standard HTML Attributes
       accept?: string
@@ -505,7 +505,7 @@ declare global {
 
     export interface OptionHTMLAttributes<T> extends HTMLAttributes<T> {
       // Purview specific
-      forceSelected?: boolean
+      defaultSelected?: boolean
 
       // Standard HTML attributes
       disabled?: boolean
@@ -595,7 +595,7 @@ declare global {
 
     export interface TextareaHTMLAttributes<T> extends HTMLAttributes<T> {
       // Purview specific
-      forceValue?: string | number
+      defaultValue?: string | number
 
       // Standard HTML attributes
       autoFocus?: boolean
@@ -619,12 +619,14 @@ declare global {
 
     export interface TdHTMLAttributes<T> extends HTMLAttributes<T> {
       colSpan?: number
+      colspan?: number
       headers?: string
       rowSpan?: number
     }
 
     export interface ThHTMLAttributes<T> extends HTMLAttributes<T> {
       colSpan?: number
+      colspan?: number
       headers?: string
       rowSpan?: number
       rowspan?: number | string

@@ -74,7 +74,14 @@ Purview.reloadOptions.getStateTree = async id => {
 
 Purview.reloadOptions.deleteStateTree = async id => {
   const path = stateTreePath(id)
-  await fs.promises.unlink(path)
+  try {
+    await fs.promises.unlink(path)
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return
+    }
+    throw error
+  }
 }
 
 function stateTreePath(id: string): string {

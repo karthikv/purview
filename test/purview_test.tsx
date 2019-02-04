@@ -45,67 +45,75 @@ test("createElem", () => {
 test("createElem select", () => {
   const select1 = (
     <select>
-      <option selected>First</option>
+      <option defaultSelected>First</option>
     </select>
   )
   expect(select1.attributes).toEqual({})
+  expect(select1.children).toHaveProperty("attributes", { selected: true })
 
   const select2 = (
     <select>
-      <option forceSelected>First</option>
+      <option selected>First</option>
     </select>
   )
-  expect(select2.attributes).toEqual({
-    autocomplete: "off",
+  expect(select2.attributes).toEqual({ "data-controlled": true })
+  expect(select2.children).toHaveProperty("attributes", {
+    selected: true,
     "data-controlled": true,
   })
-  expect(select2.children).toHaveProperty("attributes", { selected: true })
+
+  const select3 = (
+    <select>
+      <optgroup>
+        <option selected>First</option>
+      </optgroup>
+    </select>
+  )
+  expect(select3.attributes).toEqual({ "data-controlled": true })
+  expect((select3.children as JSX.Element).children).toHaveProperty(
+    "attributes",
+    { selected: true, "data-controlled": true },
+  )
 })
 
 test("createElem textarea", () => {
-  const textarea1 = <textarea value="foo" />
+  const textarea1 = <textarea defaultValue="foo" />
   expect(textarea1.attributes).toEqual({})
   expect(textarea1.children).toEqual("foo")
 
-  const textarea2 = <textarea forceValue="foo" />
-  expect(textarea2.attributes).toEqual({
-    autocomplete: "off",
-    "data-controlled": true,
-  })
+  const textarea2 = <textarea value="foo" />
+  expect(textarea2.attributes).toEqual({ "data-controlled": true })
   expect(textarea2.children).toEqual("foo")
 })
 
 test("createElem checkbox", () => {
-  const checkbox1 = <input type="checkbox" checked />
+  const checkbox1 = <input type="checkbox" defaultChecked />
   expect(checkbox1.attributes).toEqual({ type: "checkbox", checked: true })
 
-  const checkbox2 = <input type="checkbox" checked={false} />
+  const checkbox2 = <input type="checkbox" defaultChecked={false} />
   expect(checkbox2.attributes).toEqual({ type: "checkbox" })
 
-  const checkbox3 = <input type="checkbox" forceChecked />
+  const checkbox3 = <input type="checkbox" checked />
   expect(checkbox3.attributes).toEqual({
     type: "checkbox",
-    autocomplete: "off",
     "data-controlled": true,
     checked: true,
   })
 
-  const checkbox4 = <input type="checkbox" forceChecked={false} />
+  const checkbox4 = <input type="checkbox" checked={false} />
   expect(checkbox4.attributes).toEqual({
     type: "checkbox",
-    autocomplete: "off",
     "data-controlled": true,
   })
 })
 
 test("createElem input", () => {
-  const input1 = <input type="text" value="foo" />
+  const input1 = <input type="text" defaultValue="foo" />
   expect(input1.attributes).toEqual({ type: "text", value: "foo" })
 
-  const input2 = <input type="text" forceValue="foo" />
+  const input2 = <input type="text" value="foo" />
   expect(input2.attributes).toEqual({
     type: "text",
-    autocomplete: "off",
     "data-controlled": true,
     value: "foo",
   })

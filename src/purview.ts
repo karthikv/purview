@@ -13,9 +13,8 @@ import {
   isEventAttr,
   toEventName,
   CAPTURE_TEXT,
-  findNested,
-  eachNested,
   concretize,
+  findNested,
 } from "./helpers"
 import { ServerMessage, ClientMessage, EventCallback } from "./types/ws"
 import {
@@ -110,70 +109,51 @@ const WEBSOCKET_NO_RENDER_FORMAT =
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
   attributes:
-    | JSX.InputHTMLAttributes<any> & JSX.TextareaHTMLAttributes<any>
+    | JSX.InputHTMLAttributes<any> &
+        JSX.TextareaHTMLAttributes<any> &
+        JSX.OptionHTMLAttributes<any>
     | null,
   ...children: NestedArray<JSX.Child>
 ): JSX.Element {
   attributes = attributes || {}
 
-  const hasForceSelected =
-    nodeName === "select" &&
-    findNested(
-      children,
-      c => isJSXOption(c) && c.attributes.hasOwnProperty("forceSelected"),
-    )
+  const hasSelected =
+    (nodeName === "option" && "selected" in attributes) ||
+    (nodeName === "select" && containsControlledOption(children))
 
-  const hasForceValue =
+  const hasValue =
     ((nodeName === "input" &&
       (!("type" in attributes) || attributes.type === "text")) ||
       nodeName === "textarea") &&
-    attributes.hasOwnProperty("forceValue")
+    "value" in attributes
 
-  const hasForceChecked =
+  const hasChecked =
     nodeName === "input" &&
     (attributes.type === "checkbox" || attributes.type === "radio") &&
-    attributes.hasOwnProperty("forceChecked")
+    "checked" in attributes
 
-  // In Firefox, if you enter some data into a text input, and refresh, the
-  // value from the previous page will be retained, even if the input has
-  // a value attribute. We don't want this behavior if we're forcing a value, so
-  // we set autocomplete to off. The same applies to selects and textareas.
-  if (hasForceSelected || hasForceValue || hasForceChecked) {
-    attributes.autocomplete = "off"
+  if (hasSelected || hasValue || hasChecked) {
     ;(attributes as any)["data-controlled"] = true
   }
 
-  if (hasForceSelected) {
-    eachNested(children, child => {
-      if (
-        isJSXOption(child) &&
-        child.attributes.hasOwnProperty("forceSelected")
-      ) {
-        child.attributes.selected = child.attributes.forceSelected
-        delete child.attributes.forceSelected
-      }
-    })
+  if ("defaultValue" in attributes && !("value" in attributes)) {
+    attributes.value = attributes.defaultValue
+    delete attributes.defaultValue
   }
 
-  // Must do this before the forceValue logic below.
-  if (nodeName === "textarea" && attributes.hasOwnProperty("value")) {
+  if ("defaultChecked" in attributes && !("checked" in attributes)) {
+    attributes.checked = attributes.defaultChecked
+    delete attributes.defaultChecked
+  }
+
+  if ("defaultSelected" in attributes && !("selected" in attributes)) {
+    attributes.selected = attributes.defaultSelected
+    delete attributes.defaultSelected
+  }
+
+  if (nodeName === "textarea" && "value" in attributes) {
     children = [attributes.value as string]
     delete attributes.value
-  }
-
-  if (hasForceValue) {
-    if (nodeName === "textarea") {
-      children = [attributes.forceValue as string]
-      delete attributes.forceValue
-    } else {
-      attributes.value = attributes.forceValue
-      delete attributes.forceValue
-    }
-  }
-
-  if (hasForceChecked) {
-    attributes.checked = attributes.forceChecked
-    delete attributes.forceChecked
   }
 
   // For intrinsic elements, change special attributes to data-* equivalents and
@@ -204,10 +184,33 @@ export function createElem(
   }
 }
 
-function isJSXOption(
-  child: JSX.Child,
-): child is JSX.Element<JSX.OptionHTMLAttributes<any>> {
-  return typeof child === "object" && (child as any).nodeName === "option"
+function containsControlledOption(
+  children: JSX.Child | NestedArray<JSX.Child>,
+): boolean {
+  if (children instanceof Array) {
+    const controlled = findNested(children, child => {
+      if (!isJSXElement(child)) {
+        return false
+      }
+
+      if (child.nodeName === "optgroup") {
+        return containsControlledOption(child.children)
+      } else {
+        return isControlledOption(child)
+      }
+    })
+    return Boolean(controlled)
+  } else {
+    return isJSXElement(children) && isControlledOption(children)
+  }
+}
+
+function isJSXElement(child: JSX.Child): child is JSX.Element {
+  return Boolean(child && typeof child === "object" && child.nodeName)
+}
+
+function isControlledOption(jsx: JSX.Element): boolean {
+  return jsx.nodeName === "option" && "data-controlled" in jsx.attributes
 }
 
 export function handleWebSocket(

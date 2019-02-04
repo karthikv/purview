@@ -217,26 +217,27 @@ various event types:
 All other event handlers are passed no arguments.
 
 ### Controlled Form Inputs
-Because events require a round-trip to the server, it's not recommended to
-control the value of form inputs unless you actually need each keystroke for
-some purpose (e.g. real-time validation).
+If you specify a `value` attribute on a text `input` or `textarea`, a `checked`
+attribute on a radio/checkbox `input`, or a `selected` attribute on an `option`,
+the form input will be controlled. Upon each re-render, the value will be
+forcibly set to the value you specify.
 
-Purview retains the default behavior of HTML when possible. If you specify
-a `value` attribute for an `input` tag, it will only act as the initial value,
-just as it does with regular HTML. The user will be able to change and modify
-the value as desired. By contrast, in React, the form input would be controlled,
-and the user would be unable to modify the value.
-
-If you want to control a form input, use the `forceValue` attribute. This will
-forcibly update the value during each re-render. Note that this doesn't prevent
-the user from changing the input; for that, simply use the [`disabled`
-attribute][disabled].
+Unlike React, a controlled form input's value *can* be modified, but it'll be
+reset to the specified value when re-rendered. To prevent modification, use the
+standard [`readonly`][readonly] or [`disabled`][disabled] HTML attributes.
 
 Purview does not let you specify a `value` attribute for `select` tags like
 React does. Instead, you must use the `selected` attribute on `option` tags,
-just like you would in regular HTML. In the same vein as `forceValue`, there's
-a `forceSelected` attribute to forcibly update the selected option(s) on each
-re-render.
+just like you would in regular HTML. Purview controls the `select` given at
+least one option has a `selected` attribute.
+
+If you want to set an initial, uncontrolled value, use the attribute
+`defaultValue` for text `input`s and `textarea`s, `defaultChecked` for
+radio/checkbox `input`s, and `defaultSelected` for `option`s.
+
+Do note that events require a round-trip to the server, so controlling form
+inputs is more expensive than in React. That being said, it's quite fast given
+a reasonable Internet connection, and this expense can often be ignored.
 
 ### `getInitialState()`
 Components can define a `getInitialState()` function that returns a promise with
@@ -276,3 +277,4 @@ Purview is [MIT licensed](LICENSE).
 [key]: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key
 [class-validator]: https://github.com/typestack/class-validator
 [disabled]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#disabled
+[readonly]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#readonly

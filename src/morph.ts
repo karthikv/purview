@@ -2,7 +2,7 @@ import * as snabbdom from "snabbdom"
 import { VNode } from "snabbdom/vnode"
 import toVNode from "snabbdom/tovnode"
 import setAttrsMod from "snabbdom/modules/attributes"
-import { isInput, isOption, isTextArea } from "./helpers"
+import { isInput, isSelect, isTextArea, isOption } from "./helpers"
 
 declare global {
   interface Node {
@@ -20,9 +20,7 @@ const controlInputsMod = {
     }
 
     if (isInput(elem) && "data-controlled" in attrs) {
-      // If the user explicitly specifies forceValue={undefined}, attrs.value
-      // will be undefined, and we don't want to set the value.
-      if (attrs.hasOwnProperty("value")) {
+      if ("value" in attrs) {
         elem.value = String(attrs.value)
       }
 
@@ -31,14 +29,22 @@ const controlInputsMod = {
       elem.checked = Boolean(attrs.checked)
     }
 
-    if (
-      isOption(elem) &&
-      elem.parentElement &&
-      elem.parentElement.hasAttribute("data-controlled")
-    ) {
-      // Note that the checked attribute won't be set if it was false in JSX, so
-      // we need to do this even if attrs doesn't have this property.
-      elem.selected = Boolean(attrs.selected)
+    if (isOption(elem)) {
+      // Find the parent select.
+      let parent = elem.parentNode
+      if (parent && parent.nodeName === "OPTGROUP") {
+        parent = parent.parentNode
+      }
+
+      if (
+        parent &&
+        isSelect(parent) &&
+        parent.hasAttribute("data-controlled")
+      ) {
+        // Note that the selected attribute won't be set if it was false in JSX,
+        // so we need to do this even if attrs doesn't have this property.
+        elem.selected = Boolean(attrs.selected)
+      }
     }
 
     if (isTextArea(elem) && "data-controlled" in attrs) {

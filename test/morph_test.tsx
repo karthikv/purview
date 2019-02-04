@@ -25,33 +25,35 @@ test("morph checkbox", () => {
   expect(newInput.checked).toBe(true)
 })
 
-test("morph text input forceValue", () => {
+test("morph text input value", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
-  morph(input, virtualize(<input type="text" forceValue="Hey" />))
+  morph(input, virtualize(<input type="text" value="Hey" />))
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hey")
 })
 
-test("morph text input forceValue undefined", () => {
+test("morph text input value undefined", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
-  morph(input, virtualize(<input type="text" forceValue={undefined} />))
+  morph(input, virtualize(<input type="text" value={undefined} />))
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hello")
 })
 
-test("morph select forceValue", async () => {
+test("morph option selected", async () => {
   const select = populate(
     <select>
-      <option>Foo</option>
-      <option forceSelected={true}>Bar</option>
+      <optgroup>
+        <option>Foo</option>
+      </optgroup>
+      <option selected>Bar</option>
       <option>Baz</option>
     </select>,
   ) as HTMLInputElement
-  ;(select.children[0] as HTMLOptionElement).selected = true
+  ;(select.children[0].children[0] as HTMLOptionElement).selected = true
   ;(select.children[1] as HTMLOptionElement).selected = false
   expect(document.querySelector("select")!.value).toBe("Foo")
 
@@ -59,8 +61,10 @@ test("morph select forceValue", async () => {
     select,
     virtualize(
       <select>
-        <option>Foo</option>
-        <option forceSelected={true}>Bar</option>
+        <optgroup>
+          <option>Foo</option>
+        </optgroup>
+        <option selected>Bar</option>
         <option>Baz</option>
       </select>,
     ),

@@ -43,12 +43,12 @@ export default class extends Purview.Component<{}, AppState> {
         <Animation />
 
         <input type="text" />
-        <input type="text" forceValue="value" />
+        <input type="text" value="value" />
         <br />
 
         <input type="checkbox" />
-        <input type="checkbox" forceChecked />
-        <input type="checkbox" forceChecked={false} />
+        <input type="checkbox" checked />
+        <input type="checkbox" checked={false} />
         <br />
 
         <input type="radio" name="foo" value="bar" />
@@ -56,41 +56,41 @@ export default class extends Purview.Component<{}, AppState> {
         <br />
 
         <input type="radio" name="bar" value="bar" />
-        <input type="radio" name="bar" value="baz" forceChecked={true} />
+        <input type="radio" name="bar" value="baz" checked={true} />
         <br />
 
         <input type="radio" name="baz" value="bar" />
-        <input type="radio" name="baz" value="baz" forceChecked={false} />
+        <input type="radio" name="baz" value="baz" checked={false} />
         <br />
 
         <select>
           <option>Hello</option>
-          <option selected>Hey</option>
+          <option defaultSelected>Hey</option>
           <option>Foo</option>
         </select>
 
         <select>
           <option>Hello</option>
           <option>Hey</option>
-          <option forceSelected>Foo</option>
+          <option selected>Foo</option>
         </select>
         <br />
 
         <select multiple>
           <option>Hello</option>
-          <option selected>Hey</option>
+          <option defaultSelected>Hey</option>
           <option>Foo</option>
         </select>
 
         <select multiple>
           <option>Hello</option>
-          <option forceSelected>Hey</option>
-          <option forceSelected>Foo</option>
+          <option selected>Hey</option>
+          <option selected>Foo</option>
         </select>
         <br />
 
+        <textarea defaultValue="foo" />
         <textarea value="foo" />
-        <textarea forceValue="foo" />
 
         {help}
         <button onClick={this.toggleHelp}>Toggle Help</button>
