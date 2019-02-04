@@ -142,6 +142,19 @@ test("createElem component falsy attributes", () => {
   })
 })
 
+test("createElem component defaultValue", () => {
+  class Foo extends Purview.Component<{ defaultValue: string }, {}> {
+    render(): JSX.Element {
+      return <p>{this.props.defaultValue}</p>
+    }
+  }
+
+  // The default value *should not* be set as the value attribute. We must not
+  // treat a component like a text input.
+  const foo = <Foo defaultValue="foo" />
+  expect(foo.attributes).toEqual({ defaultValue: "foo" })
+})
+
 test("createElem key", () => {
   const div: JSX.Element<JSX.HTMLAttributes> = <div key="foo" />
   expect(div.attributes.key).toBeUndefined()

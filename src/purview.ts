@@ -121,32 +121,44 @@ export function createElem(
     (nodeName === "option" && "selected" in attributes) ||
     (nodeName === "select" && containsControlledOption(children))
 
-  const hasValue =
-    ((nodeName === "input" &&
-      (!("type" in attributes) || attributes.type === "text")) ||
-      nodeName === "textarea") &&
-    "value" in attributes
+  const isValueInput =
+    (nodeName === "input" &&
+      (!attributes.type || attributes.type === "text")) ||
+    nodeName === "textarea"
+  const hasValue = isValueInput && "value" in attributes
 
-  const hasChecked =
+  const isCheckedInput =
     nodeName === "input" &&
-    (attributes.type === "checkbox" || attributes.type === "radio") &&
-    "checked" in attributes
+    (attributes.type === "checkbox" || attributes.type === "radio")
+  const hasChecked = isCheckedInput && "checked" in attributes
 
   if (hasSelected || hasValue || hasChecked) {
     ;(attributes as any)["data-controlled"] = true
   }
 
-  if ("defaultValue" in attributes && !("value" in attributes)) {
+  if (
+    isValueInput &&
+    "defaultValue" in attributes &&
+    !("value" in attributes)
+  ) {
     attributes.value = attributes.defaultValue
     delete attributes.defaultValue
   }
 
-  if ("defaultChecked" in attributes && !("checked" in attributes)) {
+  if (
+    isCheckedInput &&
+    "defaultChecked" in attributes &&
+    !("checked" in attributes)
+  ) {
     attributes.checked = attributes.defaultChecked
     delete attributes.defaultChecked
   }
 
-  if ("defaultSelected" in attributes && !("selected" in attributes)) {
+  if (
+    nodeName === "option" &&
+    "defaultSelected" in attributes &&
+    !("selected" in attributes)
+  ) {
     attributes.selected = attributes.defaultSelected
     delete attributes.defaultSelected
   }
