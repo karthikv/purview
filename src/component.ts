@@ -137,8 +137,8 @@ abstract class Component<P, S> {
         return Promise.all(childPromises)
       })
       await Promise.all(promises)
-      this._unmounted = true
       this.componentWillUnmount()
+      this._unmounted = true
     })
   }
 
