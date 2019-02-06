@@ -42,7 +42,6 @@ interface WebSocketState {
 interface Handler {
   eventName: string
   callback: EventCallback
-  possibleValues?: string[]
   validator?: t.Type<any, any, any>
 }
 
@@ -498,8 +497,6 @@ async function makeElem(
   key = `${parentKey}/${nodeName}`
 
   const attrs: Attrs = {}
-  let changeHandler: Handler | undefined
-
   Object.keys(attributes).forEach(attr => {
     if (!isEventAttr(attr)) {
       const value = (attributes as any)[attr]
@@ -562,10 +559,6 @@ async function makeElem(
           break
       }
       root.handlers[eventID].validator = validator
-
-      if (nodeName === "select" && eventName === "change") {
-        changeHandler = root.handlers[eventID]
-      }
     }
 
     if (attr.indexOf(CAPTURE_TEXT) !== -1) {
@@ -591,24 +584,8 @@ async function makeElem(
     }
   })
 
-  const vChildren: PNode[] = []
-  ;(await Promise.all(promises)).forEach(child => {
-    if (child) {
-      vChildren.push(child)
-    }
-  })
-
-  if (changeHandler) {
-    const possibleValues: string[] = []
-    vChildren.forEach(({ data }) => {
-      if (data && data.attrs && typeof data.attrs.value === "string") {
-        possibleValues.push(data.attrs.value)
-      }
-    })
-    changeHandler.possibleValues = possibleValues
-  }
-
-  return createPNode(nodeName, attrs, vChildren)
+  const vChildren = (await Promise.all(promises)).filter(c => c !== null)
+  return createPNode(nodeName, attrs, vChildren as PNode[])
 }
 
 async function withComponent<T>(

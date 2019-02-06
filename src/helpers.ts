@@ -180,8 +180,16 @@ export function mapNested<T, U>(
   array: NestedArray<T>,
   callback: (elem: T) => U,
 ): U[] {
-  const mapped: U[] = []
-  eachNested(array, e => mapped.push(callback(e)))
+  const mapped: U[] = new Array(array.length)
+  let i = 0
+
+  eachNested(array, elem => {
+    // Will naturally expand the array if it exceeds capacity.
+    mapped[i] = callback(elem)
+    i++
+  })
+
+  mapped.length = i
   return mapped
 }
 
