@@ -584,7 +584,18 @@ async function makeElem(
     }
   })
 
-  const vChildren = (await Promise.all(promises)).filter(c => c !== null)
+  const vChildren = await Promise.all(promises)
+
+  // Remove nulls in place to save memory.
+  let nextIndex = 0
+  for (const vChild of vChildren) {
+    if (vChild) {
+      vChildren[nextIndex] = vChild
+      nextIndex++
+    }
+  }
+  vChildren.length = nextIndex
+
   return createPNode(nodeName, attrs, vChildren as PNode[])
 }
 
