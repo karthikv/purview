@@ -572,18 +572,18 @@ async function makeElem(
   if (!(children instanceof Array)) {
     children = [children]
   }
-  const promises = mapNested(children, async child => {
+
+  const promises = mapNested(children, child => {
     if (child === null || child === undefined || child === false) {
       return null
     }
 
     if (typeof child === "object") {
-      return await makeElem(child, parent, rootID, root, key)
+      return makeElem(child, parent, rootID, root, key)
     } else {
       return createTextPNode(String(child))
     }
   })
-
   const vChildren = await Promise.all(promises)
 
   // Remove nulls in place to save memory.
