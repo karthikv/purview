@@ -732,6 +732,87 @@ test("nested mount cycle", async () => {
   })
 })
 
+test("locked mount cycle", async () => {
+  let fooMountCount = 0
+  let barMountCount = 0
+  let fooUnmountCount = 0
+  let barUnmountCount = 0
+  let fooInstance: Foo
+  let barInstance: Bar
+
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      fooInstance = this
+    }
+
+    componentDidMount(): void {
+      fooMountCount++
+    }
+
+    componentWillUnmount(): void {
+      fooUnmountCount++
+    }
+
+    render(): JSX.Element {
+      return <Bar />
+    }
+  }
+
+  class Bar extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      barInstance = this
+    }
+
+    componentDidMount(): void {
+      barMountCount++
+    }
+
+    componentWillUnmount(): void {
+      barUnmountCount++
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    let lockPromise = barInstance._lock(
+      async () => new Promise(resolve => setTimeout(resolve, 25)),
+    )
+    fooInstance._triggerMount()
+
+    barMountCount = 0
+    fooMountCount = 0
+
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(barMountCount).toBe(0)
+    expect(fooMountCount).toBe(0)
+
+    await lockPromise
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(barMountCount).toBe(1)
+    expect(fooMountCount).toBe(1)
+
+    lockPromise = barInstance._lock(
+      async () => new Promise(resolve => setTimeout(resolve, 50)),
+    )
+    conn.ws.close()
+
+    // Wait for unmount.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(barUnmountCount).toBe(0)
+    expect(fooUnmountCount).toBe(0)
+
+    await lockPromise
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(barUnmountCount).toBe(1)
+    expect(fooUnmountCount).toBe(1)
+  })
+})
+
 test("componentWillUnmount", async () => {
   let unmounted = false
   class Foo extends Purview.Component<{}, { text: string }> {

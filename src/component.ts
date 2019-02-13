@@ -116,8 +116,9 @@ abstract class Component<P, S> {
       const promises = Object.keys(this._childMap).map(key => {
         const childPromises = this._childMap[key].map(child => {
           if (child instanceof Component) {
-            child._triggerMount()
+            return child._triggerMount()
           }
+          return
         })
         return Promise.all(childPromises)
       })
@@ -131,8 +132,9 @@ abstract class Component<P, S> {
       const promises = Object.keys(this._childMap).map(key => {
         const childPromises = this._childMap[key].map(child => {
           if (child instanceof Component) {
-            child._triggerUnmount()
+            return child._triggerUnmount()
           }
+          return
         })
         return Promise.all(childPromises)
       })

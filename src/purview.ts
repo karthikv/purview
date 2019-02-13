@@ -261,7 +261,7 @@ export function handleWebSocket(
       const promises = wsState.roots.map(async root => {
         const stateTree = makeStateTree(root.component)
         await reloadOptions.saveStateTree(root.component._id, stateTree)
-        root.component._triggerUnmount()
+        await root.component._triggerUnmount()
       })
       await Promise.all(promises)
     })
