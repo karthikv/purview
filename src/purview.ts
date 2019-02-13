@@ -488,18 +488,23 @@ async function makeElem(
     })
   }
 
+  return makeRegularElem(jsx, parent, rootID, root, parentKey)
+}
+
+async function makeRegularElem(
+  jsx: JSX.Element,
+  parent: Component<any, any>,
+  rootID: string,
+  root: Root | null,
+  parentKey: string,
+): Promise<PNode | null> {
   if (typeof jsx.nodeName !== "string") {
-    throw new Error(
-      `Invalid JSX node: ${
-        jsx.nodeName
-      }. Nodes must be classes that extend Purview.Component or HTML tag names.`,
-    )
+    throw new Error(`Invalid JSX node: ${jsx.nodeName}`)
   }
 
-  const { nodeName, attributes } = jsx
-  key = `${parentKey}/${nodeName}`
-
+  const { nodeName, attributes, children } = jsx
   const attrs: Attrs = {}
+
   Object.keys(attributes).forEach(attr => {
     if (!isEventAttr(attr)) {
       const value = (attributes as any)[attr]
@@ -571,35 +576,50 @@ async function makeElem(
     }
   })
 
-  let { children } = jsx
-  if (!(children instanceof Array)) {
-    children = [children]
+  let vChildren: Array<PNode | null>
+  // Most common case: leaf text node.
+  if (typeof children === "string") {
+    vChildren = [createTextPNode(children)]
+  } else if (children instanceof Array) {
+    const promises = mapNested(children as NestedArray<JSX.Child>, child =>
+      makeChild(child, parent, rootID, root, `${parentKey}/${nodeName}`),
+    )
+    vChildren = await Promise.all(promises)
+
+    // Remove nulls in place to save memory.
+    let nextIndex = 0
+    for (const vChild of vChildren) {
+      if (vChild) {
+        vChildren[nextIndex] = vChild
+        nextIndex++
+      }
+    }
+    vChildren.length = nextIndex
+  } else {
+    const key = `${parentKey}/${nodeName}`
+    const child = await makeChild(children, parent, rootID, root, key)
+    vChildren = child ? [child] : []
   }
-
-  const promises = mapNested(children, child => {
-    if (child === null || child === undefined || child === false) {
-      return null
-    }
-
-    if (typeof child === "object") {
-      return makeElem(child, parent, rootID, root, key)
-    } else {
-      return createTextPNode(String(child))
-    }
-  })
-  const vChildren = await Promise.all(promises)
-
-  // Remove nulls in place to save memory.
-  let nextIndex = 0
-  for (const vChild of vChildren) {
-    if (vChild) {
-      vChildren[nextIndex] = vChild
-      nextIndex++
-    }
-  }
-  vChildren.length = nextIndex
 
   return createPNode(nodeName, attrs, vChildren as PNode[])
+}
+
+function makeChild(
+  child: JSX.Child,
+  parent: Component<any, any>,
+  rootID: string,
+  root: Root | null,
+  parentKey: string,
+): PNode | null | Promise<PNode | null> {
+  if (child === null || child === undefined || child === false) {
+    return null
+  }
+
+  if (typeof child === "object") {
+    return makeElem(child, parent, rootID, root, parentKey)
+  } else {
+    return createTextPNode(String(child))
+  }
 }
 
 async function withComponent<T>(
