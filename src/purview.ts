@@ -36,6 +36,7 @@ interface WebSocketState {
   ws: WebSocket
   roots: Root[]
   connected: boolean
+  mounted: boolean
   seenEventNames: Set<string>
 }
 
@@ -244,6 +245,7 @@ export function handleWebSocket(
       ws,
       roots: [] as Root[],
       connected: false,
+      mounted: false,
       seenEventNames: new Set(),
     }
 
@@ -340,6 +342,7 @@ async function handleMessage(
         wsState.roots.push(root)
         root.component._triggerMount()
       })
+      wsState.mounted = true
 
       await Promise.all(
         message.rootIDs.map(id => reloadOptions.deleteStateTree(id)),
@@ -475,7 +478,7 @@ async function makeElem(
       const pNode = await renderComponent(component, rootID, root)
       const wsState = root && root.wsState
 
-      if (!existing && wsState && wsState.connected) {
+      if (!existing && wsState && wsState.mounted) {
         // Child components have already been mounted recursively. We don't call
         // _triggerMount() because that would recursively call componentDidMount()
         // on children again.

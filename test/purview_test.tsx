@@ -1037,11 +1037,11 @@ test("reconnect", async () => {
     }
 
     componentDidMount(): void {
-      mountCount += 1
+      mountCount++
     }
 
     componentWillUnmount(): void {
-      unmountCount += 1
+      unmountCount++
     }
 
     render(): JSX.Element {
@@ -1089,6 +1089,70 @@ test("reconnect", async () => {
     await new Promise(resolve => setTimeout(resolve, 25))
     expect(mountCount).toBe(2)
     expect(unmountCount).toBe(2)
+  })
+})
+
+test("reconnect new child component mount cycle", async () => {
+  let showBar = false
+  let mountCount = 0
+  let unmountCount = 0
+
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      if (showBar) {
+        return <Bar />
+      }
+      return <p>Foo</p>
+    }
+  }
+
+  class Bar extends Purview.Component<{}, {}> {
+    componentDidMount(): void {
+      mountCount++
+    }
+
+    componentWillUnmount(): void {
+      unmountCount++
+    }
+
+    render(): JSX.Element {
+      return <p>Bar</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    conn.ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    const origin = `http://localhost:${conn.port}`
+    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
+    await new Promise(resolve => ws.addEventListener("open", resolve))
+
+    showBar = true
+    const connect: ClientMessage = {
+      type: "connect",
+      rootIDs: [conn.rootID],
+    }
+    ws.send(JSON.stringify(connect))
+
+    await new Promise(resolve => {
+      ws.addEventListener("message", messageEvent => {
+        const message: ServerMessage = JSON.parse(messageEvent.data.toString())
+        expect(message.type).toBe("update")
+        expect(concretize(message.vNode).textContent).toBe("Bar")
+        resolve()
+      })
+    })
+
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(0)
+    ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(1)
   })
 })
 
