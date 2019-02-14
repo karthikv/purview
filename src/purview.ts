@@ -442,7 +442,7 @@ async function makeElem(
 ): Promise<PNode | null> {
   let key: string
   if (isComponentElem(jsx)) {
-    key = `${parentKey}/${jsx.nodeName.name}`
+    key = parentKey + "/" + jsx.nodeName.name
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
 
@@ -484,7 +484,7 @@ async function makeRegularElem(
   parentKey: string,
 ): Promise<PNode | null> {
   if (typeof jsx.nodeName !== "string") {
-    throw new Error(`Invalid JSX node: ${jsx.nodeName}`)
+    throw new Error("Invalid JSX node: " + jsx.nodeName)
   }
 
   const { nodeName, attributes, children } = jsx
@@ -555,9 +555,9 @@ async function makeRegularElem(
     }
 
     if (attr.indexOf(CAPTURE_TEXT) !== -1) {
-      attrs[`data-${eventName}-capture`] = eventID
+      attrs["data-" + eventName + "-capture"] = eventID
     } else {
-      attrs[`data-${eventName}`] = eventID
+      attrs["data-" + eventName] = eventID
     }
   })
 
@@ -567,7 +567,7 @@ async function makeRegularElem(
     vChildren = [createTextPNode(children)]
   } else if (children instanceof Array) {
     const promises = mapNested(children as NestedArray<JSX.Child>, child =>
-      makeChild(child, parent, rootID, root, `${parentKey}/${nodeName}`),
+      makeChild(child, parent, rootID, root, parentKey + "/" + nodeName),
     )
     vChildren = await Promise.all(promises)
 
@@ -581,7 +581,7 @@ async function makeRegularElem(
     }
     vChildren.length = nextIndex
   } else {
-    const key = `${parentKey}/${nodeName}`
+    const key = parentKey + "/" + nodeName
     const child = await makeChild(children, parent, rootID, root, key)
     vChildren = child ? [child] : []
   }
