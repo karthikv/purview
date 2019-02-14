@@ -4,7 +4,6 @@ import * as util from "util"
 import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import * as t from "io-ts"
-import { JSDOM } from "jsdom"
 
 import Component, { ComponentConstructor, ChildMap } from "./component"
 import {
@@ -13,7 +12,6 @@ import {
   isEventAttr,
   toEventName,
   CAPTURE_TEXT,
-  concretize,
   findNested,
 } from "./helpers"
 import {
@@ -32,6 +30,7 @@ import {
 } from "./validators"
 import { Attrs } from "snabbdom/modules/attributes"
 import * as DevNull from "dev-null"
+import { toHTML } from "./to_html"
 
 export interface WebSocketOptions {
   origin: string | null
@@ -85,7 +84,6 @@ const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
   number: t.number,
 }
 
-const { document } = new JSDOM().window
 const cachedEventIDs: WeakMap<EventCallback, string> = new WeakMap()
 
 const WEBSOCKET_BAD_STATUS_FORMAT =
@@ -423,7 +421,7 @@ export async function render(
     } else {
       await reloadOptions.saveStateTree(component._id, makeStateTree(component))
     }
-    return concretize(pNode, document).outerHTML
+    return toHTML(pNode)
   })
 }
 
