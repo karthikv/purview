@@ -16,7 +16,13 @@ import {
   concretize,
   findNested,
 } from "./helpers"
-import { ServerMessage, ClientMessage, EventCallback } from "./types/ws"
+import {
+  ServerMessage,
+  ClientMessage,
+  EventCallback,
+  PNode,
+  PNodeRegular,
+} from "./types/ws"
 import {
   makeInputEventValidator,
   makeChangeEventValidator,
@@ -24,7 +30,6 @@ import {
   keyEventValidator,
   clientMessageValidator,
 } from "./validators"
-import { VNode, VNodeData } from "snabbdom/vnode"
 import { Attrs } from "snabbdom/modules/attributes"
 import * as DevNull from "dev-null"
 
@@ -54,24 +59,6 @@ interface Root {
   aliases: { [key: string]: string }
 }
 
-export type PNode = PNodeRegular | PNodeText
-
-interface PNodeRegular extends PNodeBase {
-  sel: string
-  text: undefined
-}
-
-interface PNodeText extends PNodeBase {
-  sel: undefined
-  text: string
-}
-
-interface PNodeBase extends VNode {
-  data: VNodeData
-  children: PNode[]
-  component?: Component<any, any>
-}
-
 export interface StateTree {
   name: string
   value: Record<string, any>
@@ -99,7 +86,7 @@ const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
 }
 
 const { document } = new JSDOM().window
-const cachedEventIDs = new WeakMap()
+const cachedEventIDs: WeakMap<EventCallback, string> = new WeakMap()
 
 const WEBSOCKET_BAD_STATUS_FORMAT =
   "Purview: request to your server (GET %s) returned status code %d, so we couldn't start the WebSocket connection."
@@ -430,7 +417,7 @@ export async function render(
       sendMessage(root!.wsState.ws, {
         type: "update",
         componentID: component._id,
-        vNode: toLatestVNode(pNode),
+        pNode: toLatestPNode(pNode),
         newEventNames: Array.from(root!.eventNames),
       })
     } else {
@@ -658,10 +645,16 @@ async function renderComponent(
   component: Component<any, any>,
   rootID: string,
   root: Root | null,
-): Promise<PNode | null> {
+): Promise<PNodeRegular | null> {
   component._newChildMap = {}
 
-  const pNode = await makeElem(component.render(), component, rootID, root, "")
+  const pNode = (await makeElem(
+    component.render(),
+    component,
+    rootID,
+    root,
+    "",
+  )) as PNodeRegular
   if (!pNode) {
     return null
   }
@@ -699,7 +692,7 @@ async function renderComponent(
       sendMessage(root.wsState.ws, {
         type: "update",
         componentID: unalias(component._id, root),
-        vNode: toLatestVNode(newPNode),
+        pNode: toLatestPNode(newPNode),
         newEventNames: Array.from(newEventNames),
       })
     }
@@ -729,40 +722,29 @@ async function renderComponent(
 }
 
 function createPNode(sel: string, attrs: Attrs, children: PNode[]): PNode {
-  return {
-    sel,
-    data: { attrs },
-    children,
-    text: undefined,
-    elm: undefined,
-    key: undefined,
-  }
+  return { sel, data: { attrs }, children }
 }
 
 function createTextPNode(text: string): PNode {
-  return {
-    sel: undefined,
-    data: {},
-    children: [],
-    text,
-    elm: undefined,
-    key: undefined,
-  }
+  return { text }
 }
 
-function toLatestVNode(pNode: PNode): VNode {
+function toLatestPNode(pNode: PNodeRegular): PNodeRegular {
   if (pNode.component) {
-    pNode = pNode.component._pNode
+    pNode = pNode.component._pNode as PNodeRegular
   }
-  const newChildren = pNode.children.map(child => toLatestVNode(child))
+  const newChildren = pNode.children.map(child => {
+    if ("text" in child) {
+      return child
+    } else {
+      return toLatestPNode(child)
+    }
+  })
 
   return {
     sel: pNode.sel,
     data: { attrs: { ...pNode.data.attrs } },
     children: newChildren,
-    text: pNode.text,
-    elm: undefined,
-    key: undefined,
   }
 }
 

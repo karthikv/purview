@@ -3,6 +3,7 @@ import { VNode } from "snabbdom/vnode"
 import toVNode from "snabbdom/tovnode"
 import setAttrsMod from "snabbdom/modules/attributes"
 import { isInput, isSelect, isTextArea, isOption } from "./helpers"
+import { PNode } from "./types/ws"
 
 declare global {
   interface Node {
@@ -70,7 +71,7 @@ export function initMorph(node: Node): void {
   normalize(toVNode(node), true)
 }
 
-export function morph(from: Node, to: VNode): void {
+export function morph(from: Node, to: PNode): void {
   if (!from._vNode) {
     throw new Error("Can't morph: node has no associated virtual node")
   }
@@ -90,8 +91,8 @@ export function morph(from: Node, to: VNode): void {
     }
   }
 
-  normalize(to, false)
-  from._vNode = patch(from._vNode, to)
+  normalize(to as VNode, false)
+  from._vNode = patch(from._vNode, to as VNode)
 
   if (childIndex !== undefined && childIndex > -1) {
     parentVNode!.children![childIndex] = from._vNode

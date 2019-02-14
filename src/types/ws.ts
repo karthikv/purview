@@ -1,4 +1,18 @@
-import { VNode } from "snabbdom/vnode"
+import { VNodeData } from "snabbdom/vnode"
+import { Component } from "../purview"
+
+export type PNode = PNodeRegular | PNodeText
+
+export interface PNodeRegular {
+  sel: string
+  data: VNodeData
+  children: PNode[]
+  component?: Component<any, any>
+}
+
+export interface PNodeText {
+  text: string
+}
 
 // ---------------------------------------------------------------------
 // N.B. If you change types here, make sure to update src/validators.ts!
@@ -50,7 +64,7 @@ export type ClientMessage =
 export interface UpdateMessage {
   type: "update"
   componentID: string
-  vNode: VNode
+  pNode: PNodeRegular
   newEventNames: string[]
 }
 

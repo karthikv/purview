@@ -1,5 +1,6 @@
 import nanoid = require("nanoid")
-import { PNode, StateTree } from "./purview"
+import { StateTree } from "./purview"
+import { PNode } from "./types/ws"
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 

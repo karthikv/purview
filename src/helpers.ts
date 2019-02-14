@@ -1,5 +1,5 @@
-import vnode, { VNode } from "snabbdom/vnode"
 import { Attrs } from "snabbdom/modules/attributes"
+import { PNodeRegular, PNode } from "./types/ws"
 
 type EventAttribute = keyof JSX.DOMAttributes
 
@@ -197,7 +197,7 @@ export function virtualize({
   nodeName,
   attributes,
   children,
-}: JSX.Element): VNode {
+}: JSX.Element): PNodeRegular {
   if (typeof nodeName !== "string") {
     throw new Error("Expected an intrinsic JSX element.")
   }
@@ -212,30 +212,29 @@ export function virtualize({
   if (!(children instanceof Array)) {
     children = [children]
   }
-  const vChildren: VNode[] = []
+  const vChildren: PNode[] = []
   eachNested(children, child => {
-    if (isJSXChild(child)) {
+    if (isJSXElement(child)) {
       vChildren.push(virtualize(child))
     } else if (child) {
-      const text = String(child)
-      const vNode = vnode(undefined, undefined, undefined, text, undefined)
-      vChildren.push(vNode)
+      vChildren.push({ text: String(child) })
     }
   })
 
-  return vnode(nodeName, { attrs }, vChildren, undefined, undefined)
+  return {
+    sel: nodeName,
+    data: { attrs },
+    children: vChildren,
+  }
 }
 
-export function concretize(vNode: VNode, doc?: Document): Element {
+export function concretize(pNode: PNodeRegular, doc?: Document): Element {
   if (!doc) {
     doc = document
   }
-  if (!vNode.sel) {
-    throw new Error("Expected non-text root node")
-  }
 
-  const elem = doc.createElement(vNode.sel)
-  const { data, children } = vNode
+  const elem = doc.createElement(pNode.sel)
+  const { data, children } = pNode
 
   if (data && data.attrs) {
     const attrs = data.attrs
@@ -252,10 +251,8 @@ export function concretize(vNode: VNode, doc?: Document): Element {
 
   if (children) {
     children.forEach(child => {
-      if (typeof child === "string") {
-        elem.appendChild(doc!.createTextNode(child))
-      } else if (!child.sel) {
-        elem.appendChild(doc!.createTextNode(child.text as string))
+      if ("text" in child) {
+        elem.appendChild(doc!.createTextNode(child.text))
       } else {
         elem.appendChild(concretize(child, doc))
       }
@@ -281,6 +278,6 @@ export function isTextArea(node: Node): node is HTMLTextAreaElement {
   return node.nodeName === "TEXTAREA"
 }
 
-function isJSXChild(child: JSX.Child): child is JSX.Element {
+function isJSXElement(child: JSX.Child): child is JSX.Element {
   return child && (child as any).nodeName
 }

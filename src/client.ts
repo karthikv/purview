@@ -61,7 +61,7 @@ function addWebSocketHandlers(state: WebSocketState): void {
         const elem = document.querySelector(selector)
 
         if (elem) {
-          morph(elem, message.vNode)
+          morph(elem, message.pNode)
         }
         state.numRetries = 0
         state.waitTime = INITIAL_WAIT_TIME

@@ -18,9 +18,9 @@ import {
   ConnectMessage,
   UpdateMessage,
   ClientMessage,
+  PNodeRegular,
 } from "../src/types/ws"
 import { virtualize, concretize } from "../src/helpers"
-import { VNode } from "snabbdom/vnode"
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
@@ -48,7 +48,7 @@ test("connectWebSocket update", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      vNode: virtualize(
+      pNode: virtualize(
         <div data-root="true" data-component-id="foo">
           <a href="#">Link</a>
         </div>,
@@ -73,7 +73,7 @@ test("connectWebSocket update", async () => {
 })
 
 test("events", async () => {
-  const vNode = populate(
+  const pNode = populate(
     <p data-root="true" data-component-id="foo" data-click-capture="bar">
       This is <a data-click="baz">a link</a>.
     </p>,
@@ -87,7 +87,7 @@ test("events", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      vNode,
+      pNode,
       newEventNames: ["click"],
     }
     conn.ws.send(JSON.stringify(updateMessage))
@@ -128,7 +128,7 @@ test("events after update", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      vNode: virtualize(
+      pNode: virtualize(
         <p data-root="true" data-component-id="foo" data-click-capture="bar">
           <a href="#" data-click="baz">
             Link
@@ -161,7 +161,7 @@ test("events after update", async () => {
 })
 
 test("input/change event", async () => {
-  const vNode = populate(
+  const pNode = populate(
     <div data-root="true" data-component-id="foo">
       <input type="text" data-input="bar" />
       <input type="checkbox" data-input="baz" />
@@ -177,7 +177,7 @@ test("input/change event", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      vNode,
+      pNode,
       newEventNames: ["input", "change"],
     }
     conn.ws.send(JSON.stringify(updateMessage))
@@ -227,7 +227,7 @@ test("input/change event", async () => {
 })
 
 test("key event", async () => {
-  const vNode = populate(
+  const pNode = populate(
     <div data-root="true" data-component-id="foo">
       <input type="text" data-keydown="bar" />
     </div>,
@@ -237,7 +237,7 @@ test("key event", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      vNode,
+      pNode,
       newEventNames: ["keydown"],
     }
     conn.ws.send(JSON.stringify(updateMessage))
@@ -261,7 +261,7 @@ test("key event", async () => {
 })
 
 test("submit event", async () => {
-  const vNode = populate(
+  const pNode = populate(
     <form data-root="true" data-component-id="foo" data-submit="bar">
       <input name="input" value="input-value" />
       <input name="input-disabled" disabled />
@@ -296,7 +296,7 @@ test("submit event", async () => {
     const updateMessage: UpdateMessage = {
       type: "update",
       componentID: "foo",
-      vNode,
+      pNode,
       newEventNames: ["submit"],
     }
     conn.ws.send(JSON.stringify(updateMessage))
@@ -333,12 +333,12 @@ test("submit event", async () => {
   })
 })
 
-function populate(jsx: JSX.Element): VNode {
-  const vNode = virtualize(jsx)
-  const elem = concretize(vNode, document)
+function populate(jsx: JSX.Element): PNodeRegular {
+  const pNode = virtualize(jsx)
+  const elem = concretize(pNode, document)
   document.body.innerHTML = ""
   document.body.appendChild(elem)
-  return vNode
+  return pNode
 }
 
 async function connect<T>(
