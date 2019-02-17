@@ -4,7 +4,8 @@
 
 **What if your React components ran on the server-side?** The server renders
 components to HTML and sends it to the client. The client renders HTML and
-notifies the server of DOM events.
+notifies the server of DOM events. The server executes event handlers and
+lifecycle events, and it maintains the state of each component.
 
 With this architecture, your components can directly make database queries,
 contact external services, etc, as they're running exclusively on the server.
