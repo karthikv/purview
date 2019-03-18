@@ -1,6 +1,6 @@
 import nanoid = require("nanoid")
 import { StateTree } from "./purview"
-import { PNode } from "./types/ws"
+import { PNodeRegular } from "./types/ws"
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
@@ -23,7 +23,7 @@ abstract class Component<P, S> {
   public _childMap: ChildMap<Component<any, any> | StateTree> = {}
   public _newChildMap: ChildMap<Component<any, any> | null> = {}
   public _handleUpdate: () => Promise<void>
-  public _pNode: PNode
+  public _pNode: PNodeRegular
   public _unmounted = false
 
   // This is set outside of the class and is used to disambiguate stateless
