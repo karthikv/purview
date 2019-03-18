@@ -338,24 +338,23 @@ test("render event capture", async () => {
 })
 
 test("render input/change event", async () => {
-  let inputValue: string
-  let checkboxValue: boolean
-  let changeValue: string[]
+  let inputEvent: InputEvent
+  let checkboxEvent: InputEvent<boolean>
+  let selectEvent: ChangeEvent<string[]>
 
   class Foo extends Purview.Component<{}, {}> {
     state = {}
 
-    handleInput = (event: InputEvent) => (inputValue = event.value)
-    handleCheckbox = (event: InputEvent<boolean>) =>
-      (checkboxValue = event.value)
-    handleChange = (event: ChangeEvent<string[]>) => (changeValue = event.value)
+    handleInput = (event: InputEvent) => (inputEvent = event)
+    handleCheckbox = (event: InputEvent<boolean>) => (checkboxEvent = event)
+    handleSelect = (event: ChangeEvent<string[]>) => (selectEvent = event)
 
     render(): JSX.Element {
       return (
         <div>
           <input onInput={this.handleInput} />
           <input type="checkbox" onInput={this.handleCheckbox} />
-          <select onChange={this.handleChange} multiple={true}>
+          <select onChange={this.handleSelect} multiple={true}>
             <option>Foo</option>
             <option>Bar</option>
             <option>Baz</option>
@@ -370,7 +369,7 @@ test("render input/change event", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
-      event: { value: 13 },
+      event: { name: "foo", value: 13 },
     }
     conn.ws.send(JSON.stringify(invalidEvent1))
 
@@ -378,7 +377,7 @@ test("render input/change event", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.children[1].getAttribute("data-input") as string,
-      event: { value: ["Bar", "Baz"] },
+      event: { name: "bar", value: ["Bar", "Baz"] },
     }
     conn.ws.send(JSON.stringify(invalidEvent2))
 
@@ -386,21 +385,46 @@ test("render input/change event", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.children[2].getAttribute("data-change") as string,
-      event: { value: true },
+      event: { name: "baz", value: true },
     }
     conn.ws.send(JSON.stringify(invalidEvent3))
 
+    const invalidEvent4: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[0].getAttribute("data-input") as string,
+      event: { name: null as any, value: "foo" },
+    }
+    conn.ws.send(JSON.stringify(invalidEvent4))
+
+    const invalidEvent5: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[0].getAttribute("data-input") as string,
+      event: { name: "foo", value: "foo", other: 1 } as InputEvent,
+    }
+    conn.ws.send(JSON.stringify(invalidEvent5))
+
+    const invalidEvent6: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      eventID: conn.elem.children[0].getAttribute("data-input") as string,
+      event: { name: "foo", value: "foo" },
+      other: 1,
+    } as EventMessage
+    conn.ws.send(JSON.stringify(invalidEvent6))
+
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(inputValue).toBe(undefined)
-    expect(checkboxValue).toBe(undefined)
-    expect(changeValue).toEqual(undefined)
+    expect(inputEvent).toBe(undefined)
+    expect(checkboxEvent).toBe(undefined)
+    expect(selectEvent).toBe(undefined)
 
     const event1: EventMessage = {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
-      event: { value: "value" },
+      event: { name: "", value: "value" },
     }
     conn.ws.send(JSON.stringify(event1))
 
@@ -408,7 +432,7 @@ test("render input/change event", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.children[1].getAttribute("data-input") as string,
-      event: { value: true },
+      event: { name: "foo", value: true },
     }
     conn.ws.send(JSON.stringify(event2))
 
@@ -416,23 +440,23 @@ test("render input/change event", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.children[2].getAttribute("data-change") as string,
-      event: { value: ["Bar", "Baz"] },
+      event: { name: "bar", value: ["Bar", "Baz"] },
     }
     conn.ws.send(JSON.stringify(event3))
 
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(inputValue).toBe((event1.event as InputEvent).value)
-    expect(checkboxValue).toBe((event2.event as InputEvent).value)
-    expect(changeValue).toEqual((event3.event as ChangeEvent).value)
+    expect(inputEvent).toEqual(event1.event)
+    expect(checkboxEvent).toEqual(event2.event)
+    expect(selectEvent).toEqual(event3.event)
   })
 })
 
 test("render change event other element", async () => {
-  let value: number
+  let changeEvent: ChangeEvent<any>
   class Foo extends Purview.Component<{}, {}> {
     state = {}
-    handleChange = (event: ChangeEvent<any>) => (value = event.value)
+    handleChange = (event: ChangeEvent<any>) => (changeEvent = event)
 
     render(): JSX.Element {
       return <div onChange={this.handleChange} />
@@ -444,33 +468,33 @@ test("render change event other element", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.getAttribute("data-change") as string,
-      event: { foo: 3 } as any,
+      event: { name: "", foo: 3 } as any,
     }
     conn.ws.send(JSON.stringify(invalidEvent))
 
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(value).toBe(undefined)
+    expect(changeEvent).toBe(undefined)
 
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.getAttribute("data-change") as string,
-      event: { value: 3 },
+      event: { name: "foo", value: 3 },
     }
     conn.ws.send(JSON.stringify(event))
 
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(value).toBe((event.event as ChangeEvent).value)
+    expect(changeEvent).toEqual(event.event)
   })
 })
 
 test("render keydown event", async () => {
-  let key: string
+  let keyEvent: KeyEvent
   class Foo extends Purview.Component<{}, {}> {
     state = {}
-    handleKeyDown = (event: KeyEvent) => (key = event.key)
+    handleKeyDown = (event: KeyEvent) => (keyEvent = event)
 
     render(): JSX.Element {
       return <input onKeyDown={this.handleKeyDown} />
@@ -482,25 +506,25 @@ test("render keydown event", async () => {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.getAttribute("data-keydown") as string,
-      event: { key: 13 as any },
+      event: { name: "", key: 13 as any },
     }
     conn.ws.send(JSON.stringify(invalidEvent))
 
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(key).toBe(undefined)
+    expect(keyEvent).toBe(undefined)
 
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
       eventID: conn.elem.getAttribute("data-keydown") as string,
-      event: { key: "k" },
+      event: { name: "foo", key: "k" },
     }
     conn.ws.send(JSON.stringify(event))
 
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
-    expect(key).toBe((event.event as KeyEvent).key)
+    expect(keyEvent).toEqual(event.event)
   })
 })
 

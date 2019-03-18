@@ -148,13 +148,19 @@ function handleEvent(
         switch (eventName) {
           case "input":
           case "change":
-            message.event = { value: inputValue(target) }
+            message.event = {
+              name: (target as HTMLInputElement).name || "",
+              value: inputValue(target),
+            }
             break
 
           case "keydown":
           case "keypress":
           case "keyup":
-            message.event = { key: (event as KeyboardEvent).key }
+            message.event = {
+              name: (target as HTMLInputElement).name || "",
+              key: (event as KeyboardEvent).key,
+            }
             break
 
           case "submit":

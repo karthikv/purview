@@ -19,6 +19,7 @@ export interface PNodeText {
 // ---------------------------------------------------------------------
 
 export interface InputEvent<T = string> {
+  name: string
   value: T
 }
 
@@ -29,6 +30,7 @@ export interface SubmitEvent {
 }
 
 export interface KeyEvent {
+  name: string
   key: string
 }
 

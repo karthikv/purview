@@ -194,16 +194,19 @@ information associated with certain events and creates its own event objects.
 Here's a description of the event object that Purview passes to your handler for
 various event types:
 
-- `onInput`: The event object is of type `InputEvent<T> = { value: T }`.  `T` is
+- `onInput`: The event object is of type `InputEvent<T> = { name: string, value:
+  T }`, where `name` is the name of the input and `value` is its value. `T` is
   `boolean` for checkboxes, `number` for `<input type="number">`, and `string`
   for all other inputs.
 
-- `onChange`: The event object is of type `ChangeEvent<T> = { value: T }`.  `T`
-  is `boolean` for checkboxes, `number` for `<input type="number">`, `string[]`
-  for `<select multiple>` and `string` for all other inputs.
+- `onChange`: The event object is of type `ChangeEvent<T> = { name: string,
+  value: T }`, where `name` is the name of the input and `value` is its value.
+  `T` is `boolean` for checkboxes, `number` for `<input type="number">`,
+  `string[]` for `<select multiple>` and `string` for all other inputs.
 
 - `onKeyDown`, `onKeyPress`, and `onKeyUp`: The event object is of type
-  `KeyEvent = { key: string }`, where `key` is the [key that was pressed][key].
+  `KeyEvent = { name: string, key: string }`, where `name` is the name of the
+  input and `key` is the [key that was pressed][key].
 
 - `onSubmit`: The event object is of type `SubmitEvent = { fields: { [key:
   string]: any } }`. `fields` is a mapping of form field names to values. It is

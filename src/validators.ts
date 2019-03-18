@@ -15,7 +15,7 @@ import {
 // --------------------------------------------------------------------------
 
 export const makeInputEventValidator = <T extends t.Mixed>(type: T) =>
-  t.type({ value: type })
+  t.exact(t.type({ name: t.string, value: type }))
 const inputEventStringValidator = makeInputEventValidator(t.string)
 type InputEventStringValidator = t.TypeOf<typeof inputEventStringValidator>
 check<InputEventStringValidator, InputEvent<string>>()
@@ -27,40 +27,48 @@ type ChangeEventStringValidator = t.TypeOf<typeof changeEventStringValidator>
 check<ChangeEventStringValidator, ChangeEvent<string>>()
 check<ChangeEvent<string>, ChangeEventStringValidator>()
 
-export const submitEventValidator = t.type({ fields: t.Dictionary })
+export const submitEventValidator = t.exact(t.type({ fields: t.Dictionary }))
 type SubmitEventValidator = t.TypeOf<typeof submitEventValidator>
 check<SubmitEventValidator, SubmitEvent>()
 check<SubmitEvent, SubmitEventValidator>()
 
-export const keyEventValidator = t.type({ key: t.string })
+export const keyEventValidator = t.exact(
+  t.type({ name: t.string, key: t.string }),
+)
 type KeyEventValidator = t.TypeOf<typeof keyEventValidator>
 check<KeyEventValidator, KeyEvent>()
 check<KeyEvent, KeyEventValidator>()
 
-const connectMessageValidator = t.type({
-  type: t.literal("connect"),
-  rootIDs: t.array(t.string),
-})
+const connectMessageValidator = t.exact(
+  t.type({
+    type: t.literal("connect"),
+    rootIDs: t.array(t.string),
+  }),
+)
 type ConnectMessageValidator = t.TypeOf<typeof connectMessageValidator>
 check<ConnectMessageValidator, ConnectMessage>()
 check<ConnectMessage, ConnectMessageValidator>()
 
-const eventMessageValidator = t.intersection([
-  t.type({
-    type: t.literal("event"),
-    rootID: t.string,
-    eventID: t.string,
-  }),
-  t.partial({ event: t.any }),
-])
+const eventMessageValidator = t.exact(
+  t.intersection([
+    t.type({
+      type: t.literal("event"),
+      rootID: t.string,
+      eventID: t.string,
+    }),
+    t.partial({ event: t.any }),
+  ]),
+)
 type EventMessageValidator = t.TypeOf<typeof eventMessageValidator>
 check<EventMessageValidator, EventMessage>()
 check<EventMessage, EventMessageValidator>()
 
-const seenEventNamesMessageValidator = t.type({
-  type: t.literal("seenEventNames"),
-  seenEventNames: t.array(t.string),
-})
+const seenEventNamesMessageValidator = t.exact(
+  t.type({
+    type: t.literal("seenEventNames"),
+    seenEventNames: t.array(t.string),
+  }),
+)
 type SeenEventNamesMessageValidator = t.TypeOf<
   typeof seenEventNamesMessageValidator
 >

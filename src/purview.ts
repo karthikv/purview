@@ -534,9 +534,11 @@ async function makeRegularElem(
             const multiple = (attributes as JSX.SelectHTMLAttributes<any>)
               .multiple
             validator = makeValidator(multiple ? t.array(t.string) : t.string)
+          } else if (nodeName === "textarea") {
+            validator = makeValidator(t.string)
           } else {
-            // Could be a parent of an input/select, or a custom element. Leave
-            // validation up to the user.
+            // Could be a parent of an input/select/textarea, or a custom
+            // element. Leave validation up to the user.
             validator = makeValidator(t.any)
           }
           break

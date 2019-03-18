@@ -163,9 +163,9 @@ test("events after update", async () => {
 test("input/change event", async () => {
   const pNode = populate(
     <div data-root="true" data-component-id="foo">
-      <input type="text" data-input="bar" />
+      <input type="text" name="text-input" data-input="bar" />
       <input type="checkbox" data-input="baz" />
-      <select multiple data-change="other">
+      <select name="multi-select" multiple data-change="other">
         <option>Foo</option>
         <option>Bar</option>
         <option>Baz</option>
@@ -196,7 +196,7 @@ test("input/change event", async () => {
     expect(message1.type).toBe("event")
     expect(message1.rootID).toBe("foo")
     expect(message1.eventID).toBe("bar")
-    expect(message1.event).toEqual({ value: "value" })
+    expect(message1.event).toEqual({ name: "text-input", value: "value" })
 
     const event2 = new window.Event("input", { bubbles: true })
     const checkbox = document.body.querySelector(
@@ -210,7 +210,7 @@ test("input/change event", async () => {
     expect(message2.type).toBe("event")
     expect(message2.rootID).toBe("foo")
     expect(message2.eventID).toBe("baz")
-    expect(message2.event).toEqual({ value: true })
+    expect(message2.event).toEqual({ name: "", value: true })
 
     const event3 = new window.Event("change", { bubbles: true })
     const select = document.body.querySelector("select") as HTMLSelectElement
@@ -222,14 +222,17 @@ test("input/change event", async () => {
     expect(message3.type).toBe("event")
     expect(message3.rootID).toBe("foo")
     expect(message3.eventID).toBe("other")
-    expect(message3.event).toEqual({ value: ["Bar", "Baz"] })
+    expect(message3.event).toEqual({
+      name: "multi-select",
+      value: ["Bar", "Baz"],
+    })
   })
 })
 
 test("key event", async () => {
   const pNode = populate(
     <div data-root="true" data-component-id="foo">
-      <input type="text" data-keydown="bar" />
+      <input type="text" name="text-input" data-keydown="bar" />
     </div>,
   )
 
@@ -256,7 +259,7 @@ test("key event", async () => {
     expect(message.type).toBe("event")
     expect(message.rootID).toBe("foo")
     expect(message.eventID).toBe("bar")
-    expect(message.event).toEqual({ key })
+    expect(message.event).toEqual({ name: "text-input", key })
   })
 })
 
