@@ -647,6 +647,7 @@ test("render directly nested", async () => {
 
     const p1 = concretize(message1.pNode)
     expect(p1.getAttribute("data-component-id")).toBe(conn.rootID)
+    expect(p1.hasAttribute("data-root")).toBe(true)
     expect(p1.textContent).toBe("1")
 
     await foo.setState({ text: "hello" })

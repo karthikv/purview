@@ -659,10 +659,6 @@ async function renderComponent(
 
   pNode.component = component
   component._pNode = pNode
-  if (component._id === rootID) {
-    pNode.data.attrs!["data-root"] = true
-  }
-
   unmountChildren(component)
 
   const newChildMap: ChildMap<Component<any, any>> = {}
@@ -716,6 +712,10 @@ async function renderComponent(
   // parent. In this case, we have to unalias to use the parent component's ID.
   const unaliasedID = root ? unalias(id, root) : id
   pNode.data.attrs!["data-component-id"] = unaliasedID
+  if (unaliasedID === rootID) {
+    pNode.data.attrs!["data-root"] = true
+  }
+
   return pNode
 }
 
