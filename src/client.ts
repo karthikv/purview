@@ -170,7 +170,11 @@ function handleEvent(
             const fields: { [key: string]: any } = {}
 
             Array.from(elems).forEach(elem => {
-              if (!elem.name || elem.disabled) {
+              if (
+                !elem.name ||
+                elem.disabled ||
+                (elem.type === "radio" && !elem.checked)
+              ) {
                 return
               }
               fields[elem.name] = inputValue(elem)

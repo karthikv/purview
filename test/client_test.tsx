@@ -274,6 +274,7 @@ test("submit event", async () => {
 
       <input type="radio" name="radio" value="radio-value1" />
       <input type="radio" name="radio" value="radio-value2" checked />
+      <input type="radio" name="radio" value="radio-value3" />
 
       <input type="number" name="number" value="17" />
       <button name="button" value="button-value" />
