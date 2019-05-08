@@ -208,11 +208,11 @@ various event types:
   `KeyEvent = { name: string, key: string }`, where `name` is the name of the
   input and `key` is the [key that was pressed][key].
 
-- `onSubmit`: The event object is of type `SubmitEvent = { fields: { [key:
-  string]: any } }`. `fields` is a mapping of form field names to values. It is
-  your responsibility to perform validation on `fields` for both the types and
-  values, just as you would do if you were writing a server-side route handler.
-  [class-validator][class-validator] is a helpful library here.
+- `onSubmit`: The event object is of type `SubmitEvent = { fields:
+  Record<string, unknown> }`. `fields` is a mapping of form field names to
+  values. It is your responsibility to perform validation on `fields` for both
+  the types and values, just as you would do if you were writing a server-side
+  route handler.
 
   When you add an `onSubmit` handler, the default action of the submit event is
   automatically prevented (i.e. via `event.preventDefault()`). This stops the

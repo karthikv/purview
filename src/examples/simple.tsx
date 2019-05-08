@@ -8,7 +8,7 @@ class Example extends Purview.Component<{}, { text: string }> {
   state = { text: "" }
 
   handleInput = (event: InputEvent<string>) => {
-    this.setState({ text: event.value })
+    void this.setState({ text: event.value })
   }
 
   render(): JSX.Element {

@@ -13,6 +13,7 @@ import {
   toEventName,
   CAPTURE_TEXT,
   findNested,
+  isJSXElement,
 } from "./helpers"
 import {
   ServerMessage,
@@ -54,8 +55,8 @@ interface Root {
   component: Component<any, any>
   wsState: WebSocketState
   eventNames: Set<string>
-  handlers: { [key: string]: Handler }
-  aliases: { [key: string]: string }
+  handlers: Record<string, Handler | undefined>
+  aliases: Record<string, string | undefined>
 }
 
 export interface StateTree {
@@ -79,7 +80,10 @@ declare module "http" {
   }
 }
 
-const INPUT_TYPE_VALIDATOR: { [key: string]: t.Type<any, any, any> } = {
+const INPUT_TYPE_VALIDATOR: Record<
+  string,
+  t.Type<any, any, any> | undefined
+> = {
   checkbox: t.boolean,
   number: t.number,
 }
@@ -156,7 +160,7 @@ export function createElem(
   // For intrinsic elements, change special attributes to data-* equivalents and
   // remove falsy attributes.
   if (typeof nodeName === "string") {
-    if (attributes.key) {
+    if (attributes.key !== undefined) {
       ;(attributes as any)["data-key"] = attributes.key
       delete attributes.key
     }
@@ -202,10 +206,6 @@ function containsControlledOption(
   }
 }
 
-function isJSXElement(child: JSX.Child): child is JSX.Element {
-  return Boolean(child && typeof child === "object" && child.nodeName)
-}
-
 function isControlledOption(jsx: JSX.Element): boolean {
   return jsx.nodeName === "option" && "data-controlled" in jsx.attributes
 }
@@ -234,11 +234,11 @@ export function handleWebSocket(
       seenEventNames: new Set(),
     }
 
-    ws.on("message", data => {
+    ws.on("message", async data => {
       const parsed = tryParseJSON(data.toString())
       const decoded = clientMessageValidator.decode(parsed)
       if (decoded.isRight()) {
-        handleMessage(decoded.value, wsState, req, server)
+        await handleMessage(decoded.value, wsState, req, server)
       }
     })
 
@@ -258,7 +258,7 @@ export function handleWebSocket(
 function makeStateTree(component: Component<any, any>): StateTree {
   const childMap: ChildMap<StateTree> = {}
   Object.keys(component._childMap).forEach(key => {
-    const children = component._childMap[key]
+    const children = component._childMap[key]!
     childMap[key] = children.map(c => makeStateTree(c as Component<any, any>))
   })
 
@@ -325,7 +325,9 @@ async function handleMessage(
       roots.forEach(root => {
         root.wsState = wsState
         wsState.roots.push(root)
-        root.component._triggerMount()
+        // Don't wait for this, since we want wsState.mounted and wsState.roots
+        // to be updated atomically. Mounting is an asynchronous event anyway.
+        void root.component._triggerMount()
       })
       wsState.mounted = true
 
@@ -451,15 +453,15 @@ async function makeElem(
     }
 
     // Retain the ordering of child elements by saving the index here.
-    const index = parent._newChildMap[key].length
-    parent._newChildMap[key].push(null)
+    const index = parent._newChildMap[key]!.length
+    parent._newChildMap[key]!.push(null)
 
     return await withComponent(jsx, existing, async component => {
       if (!component) {
         return null
       }
 
-      parent._newChildMap[key][index] = component
+      parent._newChildMap[key]![index] = component
       const pNode = await renderComponent(component, rootID, root)
       const wsState = root && root.wsState
 
@@ -553,7 +555,7 @@ async function makeRegularElem(
           validator = submitEventValidator
           break
       }
-      root.handlers[eventID].validator = validator
+      root.handlers[eventID]!.validator = validator
     }
 
     if (attr.indexOf(CAPTURE_TEXT) !== -1) {
@@ -654,7 +656,7 @@ async function renderComponent(
     rootID,
     root,
     "",
-  )) as PNodeRegular
+  )) as PNodeRegular | null
   if (!pNode) {
     return null
   }
@@ -665,7 +667,7 @@ async function renderComponent(
 
   const newChildMap: ChildMap<Component<any, any>> = {}
   Object.keys(component._newChildMap).forEach(key => {
-    newChildMap[key] = component._newChildMap[key].filter(
+    newChildMap[key] = component._newChildMap[key]!.filter(
       c => c !== null,
     ) as Array<Component<any, any>>
   })
@@ -750,18 +752,21 @@ function toLatestPNode(pNode: PNodeRegular): PNodeRegular {
 
 function unmountChildren(component: Component<any, any>): void {
   Object.keys(component._childMap).forEach(key => {
-    const children = component._childMap[key]
+    const children = component._childMap[key]!
     children.forEach(child => {
       if (child instanceof Component) {
-        child._triggerUnmount()
+        // Don't wait for this; unmounting is an asynchronous event.
+        void child._triggerUnmount()
       }
     })
   })
 }
 
 function unalias(id: string, root: Root): string {
-  while (root.aliases[id]) {
-    id = root.aliases[id]
+  let alias = root.aliases[id]
+  while (alias) {
+    id = alias
+    alias = root.aliases[id]
   }
   return id
 }

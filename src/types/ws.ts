@@ -18,15 +18,15 @@ export interface PNodeText {
 // N.B. If you change types here, make sure to update src/validators.ts!
 // ---------------------------------------------------------------------
 
-export interface InputEvent<T = string> {
+export interface InputEvent<T = unknown> {
   name: string
   value: T
 }
 
-export interface ChangeEvent<T = string> extends InputEvent<T> {}
+export interface ChangeEvent<T = unknown> extends InputEvent<T> {}
 
 export interface SubmitEvent {
-  fields: { [key: string]: any }
+  fields: Record<string, unknown>
 }
 
 export interface KeyEvent {

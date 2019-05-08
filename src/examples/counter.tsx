@@ -18,7 +18,7 @@ class Counter extends Purview.Component<{}, { count: number }> {
 
   increment = async () => {
     await db.query("UPDATE counters SET count = count + 1")
-    this.setState(await this.getInitialState())
+    await this.setState(await this.getInitialState())
   }
 
   render(): JSX.Element {
@@ -62,4 +62,4 @@ async function startServer(): Promise<void> {
   /* tslint:enable no-console */
 }
 
-startServer()
+void startServer()

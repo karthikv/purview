@@ -529,7 +529,7 @@ test("render keydown event", async () => {
 })
 
 test("render submit event", async () => {
-  let fields: { [key: string]: any }
+  let fields: Record<string, unknown>
   class Foo extends Purview.Component<{}, {}> {
     state = {}
     handleSubmit = (event: SubmitEvent) => (fields = event.fields)
@@ -811,7 +811,7 @@ test("locked mount cycle", async () => {
     let lockPromise = barInstance._lock(
       async () => new Promise(resolve => setTimeout(resolve, 25)),
     )
-    fooInstance._triggerMount()
+    void fooInstance._triggerMount()
 
     barMountCount = 0
     fooMountCount = 0
@@ -892,7 +892,7 @@ test("componentWillReceiveProps", async () => {
 
   await renderAndConnect(<Foo />, async conn => {
     expect(receivedProps).toBe(null)
-    instance.setState({ count: 1 })
+    void instance.setState({ count: 1 })
     await conn.messages.next()
     expect(receivedProps).toEqual({ count: 1, children: [] })
   })
@@ -919,7 +919,7 @@ test("event names", async () => {
 
   await renderAndConnect(<Foo />, async conn => {
     expect(conn.updateMessage.newEventNames).toEqual(["change"])
-    instance.setState({ enabled: true })
+    void instance.setState({ enabled: true })
 
     const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
@@ -934,7 +934,7 @@ test("event names", async () => {
 
     // Must wait for seenEventNames to propagate to server.
     await new Promise(resolve => setTimeout(resolve, 25))
-    instance.setState({ enabled: true })
+    void instance.setState({ enabled: true })
 
     const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
@@ -964,7 +964,7 @@ test("invalid event names", async () => {
 
   await renderAndConnect(<Foo />, async conn => {
     expect(conn.updateMessage.newEventNames).toEqual(["change"])
-    instance.setState({ enabled: true })
+    void instance.setState({ enabled: true })
 
     const message1 = (await conn.messages.next()) as UpdateMessage
     expect(message1.type).toBe("update")
@@ -979,7 +979,7 @@ test("invalid event names", async () => {
 
     // Must wait for seenEventNames to propagate to server.
     await new Promise(resolve => setTimeout(resolve, 25))
-    instance.setState({ enabled: true })
+    void instance.setState({ enabled: true })
 
     const message2 = (await conn.messages.next()) as UpdateMessage
     expect(message2.type).toBe("update")
@@ -1035,7 +1035,7 @@ test("child map ordering", async () => {
     // Attempt to force reordering of the two <Bar /> elements in the child map
     // by locking the first.
     await firstBar._lock(async () => {
-      foo.setState({})
+      void foo.setState({})
       await new Promise(resolve => setTimeout(resolve, 25))
     })
     await conn.messages.next()
@@ -1092,9 +1092,9 @@ test("render consistency", async () => {
   }
 
   await renderAndConnect(<Foo />, async conn => {
-    foo.setState({ showBaz: true })
+    void foo.setState({ showBaz: true })
     await new Promise(resolve => setTimeout(resolve, 50))
-    bar.setState({ text: "Hi" })
+    void bar.setState({ text: "Hi" })
 
     const p1 = conn.elem.querySelector("p")!
     const message1 = (await conn.messages.next()) as UpdateMessage
@@ -1163,7 +1163,7 @@ test("reconnect", async () => {
     expect(mountCount).toBe(1)
     expect(unmountCount).toBe(0)
 
-    instance.setState({ text: "hello" })
+    void instance.setState({ text: "hello" })
     await conn.messages.next()
     conn.ws.close()
 

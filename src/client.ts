@@ -34,11 +34,11 @@ export function connectWebSocket(location: Location): WebSocket {
     numRetries: 0,
     waitTime: INITIAL_WAIT_TIME,
   }
-  addWebSocketHandlers(state)
+  addWebSocketHandlers(state, location)
   return state.ws
 }
 
-function addWebSocketHandlers(state: WebSocketState): void {
+function addWebSocketHandlers(state: WebSocketState, location: Location): void {
   const ws = state.ws
 
   ws.addEventListener("open", () => {
@@ -76,7 +76,7 @@ function addWebSocketHandlers(state: WebSocketState): void {
       if (process.env.NODE_ENV !== "test") {
         setTimeout(() => {
           state.ws = new WebSocket(state.url)
-          addWebSocketHandlers(state)
+          addWebSocketHandlers(state, location)
         }, state.waitTime)
       }
       state.numRetries += 1
@@ -167,7 +167,7 @@ function handleEvent(
             const elems = target.querySelectorAll<HTMLInputElement>(
               "input, select, textarea, button",
             )
-            const fields: { [key: string]: any } = {}
+            const fields: Record<string, unknown> = {}
 
             Array.from(elems).forEach(elem => {
               if (

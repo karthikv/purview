@@ -7,7 +7,7 @@ import { PNode } from "./types/ws"
 
 declare global {
   interface Node {
-    _vNode: VNode
+    _vNode?: VNode
   }
 }
 
@@ -128,8 +128,9 @@ function normalize(vNode: VNode, hydrate: boolean): void {
 
     const attrs = v.data && v.data.attrs
     if (attrs) {
-      if (attrs["data-key"]) {
-        v.key = attrs["data-key"] as string
+      const dataKey = attrs["data-key"]
+      if (typeof dataKey === "string" || typeof dataKey === "number") {
+        v.key = dataKey
       }
       if ("data-ignore-children" in attrs) {
         v.children = []

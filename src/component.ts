@@ -9,7 +9,7 @@ export interface ComponentConstructor<P, S> {
   new (props: P): Component<P, S>
 }
 
-export type ChildMap<T> = Record<string, T[]>
+export type ChildMap<T> = Record<string, T[] | undefined>
 
 interface Component<P, S> {
   getInitialState?(): Promise<S>
@@ -22,7 +22,7 @@ abstract class Component<P, S> {
   public _id: string
   public _childMap: ChildMap<Component<any, any> | StateTree> = {}
   public _newChildMap: ChildMap<Component<any, any> | null> = {}
-  public _handleUpdate: () => Promise<void>
+  public _handleUpdate?: () => Promise<void>
   public _pNode: PNodeRegular
   public _unmounted = false
 
@@ -115,7 +115,7 @@ abstract class Component<P, S> {
   async _triggerMount(): Promise<void> {
     return this._lock(async () => {
       const promises = Object.keys(this._childMap).map(key => {
-        const childPromises = this._childMap[key].map(child => {
+        const childPromises = this._childMap[key]!.map(child => {
           if (child instanceof Component) {
             return child._triggerMount()
           }
@@ -131,7 +131,7 @@ abstract class Component<P, S> {
   async _triggerUnmount(): Promise<void> {
     return this._lock(async () => {
       const promises = Object.keys(this._childMap).map(key => {
-        const childPromises = this._childMap[key].map(child => {
+        const childPromises = this._childMap[key]!.map(child => {
           if (child instanceof Component) {
             return child._triggerUnmount()
           }

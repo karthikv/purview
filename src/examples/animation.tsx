@@ -18,7 +18,7 @@ export default class extends Purview.Component<{}, AnimationState> {
   }
 
   toggle = () => {
-    this.setState(state => {
+    void this.setState(state => {
       if (state.visible) {
         if (this.interval) {
           clearInterval(this.interval)

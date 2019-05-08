@@ -670,7 +670,7 @@ declare global {
 
       // Standard HTML Attributes
       accessKey?: string
-      class?: string | { [className: string]: boolean }
+      class?: string
       contentEditable?: boolean | string
       contenteditable?: boolean | string
       contextMenu?: string
@@ -732,9 +732,8 @@ declare global {
     }
 
     export interface SVGAttributes extends DOMAttributes {
-      // Attributes which also defined in HTMLAttributes
-      // See comment in SVGDOMPropertyConfig.js
-      class?: string | { [className: string]: boolean }
+      // Attributes which are also defined in HTMLAttributes
+      class?: string
       color?: string
       height?: number | string
       id?: string

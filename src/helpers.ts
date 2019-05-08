@@ -3,7 +3,7 @@ import { PNodeRegular, PNode } from "./types/ws"
 
 type EventAttribute = keyof JSX.DOMAttributes
 
-const EVENT_ATTRS_MAP: { [key in EventAttribute]: true } = {
+const EVENT_ATTRS_MAP: Record<EventAttribute, true> = {
   // Clipboard Events
   onCopy: true,
   onCopyCapture: true,
@@ -216,7 +216,7 @@ export function virtualize({
   eachNested(children, child => {
     if (isJSXElement(child)) {
       vChildren.push(virtualize(child))
-    } else if (child) {
+    } else if (child !== null && child !== undefined) {
       vChildren.push({ text: String(child) })
     }
   })
@@ -236,7 +236,7 @@ export function concretize(pNode: PNodeRegular, doc?: Document): Element {
   const elem = doc.createElement(pNode.sel)
   const { data, children } = pNode
 
-  if (data && data.attrs) {
+  if (data.attrs) {
     const attrs = data.attrs
     for (const key in attrs) {
       if (attrs.hasOwnProperty(key)) {
@@ -249,15 +249,13 @@ export function concretize(pNode: PNodeRegular, doc?: Document): Element {
     }
   }
 
-  if (children) {
-    children.forEach(child => {
-      if ("text" in child) {
-        elem.appendChild(doc!.createTextNode(child.text))
-      } else {
-        elem.appendChild(concretize(child, doc))
-      }
-    })
-  }
+  children.forEach(child => {
+    if ("text" in child) {
+      elem.appendChild(doc!.createTextNode(child.text))
+    } else {
+      elem.appendChild(concretize(child, doc))
+    }
+  })
 
   return elem
 }
@@ -278,6 +276,6 @@ export function isTextArea(node: Node): node is HTMLTextAreaElement {
   return node.nodeName === "TEXTAREA"
 }
 
-function isJSXElement(child: JSX.Child): child is JSX.Element {
-  return child && (child as any).nodeName
+export function isJSXElement(child: JSX.Child): child is JSX.Element {
+  return child !== null && typeof child === "object" && "nodeName" in child
 }
