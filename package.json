@@ -42,7 +42,7 @@
   "dependencies": {
     "@types/ws": "^6.0.1",
     "dev-null": "^0.1.1",
-    "io-ts": "^1.4.2",
+    "io-ts": "1.4.2",
     "nanoid": "^1.2.3",
     "snabbdom": "^0.7.3",
     "ws": "^6.0.0"
