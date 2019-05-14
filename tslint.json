@@ -20,6 +20,7 @@
     "no-namespace": false,
     "member-ordering": false,
     "no-floating-promises": [true, "Bluebird", "AxiosPromise"],
+    "await-promise": [true, "Bluebird", "AxiosPromise"],
     "variable-name": [
       true,
       "ban-keywords",
@@ -36,7 +37,11 @@
       "allow-string",
       "allow-mix",
       "ignore-rhs"
-    ]
+    ],
+    "no-unnecessary-type-assertion": true,
+    "no-object-literal-type-assertion": [true, {"allow-arguments": true}],
+    "use-default-type-parameter": true,
+    "strict-type-predicates": true
   },
   "linterOptions": {
     "exclude": ["**/*.json"]

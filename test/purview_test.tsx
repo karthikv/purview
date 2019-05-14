@@ -21,7 +21,6 @@ import {
   SeenEventNamesMessage,
   ServerMessage,
   ClientMessage,
-  PNodeRegular,
 } from "../src/types/ws"
 import { MAX_SET_STATE_AFTER_UNMOUNT } from "../src/component"
 
@@ -221,12 +220,9 @@ test("render lowercase attributes", async () => {
   await renderAndConnect(<Foo />, async conn => {
     await instance.setState({})
 
-    const message = (await conn.messages.next()) as UpdateMessage
+    const message = await conn.messages.next()
     expect(message.type).toBe("update")
-    expect((message.pNode as PNodeRegular).data.attrs).toHaveProperty(
-      "autocomplete",
-      "on",
-    )
+    expect(message.pNode.data.attrs).toHaveProperty("autocomplete", "on")
     expect(message.componentID).toBe(conn.rootID)
   })
 })
@@ -277,7 +273,7 @@ test("render setState", async () => {
   await renderAndConnect(<Foo />, async conn => {
     await instance.setState({ text: "hello" })
 
-    const message = (await conn.messages.next()) as UpdateMessage
+    const message = await conn.messages.next()
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
 
@@ -305,7 +301,7 @@ test("render event", async () => {
     }
     conn.ws.send(JSON.stringify(event))
 
-    const message = (await conn.messages.next()) as UpdateMessage
+    const message = await conn.messages.next()
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
     expect(concretize(message.pNode).textContent).toBe("hello")
@@ -330,7 +326,7 @@ test("render event capture", async () => {
     }
     conn.ws.send(JSON.stringify(event))
 
-    const message = (await conn.messages.next()) as UpdateMessage
+    const message = await conn.messages.next()
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
     expect(concretize(message.pNode).textContent).toBe("hello")
@@ -397,6 +393,7 @@ test("render input/change event", async () => {
     }
     conn.ws.send(JSON.stringify(invalidEvent4))
 
+    // tslint:disable no-object-literal-type-assertion
     const invalidEvent5: EventMessage = {
       type: "event",
       rootID: conn.rootID,
@@ -412,6 +409,7 @@ test("render input/change event", async () => {
       event: { name: "foo", value: "foo" },
       other: 1,
     } as EventMessage
+    // tslint:enable no-object-literal-type-assertion
     conn.ws.send(JSON.stringify(invalidEvent6))
 
     // Wait for handlers to be called.
@@ -606,7 +604,7 @@ test("render retain state", async () => {
     }
     conn.ws.send(JSON.stringify(event1))
 
-    const message1 = (await conn.messages.next()) as UpdateMessage
+    const message1 = await conn.messages.next()
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(span.getAttribute("data-component-id"))
     expect(concretize(message1.pNode).textContent).toBe("101")
@@ -618,7 +616,7 @@ test("render retain state", async () => {
     }
     conn.ws.send(JSON.stringify(event2))
 
-    const message2 = (await conn.messages.next()) as UpdateMessage
+    const message2 = await conn.messages.next()
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
 
@@ -664,7 +662,7 @@ test("render directly nested", async () => {
 
   await renderAndConnect(<Foo />, async conn => {
     await bar.setState(state => ({ count: state.count + 1 }))
-    const message1 = (await conn.messages.next()) as UpdateMessage
+    const message1 = await conn.messages.next()
     expect(message1.type).toBe("update")
     // Since Foo and Bar should share the same component ID.
     expect(message1.componentID).toBe(conn.rootID)
@@ -675,7 +673,7 @@ test("render directly nested", async () => {
     expect(p1.textContent).toBe("1")
 
     await foo.setState({ text: "hello" })
-    const message2 = (await conn.messages.next()) as UpdateMessage
+    const message2 = await conn.messages.next()
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
 
@@ -921,7 +919,7 @@ test("event names", async () => {
     expect(conn.updateMessage.newEventNames).toEqual(["change"])
     void instance.setState({ enabled: true })
 
-    const message1 = (await conn.messages.next()) as UpdateMessage
+    const message1 = await conn.messages.next()
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(conn.rootID)
     expect(message1.newEventNames).toEqual(["change", "keydown"])
@@ -936,7 +934,7 @@ test("event names", async () => {
     await new Promise(resolve => setTimeout(resolve, 25))
     void instance.setState({ enabled: true })
 
-    const message2 = (await conn.messages.next()) as UpdateMessage
+    const message2 = await conn.messages.next()
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
     expect(message2.newEventNames).toEqual(["keydown"])
@@ -966,7 +964,7 @@ test("invalid event names", async () => {
     expect(conn.updateMessage.newEventNames).toEqual(["change"])
     void instance.setState({ enabled: true })
 
-    const message1 = (await conn.messages.next()) as UpdateMessage
+    const message1 = await conn.messages.next()
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(conn.rootID)
     expect(message1.newEventNames).toEqual(["change", "keydown"])
@@ -981,7 +979,7 @@ test("invalid event names", async () => {
     await new Promise(resolve => setTimeout(resolve, 25))
     void instance.setState({ enabled: true })
 
-    const message2 = (await conn.messages.next()) as UpdateMessage
+    const message2 = await conn.messages.next()
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
     expect(message2.newEventNames).toEqual(["change", "keydown"])
@@ -1097,14 +1095,14 @@ test("render consistency", async () => {
     void bar.setState({ text: "Hi" })
 
     const p1 = conn.elem.querySelector("p")!
-    const message1 = (await conn.messages.next()) as UpdateMessage
+    const message1 = await conn.messages.next()
     expect(message1.type).toBe("update")
     expect(message1.componentID).toBe(p1.getAttribute("data-component-id"))
 
     const p2 = concretize(message1.pNode)
     expect(p2.textContent).toBe("Hi")
 
-    const message2 = (await conn.messages.next()) as UpdateMessage
+    const message2 = await conn.messages.next()
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
 

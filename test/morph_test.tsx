@@ -186,7 +186,7 @@ test("morph first child", () => {
       <p>Foo</p>
     </div>,
   )
-  morph(div.children[0]!, virtualize(<p />))
+  morph(div.children[0], virtualize(<p />))
 
   const to = virtualize(
     <div>
@@ -195,7 +195,7 @@ test("morph first child", () => {
   )
   morph(div, to)
 
-  const p = div.children[0]!
+  const p = div.children[0]
   expect(p.nodeName).toBe("P")
   expect(p.textContent).toBe("Bar")
 })
@@ -206,12 +206,12 @@ test("morph id doesn't create node", () => {
       <p id="foo">Foo</p>
     </div>,
   )
-  const p = div.children[0]!
+  const p = div.children[0]
   ;(p as any).original = true
 
   morph(p, virtualize(<p id="bar">Bar</p>))
 
-  const newP = div.children[0]!
+  const newP = div.children[0]
   expect((newP as any).original).toBe(true)
   expect((newP as any).getAttribute("id")).toBe("bar")
   expect((newP as any).textContent).toBe("Bar")
@@ -223,12 +223,12 @@ test("morph class doesn't create node", () => {
       <p class="foo">Foo</p>
     </div>,
   )
-  const p = div.children[0]!
+  const p = div.children[0]
   ;(p as any).original = true
 
   morph(p, virtualize(<p class="bar">Bar</p>))
 
-  const newP = div.children[0]!
+  const newP = div.children[0]
   expect((newP as any).original).toBe(true)
   expect((newP as any).getAttribute("class")).toBe("bar")
   expect((newP as any).textContent).toBe("Bar")
@@ -245,7 +245,7 @@ test("parseHTML td", () => {
 // Snabbdom may replace an element if the vNode's attribute case is different.
 test("virtualize lowercase attributes", () => {
   const vNode = virtualize(<input autoFocus={true} />)
-  expect(vNode.data!.attrs).toEqual({ autofocus: true })
+  expect(vNode.data.attrs).toEqual({ autofocus: true })
 })
 
 function populate(jsx: JSX.Element): Element {

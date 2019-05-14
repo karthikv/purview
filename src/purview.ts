@@ -570,7 +570,7 @@ async function makeRegularElem(
   if (typeof children === "string") {
     vChildren = [createTextPNode(children)]
   } else if (children instanceof Array) {
-    const promises = mapNested(children as NestedArray<JSX.Child>, child =>
+    const promises = mapNested(children, child =>
       makeChild(child, parent, rootID, root, parentKey + "/" + nodeName),
     )
     vChildren = await Promise.all(promises)
@@ -733,7 +733,7 @@ function createTextPNode(text: string): PNode {
 
 function toLatestPNode(pNode: PNodeRegular): PNodeRegular {
   if (pNode.component) {
-    pNode = pNode.component._pNode as PNodeRegular
+    pNode = pNode.component._pNode
   }
   const newChildren = pNode.children.map(child => {
     if ("text" in child) {

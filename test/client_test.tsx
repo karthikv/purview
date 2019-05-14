@@ -65,7 +65,7 @@ test("connectWebSocket update", async () => {
     expect(div.nodeName).toBe("DIV")
     expect(div.getAttribute("data-root")).toBe("true")
 
-    const a = div.children[0] as Element
+    const a = div.children[0]
     expect(a.nodeName).toBe("A")
     expect(a.getAttribute("href")).toBe("#")
     expect(a.textContent).toBe("Link")
