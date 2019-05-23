@@ -1286,7 +1286,7 @@ test("reconnect early", async () => {
 })
 
 test("setState() after unmount", async () => {
-  let instance: Foo
+  let instance: Foo = null as any
   class Foo extends Purview.Component<{}, {}> {
     constructor(props: {}) {
       super(props)
@@ -1303,9 +1303,9 @@ test("setState() after unmount", async () => {
   await new Promise(resolve => setTimeout(resolve, 25))
 
   for (let i = 0; i < MAX_SET_STATE_AFTER_UNMOUNT; i++) {
-    await instance!.setState({})
+    await instance.setState({})
   }
-  await expect(instance!.setState({})).rejects.toThrow(
+  await expect(instance.setState({})).rejects.toThrow(
     "setState() called after unmount",
   )
 })

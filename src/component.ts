@@ -89,7 +89,7 @@ abstract class Component<P, S> {
     })
   }
 
-  async _lock<T>(callback: () => T): Promise<T> {
+  async _lock<T>(callback: () => T | Promise<T>): Promise<T> {
     if (this._lockedPromise) {
       await this._lockedPromise
       return this._lock(callback)
