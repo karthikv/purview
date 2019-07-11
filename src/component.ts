@@ -70,23 +70,26 @@ abstract class Component<P, S> {
     await new Promise(resolve => setImmediate(resolve))
 
     return this._lock(async () => {
-      if (this._unmounted || this._changesets.length === 0) {
-        return
-      }
-
-      this._changesets.forEach(cs => {
-        if (cs instanceof Function) {
-          Object.assign(this.state, cs(this.state))
-        } else {
-          Object.assign(this.state, cs)
-        }
-      })
-      this._changesets = []
-
+      this._applyChangesetsLocked()
       if (this._handleUpdate) {
         await this._handleUpdate()
       }
     })
+  }
+
+  _applyChangesetsLocked(): void {
+    if (this._unmounted || this._changesets.length === 0) {
+      return
+    }
+
+    this._changesets.forEach(cs => {
+      if (cs instanceof Function) {
+        Object.assign(this.state, cs(this.state))
+      } else {
+        Object.assign(this.state, cs)
+      }
+    })
+    this._changesets = []
   }
 
   async _lock<T>(callback: () => T | Promise<T>): Promise<T> {

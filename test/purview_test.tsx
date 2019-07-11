@@ -874,24 +874,37 @@ test("componentWillReceiveProps", async () => {
     }
 
     render(): JSX.Element {
-      return <Bar count={1} />
+      return <Bar count={this.state.count} />
     }
   }
 
-  class Bar extends Purview.Component<{ count: number }, {}> {
+  class Bar extends Purview.Component<{ count: number }, { label: string }> {
+    state = { label: "Count" }
+
     componentWillReceiveProps(props: { count: number }): void {
       receivedProps = props
+      void this.setState({ label: "New Count" })
     }
 
     render(): JSX.Element {
-      return <p>{this.props.count}</p>
+      return (
+        <p>
+          {this.state.label}: {this.props.count}
+        </p>
+      )
     }
   }
 
   await renderAndConnect(<Foo />, async conn => {
     expect(receivedProps).toBe(null)
     void instance.setState({ count: 1 })
-    await conn.messages.next()
+
+    const message = await conn.messages.next()
+    expect(message.type).toBe("update")
+    expect(message.componentID).toBe(conn.rootID)
+
+    const p = concretize(message.pNode)
+    expect(p.textContent).toBe("New Count: 1")
     expect(receivedProps).toEqual({ count: 1, children: [] })
   })
 })

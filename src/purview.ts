@@ -636,6 +636,7 @@ async function withComponent<T>(
 
     if (existing instanceof Component) {
       component._setProps(props)
+      component._applyChangesetsLocked()
     } else if (existing) {
       component._childMap = existing.childMap
       await component._initState(existing.value)
