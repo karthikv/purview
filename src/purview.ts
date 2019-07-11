@@ -325,6 +325,14 @@ async function handleMessage(
       roots.forEach(root => {
         root.wsState = wsState
         wsState.roots.push(root)
+
+        sendMessage(root.wsState.ws, {
+          type: "update",
+          componentID: root.component._id,
+          pNode: toLatestPNode(root.component._pNode),
+          newEventNames: Array.from(root!.eventNames),
+        })
+
         // Don't wait for this, since we want wsState.mounted and wsState.roots
         // to be updated atomically. Mounting is an asynchronous event anyway.
         void root.component._triggerMount()
@@ -414,16 +422,11 @@ export async function render(
     }
 
     if (purviewState) {
-      sendMessage(root!.wsState.ws, {
-        type: "update",
-        componentID: component._id,
-        pNode: toLatestPNode(pNode),
-        newEventNames: Array.from(root!.eventNames),
-      })
+      return ""
     } else {
       await reloadOptions.saveStateTree(component._id, makeStateTree(component))
+      return toHTML(pNode)
     }
-    return toHTML(pNode)
   })
 }
 
@@ -680,7 +683,7 @@ async function renderComponent(
         return
       }
 
-      const newEventNames = new Set()
+      const newEventNames = new Set<string>()
       root.eventNames.forEach(name => {
         if (!root.wsState.seenEventNames.has(name)) {
           newEventNames.add(name)
