@@ -1,15 +1,19 @@
-import Purview from "../purview"
+import Purview, { ChangeEvent } from "../purview"
 import Animation from "./animation"
 
 interface AppState {
   animation: boolean
   help: boolean
+  value: string
 }
 
 export default class extends Purview.Component<{}, AppState> {
-  state = { help: true, animation: false }
+  state = { help: true, animation: false, value: "" }
 
   toggleHelp = () => this.setState(state => ({ help: !state.help }))
+
+  setValue = (event: ChangeEvent) =>
+    this.setState({ value: event.value as string })
 
   render(): JSX.Element {
     const help = this.state.help ? <p>This is some help text</p> : null
@@ -43,7 +47,7 @@ export default class extends Purview.Component<{}, AppState> {
         <Animation />
 
         <input type="text" />
-        <input type="text" value="value" />
+        <input type="text" value={this.state.value} onInput={this.setValue} />
         <br />
 
         <input type="checkbox" />
@@ -90,7 +94,7 @@ export default class extends Purview.Component<{}, AppState> {
         <br />
 
         <textarea defaultValue="foo" />
-        <textarea value="foo" />
+        <textarea value={this.state.value} onInput={this.setValue} />
 
         {help}
         <button onClick={this.toggleHelp}>Toggle Help</button>

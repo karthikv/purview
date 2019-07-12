@@ -74,6 +74,14 @@ test("createElem select", () => {
     "attributes",
     { selected: true, "data-controlled": true },
   )
+
+  const select4 = (
+    <select>
+      <option selected={undefined}>First</option>
+    </select>
+  )
+  expect(select4.attributes).toEqual({})
+  expect(select4.children).toHaveProperty("attributes", {})
 })
 
 test("createElem textarea", () => {
@@ -84,6 +92,10 @@ test("createElem textarea", () => {
   const textarea2 = <textarea value="foo" />
   expect(textarea2.attributes).toEqual({ "data-controlled": true })
   expect(textarea2.children).toEqual("foo")
+
+  const textarea3 = <textarea value={undefined} />
+  expect(textarea3.attributes).toEqual({})
+  expect(textarea3.children).toEqual([])
 })
 
 test("createElem checkbox", () => {
@@ -105,6 +117,9 @@ test("createElem checkbox", () => {
     type: "checkbox",
     "data-controlled": true,
   })
+
+  const checkbox5 = <input type="checkbox" checked={undefined} />
+  expect(checkbox5.attributes).toEqual({ type: "checkbox" })
 })
 
 test("createElem input", () => {
@@ -117,6 +132,9 @@ test("createElem input", () => {
     "data-controlled": true,
     value: "foo",
   })
+
+  const input3 = <input type="text" value={undefined} />
+  expect(input3.attributes).toEqual({ type: "text" })
 })
 
 test("createElem intrinsic falsy attributes", () => {

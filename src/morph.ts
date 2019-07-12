@@ -49,7 +49,7 @@ const controlInputsMod = {
     }
 
     if (isTextArea(elem) && "data-controlled" in attrs) {
-      elem.value = elem.textContent || ""
+      elem.value = (to.children![0] as VNode).text!
     }
   },
 }

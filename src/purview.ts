@@ -107,19 +107,19 @@ export function createElem(
   attributes = attributes || {}
 
   const hasSelected =
-    (nodeName === "option" && "selected" in attributes) ||
+    (nodeName === "option" && attributes.selected !== undefined) ||
     (nodeName === "select" && containsControlledOption(children))
 
   const isValueInput =
     (nodeName === "input" &&
       (!attributes.type || attributes.type === "text")) ||
     nodeName === "textarea"
-  const hasValue = isValueInput && "value" in attributes
+  const hasValue = isValueInput && attributes.value !== undefined
 
   const isCheckedInput =
     nodeName === "input" &&
     (attributes.type === "checkbox" || attributes.type === "radio")
-  const hasChecked = isCheckedInput && "checked" in attributes
+  const hasChecked = isCheckedInput && attributes.checked !== undefined
 
   if (hasSelected || hasValue || hasChecked) {
     ;(attributes as any)["data-controlled"] = true
@@ -127,17 +127,24 @@ export function createElem(
 
   if (
     isValueInput &&
-    "defaultValue" in attributes &&
-    !("value" in attributes)
+    attributes.defaultValue !== undefined &&
+    attributes.value === undefined
   ) {
     attributes.value = attributes.defaultValue
     delete attributes.defaultValue
   }
 
+  // Must come after the defaultValue case is handled above. This ensures the
+  // defaultValue is properly written to the children.
+  if (nodeName === "textarea" && attributes.value !== undefined) {
+    children = [attributes.value]
+    delete attributes.value
+  }
+
   if (
     isCheckedInput &&
-    "defaultChecked" in attributes &&
-    !("checked" in attributes)
+    attributes.defaultChecked !== undefined &&
+    attributes.checked === undefined
   ) {
     attributes.checked = attributes.defaultChecked
     delete attributes.defaultChecked
@@ -145,16 +152,11 @@ export function createElem(
 
   if (
     nodeName === "option" &&
-    "defaultSelected" in attributes &&
-    !("selected" in attributes)
+    attributes.defaultSelected !== undefined &&
+    attributes.selected === undefined
   ) {
     attributes.selected = attributes.defaultSelected
     delete attributes.defaultSelected
-  }
-
-  if (nodeName === "textarea" && "value" in attributes) {
-    children = [attributes.value as string]
-    delete attributes.value
   }
 
   // For intrinsic elements, change special attributes to data-* equivalents and
