@@ -906,6 +906,12 @@ test("componentWillReceiveProps", async () => {
     const p = concretize(message.pNode)
     expect(p.textContent).toBe("New Count: 1")
     expect(receivedProps).toEqual({ count: 1, children: [] })
+
+    const nextMessage = await Promise.race([
+      conn.messages.next(),
+      new Promise<undefined>(resolve => setTimeout(resolve, 50)),
+    ])
+    expect(nextMessage).toBe(undefined)
   })
 })
 

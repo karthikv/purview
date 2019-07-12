@@ -70,16 +70,15 @@ abstract class Component<P, S> {
     await new Promise(resolve => setImmediate(resolve))
 
     return this._lock(async () => {
-      this._applyChangesetsLocked()
-      if (this._handleUpdate) {
+      if (this._applyChangesetsLocked() && this._handleUpdate) {
         await this._handleUpdate()
       }
     })
   }
 
-  _applyChangesetsLocked(): void {
+  _applyChangesetsLocked(): boolean {
     if (this._unmounted || this._changesets.length === 0) {
-      return
+      return false
     }
 
     this._changesets.forEach(cs => {
@@ -90,6 +89,7 @@ abstract class Component<P, S> {
       }
     })
     this._changesets = []
+    return true
   }
 
   async _lock<T>(callback: () => T | Promise<T>): Promise<T> {
