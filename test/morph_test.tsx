@@ -28,7 +28,10 @@ test("morph checkbox", () => {
 test("morph text input value", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
+
+  jest.useFakeTimers()
   morph(input, virtualize(<input type="text" value="Hey" />))
+  jest.runAllTimers()
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hey")
@@ -37,7 +40,10 @@ test("morph text input value", () => {
 test("morph text input value undefined", () => {
   const input = populate(<input type="text" />) as HTMLInputElement
   input.value = "Hello"
+
+  jest.useFakeTimers()
   morph(input, virtualize(<input type="text" value={undefined} />))
+  jest.runAllTimers()
 
   const newInput = document.querySelector("input") as HTMLInputElement
   expect(newInput.value).toBe("Hello")
@@ -53,6 +59,8 @@ test("morph option selected", async () => {
       <option>Baz</option>
     </select>,
   ) as HTMLInputElement
+
+  // Simulate user selecting an option.
   ;(select.children[0].children[0] as HTMLOptionElement).selected = true
   ;(select.children[1] as HTMLOptionElement).selected = false
   expect(document.querySelector("select")!.value).toBe("Foo")
@@ -79,6 +87,8 @@ test("morph select multiple", async () => {
       <option>Bar</option>
     </select>,
   ) as HTMLSelectElement
+
+  // Simulate user selecting multiple options.
   ;(select.children[0] as HTMLOptionElement).selected = true
   ;(select.children[1] as HTMLOptionElement).selected = true
 

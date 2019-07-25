@@ -22,7 +22,7 @@ const controlInputsMod = {
 
     if (isInput(elem) && "data-controlled" in attrs) {
       if ("value" in attrs) {
-        elem.value = String(attrs.value)
+        maybeSetValue(elem, String(attrs.value))
       }
 
       // Note that the checked attribute won't be set if it was false in JSX, so
@@ -49,9 +49,35 @@ const controlInputsMod = {
     }
 
     if (isTextArea(elem) && "data-controlled" in attrs) {
-      elem.value = (to.children![0] as VNode).text!
+      maybeSetValue(elem, (to.children![0] as VNode).text!)
     }
   },
+}
+
+const setValueTimers = new WeakMap<HTMLElement, NodeJS.Timer>()
+
+// We don't want to update a controlled input each time we get a response from
+// the server, as the responses can be delayed with respect to user input. For
+// instance, if the user is in the process of typing "abcd", before the user
+// types "d", the server might send down the controlled value "ab". We'd then
+// set the value to "ab" and the user would change the value to "abd". This
+// causes various key presses to not take effect, and it's very confusing.
+//
+// To avoid this, we debounce setting the value property here.
+function maybeSetValue(
+  elem: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void {
+  clearSetValueTimer(elem)
+  const timer = setTimeout(() => (elem.value = value), 250)
+  setValueTimers.set(elem, timer)
+}
+
+export function clearSetValueTimer(elem: HTMLElement): void {
+  const timer = setValueTimers.get(elem)
+  if (timer) {
+    clearTimeout(timer)
+  }
 }
 
 function trackSubtree(_: VNode, to: VNode): void {

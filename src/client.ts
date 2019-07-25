@@ -1,5 +1,5 @@
 import { tryParseJSON, isSelect, isInput } from "./helpers"
-import { initMorph, morph } from "./morph"
+import { initMorph, morph, clearSetValueTimer } from "./morph"
 import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
 interface WebSocketState {
@@ -152,6 +152,19 @@ function handleEvent(
               name: (target as HTMLInputElement).name || "",
               value: inputValue(target),
             }
+
+            // The debouncing in maybeSetValue() is not foolproof. Say the user
+            // types a key during the debounce interval. It's possible for the
+            // server to send down a controlled value after the debounced
+            // callback has been run. Then the old value will be set, and if the
+            // user types anything further, his/her initial key press will be
+            // overidden and hence not take effect.
+            //
+            // To avoid this, each time the user types a key, we stop the
+            // debounced callback from running. We expect the server to send
+            // a new controlled value in response to this event, so we'll
+            // receive that value shortly and set it appropriately.
+            clearSetValueTimer(target)
             break
 
           case "keydown":
