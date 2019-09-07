@@ -1301,6 +1301,47 @@ test("reconnect new child component mount cycle", async () => {
   })
 })
 
+test("reconnect getInitialState()", async () => {
+  let count = 0
+  class Foo extends Purview.Component<{}, {}> {
+    async getInitialState(): Promise<{}> {
+      count += 1
+      return {}
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    expect(count).toBe(1)
+    conn.ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    const origin = `http://localhost:${conn.port}`
+    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
+    await new Promise(resolve => ws.addEventListener("open", resolve))
+
+    const connect: ClientMessage = {
+      type: "connect",
+      rootIDs: [conn.rootID],
+    }
+    ws.send(JSON.stringify(connect))
+
+    await new Promise(resolve => {
+      ws.addEventListener("message", messageEvent => {
+        const message: ServerMessage = JSON.parse(messageEvent.data.toString())
+        expect(message.type).toBe("update")
+        resolve()
+      })
+    })
+    expect(count).toBe(2)
+    ws.close()
+  })
+})
+
 test("reconnect early", async () => {
   class Foo extends Purview.Component<{}, {}> {
     render(): JSX.Element {

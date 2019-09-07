@@ -107,9 +107,9 @@ abstract class Component<P, S> {
     return this._lockedPromise
   }
 
-  async _initState(savedState?: S): Promise<void> {
+  async _initState(savedState?: S, reload: boolean = true): Promise<void> {
     let initialState = this.state
-    if (this.getInitialState) {
+    if (reload && this.getInitialState) {
       initialState = await this.getInitialState()
     }
     this.state = Object.assign(initialState, savedState)

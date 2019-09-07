@@ -61,8 +61,11 @@ interface Root {
 
 export interface StateTree {
   name: string
-  value: Record<string, any>
+  state: Record<string, any>
   childMap: ChildMap<StateTree>
+  // Whether to merge state with the result of getInitialState() to hot reload
+  // this component.
+  reload: boolean
 }
 
 interface IDStateTree {
@@ -246,7 +249,7 @@ export function handleWebSocket(
 
     ws.on("close", async () => {
       const promises = wsState.roots.map(async root => {
-        const stateTree = makeStateTree(root.component)
+        const stateTree = makeStateTree(root.component, true)
         await reloadOptions.saveStateTree(root.component._id, stateTree)
         await root.component._triggerUnmount()
       })
@@ -257,17 +260,23 @@ export function handleWebSocket(
   return wsServer
 }
 
-function makeStateTree(component: Component<any, any>): StateTree {
+function makeStateTree(
+  component: Component<any, any>,
+  reload: boolean,
+): StateTree {
   const childMap: ChildMap<StateTree> = {}
   Object.keys(component._childMap).forEach(key => {
     const children = component._childMap[key]!
-    childMap[key] = children.map(c => makeStateTree(c as Component<any, any>))
+    childMap[key] = children.map(c =>
+      makeStateTree(c as Component<any, any>, reload),
+    )
   })
 
   return {
     name: component.constructor.name,
-    value: (component as any).state,
+    state: (component as any).state,
     childMap,
+    reload,
   }
 }
 
@@ -426,7 +435,10 @@ export async function render(
     if (purviewState) {
       return ""
     } else {
-      await reloadOptions.saveStateTree(component._id, makeStateTree(component))
+      await reloadOptions.saveStateTree(
+        component._id,
+        makeStateTree(component, false),
+      )
       return toHTML(pNode)
     }
   })
@@ -641,7 +653,7 @@ async function withComponent<T>(
       component._applyChangesetsLocked()
     } else if (existing) {
       component._childMap = existing.childMap
-      await component._initState(existing.value)
+      await component._initState(existing.state, existing.reload)
     } else {
       await component._initState()
     }
