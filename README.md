@@ -252,6 +252,12 @@ The call to `Purview.render()` returns a promise that resolves once all initial
 state has been fetched and components have been rendered. This prevents the user
 from seeing a flash of empty content before your components load their state.
 
+Do not assign/modify instance variables on your components within
+`getInitialState()`. On page load, when the WebSocket connection is established,
+Purview will re-initialize all components with their saved state from the last
+render, and it won't call `getInitialState()`. Hence, any instance variables you
+assign/modify within this function may not be reflected.
+
 ### Other differences
 In addition to the above, Purview also differs from React in the following ways:
 
