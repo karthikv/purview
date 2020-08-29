@@ -19,7 +19,7 @@
     "@types/jest": "^23.3.1",
     "@types/jsdom": "^11.12.0",
     "@types/nanoid": "^1.2.0",
-    "@types/node": "^12.12.21",
+    "@types/node": "^14.6.2",
     "@types/sequelize": "^4.27.33",
     "express": "^4.16.4",
     "jest": "^26.4.2",
