@@ -54,7 +54,7 @@ const controlInputsMod = {
   },
 }
 
-const setValueTimers = new WeakMap<HTMLElement, NodeJS.Timer>()
+const setValueTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>()
 
 // We don't want to update a controlled input each time we get a response from
 // the server, as the responses can be delayed with respect to user input. For
