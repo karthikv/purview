@@ -758,22 +758,21 @@ async function renderComponent(
   // map. This lets us send the proper ID in update messages to the client (see
   // the _handleUpdate function above).
   //
-  // It's possible for componentID to equal component._id if this is the second
-  // time we're rendering a nested component, since the nested component will
-  // reflect the parent component's ID due to the unaliasing further below. We
-  // don't add an alias in this case to avoid cyles.
+  // It's possible for componentID to be fully unaliased (i.e. the highest
+  // ancestor in the directly nested chain) if this is the second (or later)
+  // time we're rendering a nested component due to how we set the unaliased ID
+  // further below. We don't add an alias in this case to avoid cyles.
   const componentID = pNode.data.attrs!["data-component-id"] as
     | string
     | undefined
-  const id = component._id
-  if (root && componentID && componentID !== id) {
-    root.aliases[componentID] = id
+  const unaliasedID = root ? unalias(component._id, root) : component._id
+  if (root && componentID && componentID !== unaliasedID) {
+    root.aliases[componentID] = unaliasedID
   }
   component._directlyNests = Boolean(componentID)
 
   // We may re-render a directly nested component without re-rendering the
-  // parent. In this case, we have to unalias to use the parent component's ID.
-  const unaliasedID = root ? unalias(id, root) : id
+  // parent, so we need to use the unaliased ID.
   pNode.data.attrs!["data-component-id"] = unaliasedID
   if (unaliasedID === rootID) {
     pNode.data.attrs!["data-root"] = true

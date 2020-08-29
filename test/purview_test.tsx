@@ -804,6 +804,37 @@ test("render directly nested", async () => {
   })
 })
 
+test("render triple nested", async () => {
+  let foo: Foo = null as any
+  class Foo extends Purview.Component<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      foo = this
+    }
+
+    render(): JSX.Element {
+      return <Bar />
+    }
+  }
+
+  class Bar extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <Baz />
+    }
+  }
+
+  class Baz extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <p>hello</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async _ => {
+    // This can cause an infinite loop if our aliasing/de-aliasing logic is incorrect.
+    await foo.setState({})
+  })
+})
+
 test("componentDidMount", async () => {
   let mounted = false
   class Foo extends Purview.Component<{}, { text: string }> {
