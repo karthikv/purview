@@ -5,7 +5,7 @@ import * as WebSocket from "ws"
 import nanoid = require("nanoid")
 import * as t from "io-ts"
 
-import Component, { ComponentConstructor, ChildMap } from "./component"
+import Component, { ComponentConstructor } from "./component"
 import {
   tryParseJSON,
   mapNested,
@@ -45,19 +45,15 @@ interface WebSocketState {
   seenEventNames: Set<string>
 }
 
-interface Handler {
-  eventName: string
-  callback: EventCallback
-  validator?: t.Type<any, any, any>
-}
-
 interface Root {
   component: Component<any, any>
   wsState: WebSocketState
   eventNames: Set<string>
-  handlers: Record<string, Handler | undefined>
   aliases: Record<string, string | undefined>
+  allComponentsMap: Record<string, Component<any, any> | undefined>
 }
+
+export type ChildMap<T> = Record<string, T[] | undefined>
 
 export interface StateTree {
   name: string
@@ -66,6 +62,12 @@ export interface StateTree {
   // Whether to merge state with the result of getInitialState() to hot reload
   // this component.
   reload: boolean
+}
+
+export interface EventHandler {
+  eventName: string
+  callback: EventCallback
+  validator?: t.Type<any, any, any>
 }
 
 interface IDStateTree {
@@ -251,7 +253,7 @@ export function handleWebSocket(
       const promises = wsState.roots.map(async root => {
         const stateTree = makeStateTree(root.component, true)
         await reloadOptions.saveStateTree(root.component._id, stateTree)
-        await root.component._triggerUnmount()
+        await root.component._triggerUnmount(root.allComponentsMap)
       })
       await Promise.all(promises)
     })
@@ -346,7 +348,7 @@ async function handleMessage(
 
         // Don't wait for this, since we want wsState.mounted and wsState.roots
         // to be updated atomically. Mounting is an asynchronous event anyway.
-        void root.component._triggerMount()
+        void root.component._triggerMount(root.allComponentsMap)
       })
       wsState.mounted = true
 
@@ -362,7 +364,40 @@ async function handleMessage(
         break
       }
 
-      const handler = root.handlers[message.eventID]
+      let component = root.allComponentsMap[message.componentID]
+      if (!component) {
+        break
+      }
+
+      // The component might directly nest another component, at which point the
+      // handler will be in the nested component due to component ID aliasing.
+      // Note that this can happen recursively.
+      while (component._directlyNests) {
+        // TS requires us to annotate variables within this loop becuase they
+        // are referenced indirectly in their initializers.
+        const keys: string[] = Object.keys(component._childMap)
+        if (keys.length !== 1) {
+          throw new Error(
+            "Expected exactly one key for directly nested component",
+          )
+        }
+
+        const children: Array<Component<any, any> | StateTree> | undefined =
+          component._childMap[keys[0]]
+        if (!children || children.length !== 1) {
+          throw new Error(
+            "Expected exactly one child for directly nested component",
+          )
+        }
+
+        const child: Component<any, any> | StateTree = children[0]
+        if (!(child instanceof Component)) {
+          throw new Error("Expected child to be a component")
+        }
+        component = child
+      }
+
+      const handler = component._eventHandlers[message.eventID]
       if (!handler) {
         break
       }
@@ -420,8 +455,8 @@ export async function render(
         component,
         wsState: purviewState.wsState,
         eventNames: new Set(),
-        handlers: {},
         aliases: {},
+        allComponentsMap: { [component._id]: component },
       }
       purviewState.roots = purviewState.roots || []
       purviewState.roots.push(root)
@@ -530,7 +565,7 @@ async function makeRegularElem(
     }
 
     if (root) {
-      root.handlers[eventID] = {
+      parent._newEventHandlers[eventID] = {
         eventName,
         callback,
       }
@@ -572,7 +607,7 @@ async function makeRegularElem(
           validator = submitEventValidator
           break
       }
-      root.handlers[eventID]!.validator = validator
+      parent._newEventHandlers[eventID]!.validator = validator
     }
 
     if (attr.indexOf(CAPTURE_TEXT) !== -1) {
@@ -667,6 +702,7 @@ async function renderComponent(
   root: Root | null,
 ): Promise<PNodeRegular | null> {
   component._newChildMap = {}
+  component._newEventHandlers = {}
 
   const pNode = (await makeElem(
     component.render(),
@@ -681,7 +717,7 @@ async function renderComponent(
 
   pNode.component = component
   component._pNode = pNode
-  unmountChildren(component)
+  unmountChildren(component, root)
 
   const newChildMap: ChildMap<Component<any, any>> = {}
   Object.keys(component._newChildMap).forEach(key => {
@@ -689,7 +725,9 @@ async function renderComponent(
       c => c !== null,
     ) as Array<Component<any, any>>
   })
+
   component._childMap = newChildMap
+  component._eventHandlers = component._newEventHandlers
 
   if (root && !component._handleUpdate) {
     component._handleUpdate = async () => {
@@ -724,11 +762,14 @@ async function renderComponent(
   // time we're rendering a nested component, since the nested component will
   // reflect the parent component's ID due to the unaliasing further below. We
   // don't add an alias in this case to avoid cyles.
-  const componentID = pNode.data.attrs!["data-component-id"] as string
+  const componentID = pNode.data.attrs!["data-component-id"] as
+    | string
+    | undefined
   const id = component._id
   if (root && componentID && componentID !== id) {
     root.aliases[componentID] = id
   }
+  component._directlyNests = Boolean(componentID)
 
   // We may re-render a directly nested component without re-rendering the
   // parent. In this case, we have to unalias to use the parent component's ID.
@@ -768,13 +809,16 @@ function toLatestPNode(pNode: PNodeRegular): PNodeRegular {
   }
 }
 
-function unmountChildren(component: Component<any, any>): void {
+function unmountChildren(
+  component: Component<any, any>,
+  root: Root | null,
+): void {
   Object.keys(component._childMap).forEach(key => {
     const children = component._childMap[key]!
     children.forEach(child => {
       if (child instanceof Component) {
         // Don't wait for this; unmounting is an asynchronous event.
-        void child._triggerUnmount()
+        void child._triggerUnmount(root ? root.allComponentsMap : null)
       }
     })
   })

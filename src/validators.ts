@@ -10,9 +10,9 @@ import {
   ClientMessage,
 } from "./types/ws"
 
-// --------------------------------------------------------------------------
-// N.B. If you change validators here, make sure to update src/types/ws.d.ts!
-// --------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+// N.B. If you change validators here, make sure to update src/types/ws.ts!
+// ------------------------------------------------------------------------
 
 export const makeInputEventValidator = <T extends t.Mixed>(type: T) =>
   t.exact(t.type({ name: t.string, value: type }))
@@ -54,6 +54,7 @@ const eventMessageValidator = t.exact(
     t.type({
       type: t.literal("event"),
       rootID: t.string,
+      componentID: t.string,
       eventID: t.string,
     }),
     t.partial({ event: t.any }),

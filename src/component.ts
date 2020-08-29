@@ -1,5 +1,5 @@
 import nanoid = require("nanoid")
-import { StateTree } from "./purview"
+import { StateTree, ChildMap, EventHandler } from "./purview"
 import { PNodeRegular } from "./types/ws"
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
@@ -8,8 +8,6 @@ export interface ComponentConstructor<P, S> {
   _typeID: string
   new (props: P): Component<P, S>
 }
-
-export type ChildMap<T> = Record<string, T[] | undefined>
 
 interface Component<P, S> {
   getInitialState?(): Promise<S>
@@ -23,8 +21,11 @@ abstract class Component<P, S> {
   public _childMap: ChildMap<Component<any, any> | StateTree> = {}
   public _newChildMap: ChildMap<Component<any, any> | null> = {}
   public _handleUpdate?: () => Promise<void>
+  public _eventHandlers: Record<string, EventHandler | undefined> = {}
+  public _newEventHandlers: Record<string, EventHandler | undefined> = {}
   public _pNode: PNodeRegular
   public _unmounted = false
+  public _directlyNests = false
 
   // This is set outside of the class and is used to disambiguate stateless
   // functions from Purview components. We can't set it here because it'll
@@ -115,35 +116,47 @@ abstract class Component<P, S> {
     this.state = Object.assign(initialState, savedState)
   }
 
-  async _triggerMount(): Promise<void> {
+  async _triggerMount(
+    allComponentsMap: Record<string, Component<any, any> | undefined> | null,
+  ): Promise<void> {
     return this._lock(async () => {
       const promises = Object.keys(this._childMap).map(key => {
         const childPromises = this._childMap[key]!.map(child => {
           if (child instanceof Component) {
-            return child._triggerMount()
+            return child._triggerMount(allComponentsMap)
           }
           return
         })
         return Promise.all(childPromises)
       })
       await Promise.all(promises)
+
       this.componentDidMount()
+      if (allComponentsMap) {
+        allComponentsMap[this._id] = this
+      }
     })
   }
 
-  async _triggerUnmount(): Promise<void> {
+  async _triggerUnmount(
+    allComponentsMap: Record<string, Component<any, any> | undefined> | null,
+  ): Promise<void> {
     return this._lock(async () => {
       const promises = Object.keys(this._childMap).map(key => {
         const childPromises = this._childMap[key]!.map(child => {
           if (child instanceof Component) {
-            return child._triggerUnmount()
+            return child._triggerUnmount(allComponentsMap)
           }
           return
         })
         return Promise.all(childPromises)
       })
       await Promise.all(promises)
+
       this.componentWillUnmount()
+      if (allComponentsMap) {
+        delete allComponentsMap[this._id]
+      }
       this._unmounted = true
     })
   }

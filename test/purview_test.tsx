@@ -315,6 +315,7 @@ test("render event", async () => {
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-click") as string,
     }
     conn.ws.send(JSON.stringify(event))
@@ -323,6 +324,90 @@ test("render event", async () => {
     expect(message.type).toBe("update")
     expect(message.componentID).toBe(conn.rootID)
     expect(concretize(message.pNode).textContent).toBe("hello")
+  })
+})
+
+test("render directly nested event", async () => {
+  let foo: Foo = null as any
+  class Foo extends Purview.Component<{}, { nested: boolean }> {
+    state = { nested: false }
+    nest = () => this.setState({ nested: true })
+
+    constructor(props: {}) {
+      super(props)
+      foo = this
+    }
+
+    render(): JSX.Element {
+      if (this.state.nested) {
+        return <Bar />
+      }
+      return <button onClick={this.nest}>Nest</button>
+    }
+  }
+
+  class Bar extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <Baz />
+    }
+  }
+
+  class Baz extends Purview.Component<{}, { text: string }> {
+    state = { text: "hi" }
+    setText = () => this.setState({ text: "hello" })
+
+    render(): JSX.Element {
+      return <p onClick={this.setText}>{this.state.text}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const event1: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      componentID: conn.elem.getAttribute("data-component-id")!,
+      eventID: conn.elem.getAttribute("data-click") as string,
+    }
+    conn.ws.send(JSON.stringify(event1))
+
+    const message1 = await conn.messages.next()
+    expect(message1.type).toBe("update")
+    expect(message1.componentID).toBe(conn.rootID)
+    expect(concretize(message1.pNode).textContent).toBe("hi")
+
+    // When we switch to a directly nested component, event handlers should
+    // still function.
+    const elem2 = concretize(message1.pNode)
+    const event2: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      componentID: elem2.getAttribute("data-component-id")!,
+      eventID: elem2.getAttribute("data-click") as string,
+    }
+    conn.ws.send(JSON.stringify(event2))
+
+    const message2 = await conn.messages.next()
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(conn.rootID)
+    expect(concretize(message2.pNode).textContent).toBe("hello")
+
+    // When we switch back, event handlers should still function.
+    await foo.setState({ nested: false })
+    const message3 = await conn.messages.next()
+
+    const elem3 = concretize(message3.pNode)
+    const event3: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      componentID: elem3.getAttribute("data-component-id")!,
+      eventID: elem3.getAttribute("data-click") as string,
+    }
+    conn.ws.send(JSON.stringify(event3))
+
+    const message4 = await conn.messages.next()
+    expect(message4.type).toBe("update")
+    expect(message4.componentID).toBe(conn.rootID)
+    expect(concretize(message4.pNode).textContent).toBe("hi")
   })
 })
 
@@ -340,6 +425,7 @@ test("render event capture", async () => {
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-click-capture") as string,
     }
     conn.ws.send(JSON.stringify(event))
@@ -382,6 +468,7 @@ test("render input/change event", async () => {
     const invalidEvent1: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
       event: { name: "foo", value: 13 },
     }
@@ -390,6 +477,7 @@ test("render input/change event", async () => {
     const invalidEvent2: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[1].getAttribute("data-input") as string,
       event: { name: "bar", value: ["Bar", "Baz"] },
     }
@@ -398,6 +486,7 @@ test("render input/change event", async () => {
     const invalidEvent3: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[2].getAttribute("data-change") as string,
       event: { name: "baz", value: true },
     }
@@ -406,6 +495,7 @@ test("render input/change event", async () => {
     const invalidEvent4: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
       event: { name: null as any, value: "foo" },
     }
@@ -415,6 +505,7 @@ test("render input/change event", async () => {
     const invalidEvent5: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
       event: { name: "foo", value: "foo", other: 1 } as InputEvent,
     }
@@ -423,6 +514,7 @@ test("render input/change event", async () => {
     const invalidEvent6: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
       event: { name: "foo", value: "foo" },
       other: 1,
@@ -439,6 +531,7 @@ test("render input/change event", async () => {
     const event1: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[0].getAttribute("data-input") as string,
       event: { name: "", value: "value" },
     }
@@ -447,6 +540,7 @@ test("render input/change event", async () => {
     const event2: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[1].getAttribute("data-input") as string,
       event: { name: "foo", value: true },
     }
@@ -455,6 +549,7 @@ test("render input/change event", async () => {
     const event3: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.children[2].getAttribute("data-change") as string,
       event: { name: "bar", value: ["Bar", "Baz"] },
     }
@@ -483,6 +578,7 @@ test("render change event other element", async () => {
     const invalidEvent: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-change") as string,
       event: { name: "", foo: 3 } as any,
     }
@@ -495,6 +591,7 @@ test("render change event other element", async () => {
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-change") as string,
       event: { name: "foo", value: 3 },
     }
@@ -521,6 +618,7 @@ test("render keydown event", async () => {
     const invalidEvent: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-keydown") as string,
       event: { name: "", key: 13 as any },
     }
@@ -533,6 +631,7 @@ test("render keydown event", async () => {
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-keydown") as string,
       event: { name: "foo", key: "k" },
     }
@@ -559,6 +658,7 @@ test("render submit event", async () => {
     const invalidEvent: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-submit") as string,
       event: { fields: true as any },
     }
@@ -571,6 +671,7 @@ test("render submit event", async () => {
     const event: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-submit") as string,
       event: { fields: { foo: "hi", bar: 7, baz: ["hello"], other: true } },
     }
@@ -618,6 +719,7 @@ test("render retain state", async () => {
     const event1: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: span.getAttribute("data-component-id")!,
       eventID: span.getAttribute("data-click") as string,
     }
     conn.ws.send(JSON.stringify(event1))
@@ -630,6 +732,7 @@ test("render retain state", async () => {
     const event2: EventMessage = {
       type: "event",
       rootID: conn.rootID,
+      componentID: conn.rootID,
       eventID: conn.elem.getAttribute("data-click") as string,
     }
     conn.ws.send(JSON.stringify(event2))
@@ -827,7 +930,7 @@ test("locked mount cycle", async () => {
     let lockPromise = barInstance._lock(
       async () => new Promise(resolve => setTimeout(resolve, 25)),
     )
-    void fooInstance._triggerMount()
+    void fooInstance._triggerMount(null)
 
     barMountCount = 0
     fooMountCount = 0

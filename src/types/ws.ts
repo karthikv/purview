@@ -49,6 +49,7 @@ export interface ConnectMessage {
 export interface EventMessage {
   type: "event"
   rootID: string
+  componentID: string
   eventID: string
   event?: PurviewEvent
 }

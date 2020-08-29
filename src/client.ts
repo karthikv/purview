@@ -114,7 +114,6 @@ function handleEvent(
   eventName: string,
   useCapture: boolean,
 ): void {
-  const elemRootIDs = new WeakMap()
   const attr = useCapture ? `data-${eventName}-capture` : `data-${eventName}`
 
   window.addEventListener(
@@ -131,17 +130,17 @@ function handleEvent(
       }
 
       while (triggerElem) {
-        let rootID = elemRootIDs.get(triggerElem)
-
-        if (!rootID) {
-          const rootElem = triggerElem.closest("[data-root]") as Element
-          rootID = rootElem.getAttribute("data-component-id")
-          elemRootIDs.set(triggerElem, rootID)
-        }
+        const rootID = triggerElem
+          .closest("[data-root]")!
+          .getAttribute("data-component-id")!
+        const componentID = triggerElem
+          .closest("[data-component-id]")!
+          .getAttribute("data-component-id")!
 
         const message: EventMessage = {
           type: "event",
           rootID,
+          componentID,
           eventID: triggerElem.getAttribute(attr) as string,
         }
 
