@@ -521,7 +521,7 @@ async function makeElem(
         // Child components have already been mounted recursively. We don't call
         // _triggerMount() because that would recursively call componentDidMount()
         // on children again.
-        component.componentDidMount()
+        component._mountSelfLocked(root ? root.allComponentsMap : null)
       }
       return pNode
     })

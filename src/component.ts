@@ -131,11 +131,17 @@ abstract class Component<P, S> {
       })
       await Promise.all(promises)
 
-      this.componentDidMount()
-      if (allComponentsMap) {
-        allComponentsMap[this._id] = this
-      }
+      this._mountSelfLocked(allComponentsMap)
     })
+  }
+
+  _mountSelfLocked(
+    allComponentsMap: Record<string, Component<any, any> | undefined> | null,
+  ): void {
+    this.componentDidMount()
+    if (allComponentsMap) {
+      allComponentsMap[this._id] = this
+    }
   }
 
   async _triggerUnmount(

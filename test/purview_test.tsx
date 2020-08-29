@@ -411,6 +411,63 @@ test("render directly nested event", async () => {
   })
 })
 
+test("render togglable sub-component with event", async () => {
+  class Foo extends Purview.Component<{}, { showBar: boolean }> {
+    state = { showBar: false }
+    toggleBar = () => this.setState(state => ({ showBar: !state.showBar }))
+
+    render(): JSX.Element {
+      return (
+        <div>
+          <span onClick={this.toggleBar}>Bar</span>
+          {this.state.showBar && <Bar />}
+        </div>
+      )
+    }
+  }
+
+  class Bar extends Purview.Component<{}, { text: string }> {
+    state = { text: "hi" }
+    setText = () => this.setState({ text: "hello" })
+
+    render(): JSX.Element {
+      return <p onClick={this.setText}>{this.state.text}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    const span = conn.elem.querySelector("span")!
+    const event1: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      componentID: conn.rootID,
+      eventID: span.getAttribute("data-click")!,
+    }
+    conn.ws.send(JSON.stringify(event1))
+
+    const message1 = await conn.messages.next()
+    expect(message1.type).toBe("update")
+    expect(message1.componentID).toBe(conn.rootID)
+
+    const p = concretize(message1.pNode).querySelector("p")!
+    expect(p).not.toBe(null)
+    expect(p.textContent).toBe("hi")
+
+    const event2: EventMessage = {
+      type: "event",
+      rootID: conn.rootID,
+      componentID: p.getAttribute("data-component-id")!,
+      eventID: p.getAttribute("data-click")!,
+    }
+    conn.ws.send(JSON.stringify(event2))
+
+    const message2 = await conn.messages.next()
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(p.getAttribute("data-component-id")!)
+    expect(concretize(message2.pNode).textContent).toBe("hello")
+  })
+})
+
 test("render event capture", async () => {
   class Foo extends Purview.Component<{}, { text: string }> {
     state = { text: "hi" }
