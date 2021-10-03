@@ -877,4 +877,5 @@ export {
   KeyEvent,
   PurviewEvent,
 } from "./types/ws"
+export { CSS } from "./css"
 export * from "./types/jsx"

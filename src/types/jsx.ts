@@ -1,5 +1,6 @@
 import Component, { ComponentConstructor } from "../component"
 import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./ws"
+import { CSS } from "../css"
 
 /* tslint:disable no-namespace */
 declare global {
@@ -667,6 +668,7 @@ declare global {
       key?: string | number
       children?: Child | NestedArray<Child>
       ignoreChildren?: boolean
+      css?: CSS | CSS[]
 
       // Standard HTML Attributes
       accessKey?: string
