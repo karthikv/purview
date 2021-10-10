@@ -1,4 +1,4 @@
-import { normalizeCSS, CSS } from "../src/css"
+import { normalizeCSS, CSS, generateClass } from "../src/css"
 
 test("normalizeCSS empty object", () => {
   expect(normalizeCSS({})).toEqual({})
@@ -94,3 +94,18 @@ test("normalizeCSS multiple", () => {
     letterSpacing: "1px",
   })
 })
+
+test.each([
+  [0, "a"],
+  [1, "b"],
+  [25, "z"],
+  [26, "ba"],
+  [35, "bj"],
+  [738, "bck"],
+  [1541, "chh"],
+])(
+  "generateClass (index: %s, className: %s)",
+  (index: number, className: string) => {
+    expect(generateClass(index)).toBe(className)
+  },
+)

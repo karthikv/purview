@@ -3,6 +3,9 @@ import { expandProperty } from "inline-style-expand-shorthand"
 
 export type CSS = { [key in keyof Properties]?: Properties[key] | null | false }
 
+const CHAR_CODE_A = "a".charCodeAt(0)
+const NUM_LETTERS = 26
+
 export function normalizeCSS(css: CSS | CSS[]): Properties {
   if (css instanceof Array) {
     return Object.assign({}, ...css.map(normalizeCSS))
@@ -23,4 +26,14 @@ export function normalizeCSS(css: CSS | CSS[]): Properties {
   }
 
   return result
+}
+
+export function generateClass(index: number): string {
+  const classChars = []
+  do {
+    const offset = index % NUM_LETTERS
+    classChars.push(String.fromCharCode(CHAR_CODE_A + offset))
+    index = Math.floor(index / NUM_LETTERS)
+  } while (index > 0)
+  return classChars.reverse().join("")
 }
