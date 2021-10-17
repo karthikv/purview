@@ -668,7 +668,7 @@ declare global {
       key?: string | number
       children?: Child | NestedArray<Child>
       ignoreChildren?: boolean
-      css?: CSS | CSS[]
+      css?: CSS
 
       // Standard HTML Attributes
       accessKey?: string

@@ -1,25 +1,35 @@
-import { normalizeCSS, CSS, generateClass } from "../src/css"
+import {
+  css,
+  CSSProperties,
+  generateClass,
+  generateProperty,
+  generateRule,
+  CLASS_PREFIX,
+} from "../src/css"
 
-test("normalizeCSS empty object", () => {
-  expect(normalizeCSS({})).toEqual({})
+test("css no args", () => {
+  expect(css()).toEqual({})
 })
 
-test("normalizeCSS empty array", () => {
-  expect(normalizeCSS([])).toEqual({})
+test("css empty object", () => {
+  expect(css({})).toEqual({})
 })
 
-test("normalizeCSS no-op", () => {
-  const css: CSS = {
+test("css no-op", () => {
+  const cssProperties: CSSProperties = {
     color: "black",
     letterSpacing: "1px",
     paddingLeft: "30rem",
   }
-  expect(normalizeCSS(css)).toEqual(css)
+  expect(css(cssProperties)).toEqual(cssProperties)
 })
 
-test("normalizeCSS simple", () => {
-  const css: CSS = { borderTop: "1px solid red", position: "fixed" }
-  expect(normalizeCSS(css)).toEqual({
+test("css simple", () => {
+  const cssProperties: CSSProperties = {
+    borderTop: "1px solid red",
+    position: "fixed",
+  }
+  expect(css(cssProperties)).toEqual({
     borderTopWidth: "1px",
     borderTopStyle: "solid",
     borderTopColor: "red",
@@ -27,13 +37,13 @@ test("normalizeCSS simple", () => {
   })
 })
 
-test("normalizeCSS many expansions", () => {
-  const css: CSS = {
+test("css many expansions", () => {
+  const cssProperties: CSSProperties = {
     borderTop: "1px solid red",
     padding: "10px 7px",
     flex: "1",
   }
-  expect(normalizeCSS(css)).toEqual({
+  expect(css(cssProperties)).toEqual({
     borderTopWidth: "1px",
     borderTopStyle: "solid",
     borderTopColor: "red",
@@ -45,15 +55,15 @@ test("normalizeCSS many expansions", () => {
   })
 })
 
-test("normalizeCSS precedence", () => {
-  const css: CSS = {
+test("css precedence", () => {
+  const cssProperties: CSSProperties = {
     marginLeft: "15px",
     // Overrides marginLeft above.
     margin: "10px 7px",
     // Overrides part of margin shorthand above.
     marginBottom: "3px",
   }
-  expect(normalizeCSS(css)).toEqual({
+  expect(css(cssProperties)).toEqual({
     marginTop: "10px",
     marginRight: "7px",
     marginBottom: "3px",
@@ -61,24 +71,24 @@ test("normalizeCSS precedence", () => {
   })
 })
 
-test("normalizeCSS multiple", () => {
-  const css1: CSS = {
+test("css multiple", () => {
+  const cssProperties1: CSSProperties = {
     color: "black",
     letterSpacing: "1px",
     paddingLeft: "30rem",
   }
-  const css2: CSS = {
+  const cssProperties2: CSSProperties = {
     borderTop: "1px solid red",
     padding: "10px 7px",
   }
-  const css3: CSS = {
+  const cssProperties3: CSSProperties = {
     margin: "15px",
     borderTopColor: "blue",
     // Overrides part of margin shorthand above.
     paddingBottom: "3px",
     letterSpacing: "1px",
   }
-  expect(normalizeCSS([css1, css2, css3])).toEqual({
+  expect(css(cssProperties1, cssProperties2, cssProperties3)).toEqual({
     color: "black",
     borderTopWidth: "1px",
     borderTopStyle: "solid",
@@ -106,6 +116,25 @@ test.each([
 ])(
   "generateClass (index: %s, className: %s)",
   (index: number, className: string) => {
-    expect(generateClass(index)).toBe(className)
+    expect(generateClass(index)).toBe(CLASS_PREFIX + className)
   },
 )
+
+test("generateProperty simple", () => {
+  expect(generateProperty("color", "#333")).toBe("color: #333")
+})
+
+test("generateProperty dashed rule", () => {
+  expect(generateProperty("paddingLeft", "30px")).toBe("padding-left: 30px")
+})
+
+test("generateProperty numeric", () => {
+  expect(generateProperty("lineHeight", 3)).toBe("line-height: 3")
+  expect(generateProperty("letterSpacing", 0)).toBe("letter-spacing: 0")
+})
+
+test("generateRule", () => {
+  expect(generateRule("foo", "margin-bottom: 0")).toBe(
+    ".foo { margin-bottom: 0 }",
+  )
+})

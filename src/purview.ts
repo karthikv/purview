@@ -32,6 +32,7 @@ import {
 import { Attrs } from "snabbdom/modules/attributes"
 import * as DevNull from "dev-null"
 import { toHTML } from "./to_html"
+import { generateClass, generateProperty, generateRule } from "./css"
 
 export interface WebSocketOptions {
   origin: string | null
@@ -39,18 +40,38 @@ export interface WebSocketOptions {
 
 interface WebSocketState {
   ws: WebSocket
-  roots: Root[]
+  roots: ConnectedRoot[]
   connected: boolean
   mounted: boolean
   seenEventNames: Set<string>
+  cssState: CSSState
 }
 
-interface Root {
+// Represents a root of a component tree after the WebSocket has connected.
+interface ConnectedRoot {
+  connected: true
   component: Component<any, any>
   wsState: WebSocketState
   eventNames: Set<string>
   aliases: Record<string, string | undefined>
   allComponentsMap: Record<string, Component<any, any> | undefined>
+}
+
+// Represents a root of a component tree before the WebSocket has connected
+// (i.e. only during an initial render).
+interface DisconnectedRoot {
+  connected: false
+  cssState: CSSState
+}
+
+interface CSSState {
+  // Maps a single CSS property to a class name.
+  atomicCSS: Record<string, string | undefined>
+  // Each element is a propertly formatted CSS rule with a class
+  // name and single property.
+  cssRules: string[]
+  // The index of the last rule that was added to the DOM.
+  lastRuleAdded: number
 }
 
 export type ChildMap<T> = Record<string, T[] | undefined>
@@ -80,8 +101,9 @@ declare module "http" {
     purviewState?: {
       wsState: WebSocketState
       idStateTrees: IDStateTree[]
-      roots?: Root[]
+      roots?: ConnectedRoot[]
     }
+    purviewCSSState?: CSSState
   }
 }
 
@@ -235,10 +257,15 @@ export function handleWebSocket(
 
     const wsState: WebSocketState = {
       ws,
-      roots: [] as Root[],
+      roots: [] as ConnectedRoot[],
       connected: false,
       mounted: false,
       seenEventNames: new Set(),
+      cssState: {
+        atomicCSS: {},
+        cssRules: [],
+        lastRuleAdded: 0,
+      }
     }
 
     ws.on("message", async data => {
@@ -314,7 +341,7 @@ async function handleMessage(
       res.assignSocket(nullStream as any)
       server.emit("request", req, res)
 
-      const roots = await new Promise<Root[]>((resolve, reject) => {
+      const roots = await new Promise<ConnectedRoot[]>((resolve, reject) => {
         res.on("finish", () => {
           if (res.statusCode < 200 || res.statusCode >= 300) {
             const errorMessage = util.format(
@@ -448,10 +475,11 @@ export async function render(
       throw new Error("Expected non-null component")
     }
 
-    let root: Root | null = null
+    let root: ConnectedRoot | DisconnectedRoot
     if (purviewState) {
       component._id = idStateTree!.id
       root = {
+        connected: true,
         component,
         wsState: purviewState.wsState,
         eventNames: new Set(),
@@ -460,6 +488,17 @@ export async function render(
       }
       purviewState.roots = purviewState.roots || []
       purviewState.roots.push(root)
+    } else {
+      req.purviewCSSState = req.purviewCSSState ?? {
+        atomicCSS: {},
+        cssRules: [],
+        lastRuleAdded: 0,
+      }
+      // This is the initial render.
+      root = {
+        connected: false,
+        cssState: req.purviewCSSState,
+      }
     }
 
     const pNode = await renderComponent(component, component._id, root)
@@ -474,7 +513,18 @@ export async function render(
         component._id,
         makeStateTree(component, false),
       )
-      return toHTML(pNode)
+      let html = toHTML(pNode)
+
+      const { cssRules } = (root as DisconnectedRoot).cssState
+      if (cssRules.length > 0) {
+        const styleNode: PNode = {
+          sel: "style",
+          data: { id: "" },
+          children: [{ text: cssRules.join("\n") }],
+        }
+        html = toHTML(styleNode) + html
+      }
+      return html
     }
   })
 }
@@ -491,7 +541,7 @@ async function makeElem(
   jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
-  root: Root | null,
+  root: ConnectedRoot | DisconnectedRoot,
   parentKey: string,
 ): Promise<PNode | null> {
   let key: string
@@ -515,13 +565,15 @@ async function makeElem(
 
       parent._newChildMap[key]![index] = component
       const pNode = await renderComponent(component, rootID, root)
-      const wsState = root && root.wsState
+      const wsState = root.connected && root.wsState
 
       if (!existing && wsState && wsState.mounted) {
         // Child components have already been mounted recursively. We don't call
         // _triggerMount() because that would recursively call componentDidMount()
         // on children again.
-        component._mountSelfLocked(root ? root.allComponentsMap : null)
+        component._mountSelfLocked(
+          root.connected ? root.allComponentsMap : null,
+        )
       }
       return pNode
     })
@@ -534,14 +586,15 @@ async function makeRegularElem(
   jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
-  root: Root | null,
+  root: ConnectedRoot | DisconnectedRoot,
   parentKey: string,
 ): Promise<PNode | null> {
   if (typeof jsx.nodeName !== "string") {
     throw new Error("Invalid JSX node: " + jsx.nodeName)
   }
 
-  const { nodeName, attributes, children } = jsx
+  const { nodeName, attributes: allAttributes, children } = jsx
+  const { css, ...attributes } = allAttributes
   const attrs: Attrs = {}
 
   Object.keys(attributes).forEach(attr => {
@@ -564,7 +617,7 @@ async function makeRegularElem(
       cachedEventIDs.set(callback, eventID)
     }
 
-    if (root) {
+    if (root.connected) {
       parent._newEventHandlers[eventID] = {
         eventName,
         callback,
@@ -617,6 +670,36 @@ async function makeRegularElem(
     }
   })
 
+  if (css) {
+    let cssState: CSSState
+    if (root.connected) {
+      cssState = root.wsState.cssState
+    } else {
+      cssState = root.cssState
+    }
+
+    const classNames = Object.keys(css).map(rawKey => {
+      // tslint:disable-next-line:forin
+      const key = rawKey as keyof typeof css
+      const property = generateProperty(key, css[key])
+
+      let className = cssState.atomicCSS[property]
+      if (className === undefined) {
+        className = generateClass(cssState.cssRules.length)
+        cssState.atomicCSS[property] = className
+        cssState.cssRules.push(generateRule(className, property))
+      }
+
+      return className
+    })
+
+    if (typeof attrs.class === "string") {
+      attrs.class += " " + classNames.join(" ")
+    } else {
+      attrs.class = classNames.join(" ")
+    }
+  }
+
   let vChildren: Array<PNode | null>
   // Most common case: leaf text node.
   if (typeof children === "string") {
@@ -649,7 +732,7 @@ function makeChild(
   child: JSX.Child,
   parent: Component<any, any>,
   rootID: string,
-  root: Root | null,
+  root: ConnectedRoot | DisconnectedRoot,
   parentKey: string,
 ): PNode | null | Promise<PNode | null> {
   if (child === null || child === undefined || child === false) {
@@ -699,7 +782,7 @@ async function withComponent<T>(
 async function renderComponent(
   component: Component<any, any>,
   rootID: string,
-  root: Root | null,
+  root: ConnectedRoot | DisconnectedRoot,
 ): Promise<PNodeRegular | null> {
   component._newChildMap = {}
   component._newEventHandlers = {}
@@ -729,7 +812,7 @@ async function renderComponent(
   component._childMap = newChildMap
   component._eventHandlers = component._newEventHandlers
 
-  if (root && !component._handleUpdate) {
+  if (root.connected && !component._handleUpdate) {
     component._handleUpdate = async () => {
       const newPNode = await renderComponent(component, rootID, root)
       if (!newPNode) {
@@ -765,8 +848,10 @@ async function renderComponent(
   const componentID = pNode.data.attrs!["data-component-id"] as
     | string
     | undefined
-  const unaliasedID = root ? unalias(component._id, root) : component._id
-  if (root && componentID && componentID !== unaliasedID) {
+  const unaliasedID = root.connected
+    ? unalias(component._id, root)
+    : component._id
+  if (root.connected && componentID && componentID !== unaliasedID) {
     root.aliases[componentID] = unaliasedID
   }
   component._directlyNests = Boolean(componentID)
@@ -810,20 +895,22 @@ function toLatestPNode(pNode: PNodeRegular): PNodeRegular {
 
 function unmountChildren(
   component: Component<any, any>,
-  root: Root | null,
+  root: ConnectedRoot | DisconnectedRoot,
 ): void {
   Object.keys(component._childMap).forEach(key => {
     const children = component._childMap[key]!
     children.forEach(child => {
       if (child instanceof Component) {
         // Don't wait for this; unmounting is an asynchronous event.
-        void child._triggerUnmount(root ? root.allComponentsMap : null)
+        void child._triggerUnmount(
+          root.connected ? root.allComponentsMap : null,
+        )
       }
     })
   })
 }
 
-function unalias(id: string, root: Root): string {
+function unalias(id: string, root: ConnectedRoot): string {
   let alias = root.aliases[id]
   while (alias) {
     id = alias
@@ -877,5 +964,5 @@ export {
   KeyEvent,
   PurviewEvent,
 } from "./types/ws"
-export { CSS } from "./css"
+export { css, CSS } from "./css"
 export * from "./types/jsx"

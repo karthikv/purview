@@ -13,8 +13,9 @@ import Purview, {
   ChangeEvent,
   KeyEvent,
   SubmitEvent,
+  css,
 } from "../src/purview"
-import { parseHTML, concretize } from "../src/helpers"
+import { parseHTML, concretize, parseStyledHTML } from "../src/helpers"
 import {
   UpdateMessage,
   EventMessage,
@@ -890,6 +891,97 @@ test("render triple nested", async () => {
     // This can cause an infinite loop if our aliasing/de-aliasing logic is incorrect.
     await foo.setState({})
   })
+})
+
+test("render css simple", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div css={css({ color: "black" })} />
+    }
+  }
+
+  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  expect(style.textContent).toBe(".p-a { color: black }")
+  expect(div.getAttribute("class")).toBe("p-a")
+})
+
+test("render css existing class", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div class="foo" css={css({ color: "black" })} />
+    }
+  }
+
+  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  expect(style.textContent).toBe(".p-a { color: black }")
+  expect(div.getAttribute("class")).toBe("foo p-a")
+})
+
+test("render css expanded", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div css={css({ margin: "3px 2.5rem" })} />
+    }
+  }
+
+  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  expect(style.textContent!.split("\n")).toEqual([
+    ".p-a { margin-top: 3px }",
+    ".p-b { margin-right: 2.5rem }",
+    ".p-c { margin-bottom: 3px }",
+    ".p-d { margin-left: 2.5rem }",
+  ])
+  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d")
+})
+
+test("render css conflict", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return (
+        <div css={css({ padding: 0, flex: 1 }, { paddingLeft: "10rem" })} />
+      )
+    }
+  }
+
+  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  expect(style.textContent!.split("\n")).toEqual([
+    ".p-a { padding-top: 0 }",
+    ".p-b { padding-right: 0 }",
+    ".p-c { padding-bottom: 0 }",
+    ".p-d { padding-left: 10rem }",
+    ".p-e { flex-grow: 1 }",
+  ])
+  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e")
+})
+
+test("render css re-use", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return (
+        <div css={css({ color: "white", padding: 0 })}>
+          <span css={css({ paddingLeft: 0 })} />
+          <p css={css({ color: "white" })} />
+          <a css={css({ color: "green" })} />
+        </div>
+      )
+    }
+  }
+
+  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  expect(style.textContent!.split("\n")).toEqual([
+    ".p-a { color: white }",
+    ".p-b { padding-top: 0 }",
+    ".p-c { padding-right: 0 }",
+    ".p-d { padding-bottom: 0 }",
+    ".p-e { padding-left: 0 }",
+    ".p-f { color: green }",
+  ])
+  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e")
+
+  const [span, p, a] = Array.from(div.children)
+  expect(span.getAttribute("class")).toBe("p-e")
+  expect(p.getAttribute("class")).toBe("p-a")
+  expect(a.getAttribute("class")).toBe("p-f")
 })
 
 test("componentDidMount", async () => {

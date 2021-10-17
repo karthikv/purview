@@ -143,10 +143,18 @@ export function tryParseJSON<T>(json: string): T {
 }
 
 export function parseHTML(html: string): Element {
+  return createFragment(html).children[0]
+}
+
+export function parseStyledHTML(html: string): [Element, Element] {
+  const fragment = createFragment(html)
+  return Array.from(fragment.children) as [Element, Element]
+}
+
+function createFragment(html: string): DocumentFragment {
   const template = document.createElement("template")
   template.innerHTML = html
-  const fragment = document.importNode(template.content, true)
-  return fragment.children[0]
+  return document.importNode(template.content, true)
 }
 
 export function eachNested<T>(
