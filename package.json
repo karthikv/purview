@@ -26,7 +26,7 @@
     "jsdom": "^12.0.0",
     "merge": "^1.2.1",
     "nodemon": "^1.18.6",
-    "prettier": "^1.13.7",
+    "prettier": "^1.19.1",
     "sequelize": "^4.44.3",
     "sqlite3": "^4.0.7",
     "ts-jest": "^26.3.0",

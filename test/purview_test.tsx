@@ -15,7 +15,7 @@ import Purview, {
   SubmitEvent,
   css,
 } from "../src/purview"
-import { parseHTML, concretize, parseStyledHTML } from "../src/helpers"
+import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
   UpdateMessage,
   EventMessage,
@@ -71,10 +71,9 @@ test("createElem select", () => {
     </select>
   )
   expect(select3.attributes).toEqual({ "data-controlled": true })
-  expect((select3.children as JSX.Element).children).toHaveProperty(
-    "attributes",
-    { selected: true, "data-controlled": true },
-  )
+  expect(
+    (select3.children as JSX.Element).children,
+  ).toHaveProperty("attributes", { selected: true, "data-controlled": true })
 
   const select4 = (
     <select>
@@ -900,9 +899,12 @@ test("render css simple", async () => {
     }
   }
 
-  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  const req = {} as any
+  const div = parseHTML(await Purview.render(<Foo />, req))
+  const style = parseHTML(await Purview.renderCSS(req))
   expect(style.textContent).toBe(".p-a { color: black }")
   expect(div.getAttribute("class")).toBe("p-a")
+  expect(style.id).toBe(STYLE_TAG_ID)
 })
 
 test("render css existing class", async () => {
@@ -912,7 +914,9 @@ test("render css existing class", async () => {
     }
   }
 
-  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  const req = {} as any
+  const div = parseHTML(await Purview.render(<Foo />, req))
+  const style = parseHTML(await Purview.renderCSS(req))
   expect(style.textContent).toBe(".p-a { color: black }")
   expect(div.getAttribute("class")).toBe("foo p-a")
 })
@@ -924,7 +928,9 @@ test("render css expanded", async () => {
     }
   }
 
-  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  const req = {} as any
+  const div = parseHTML(await Purview.render(<Foo />, req))
+  const style = parseHTML(await Purview.renderCSS(req))
   expect(style.textContent!.split("\n")).toEqual([
     ".p-a { margin-top: 3px }",
     ".p-b { margin-right: 2.5rem }",
@@ -943,7 +949,9 @@ test("render css conflict", async () => {
     }
   }
 
-  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  const req = {} as any
+  const div = parseHTML(await Purview.render(<Foo />, req))
+  const style = parseHTML(await Purview.renderCSS(req))
   expect(style.textContent!.split("\n")).toEqual([
     ".p-a { padding-top: 0 }",
     ".p-b { padding-right: 0 }",
@@ -967,7 +975,9 @@ test("render css re-use", async () => {
     }
   }
 
-  const [style, div] = parseStyledHTML(await Purview.render(<Foo />, {} as any))
+  const req = {} as any
+  const div = parseHTML(await Purview.render(<Foo />, req))
+  const style = parseHTML(await Purview.renderCSS(req))
   expect(style.textContent!.split("\n")).toEqual([
     ".p-a { color: white }",
     ".p-b { padding-top: 0 }",
@@ -1673,16 +1683,14 @@ test("setState() after unmount", async () => {
 
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
-  callback: (
-    conn: {
-      ws: WebSocket
-      port: number
-      rootID: string
-      elem: Element
-      updateMessage: UpdateMessage
-      messages: AsyncQueue<ServerMessage>
-    },
-  ) => Promise<T>,
+  callback: (conn: {
+    ws: WebSocket
+    port: number
+    rootID: string
+    elem: Element
+    updateMessage: UpdateMessage
+    messages: AsyncQueue<ServerMessage>
+  }) => Promise<T>,
 ): Promise<T> {
   const server = http.createServer(async (req, res) => {
     res.end(await Purview.render(jsxElem, req))

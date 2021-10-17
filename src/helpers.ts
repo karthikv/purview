@@ -122,6 +122,7 @@ const EVENT_ATTRS_MAP: Record<EventAttribute, true> = {
 
 export const EVENT_ATTRS = new Set(Object.keys(EVENT_ATTRS_MAP))
 export const CAPTURE_TEXT = "Capture"
+export const STYLE_TAG_ID = "purview-css"
 
 export function isEventAttr(attr: string): attr is EventAttribute {
   return EVENT_ATTRS.has(attr)
@@ -143,18 +144,10 @@ export function tryParseJSON<T>(json: string): T {
 }
 
 export function parseHTML(html: string): Element {
-  return createFragment(html).children[0]
-}
-
-export function parseStyledHTML(html: string): [Element, Element] {
-  const fragment = createFragment(html)
-  return Array.from(fragment.children) as [Element, Element]
-}
-
-function createFragment(html: string): DocumentFragment {
   const template = document.createElement("template")
   template.innerHTML = html
-  return document.importNode(template.content, true)
+  const fragment = document.importNode(template.content, true)
+  return fragment.children[0]
 }
 
 export function eachNested<T>(

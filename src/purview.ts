@@ -14,6 +14,7 @@ import {
   CAPTURE_TEXT,
   findNested,
   isJSXElement,
+  STYLE_TAG_ID,
 } from "./helpers"
 import {
   ServerMessage,
@@ -125,9 +126,9 @@ const WEBSOCKET_NO_RENDER_FORMAT =
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
   attributes:
-    | JSX.InputHTMLAttributes<any> &
+    | (JSX.InputHTMLAttributes<any> &
         JSX.TextareaHTMLAttributes<any> &
-        JSX.OptionHTMLAttributes<any>
+        JSX.OptionHTMLAttributes<any>)
     | null,
   ...children: NestedArray<JSX.Child>
 ): JSX.Element {
@@ -265,7 +266,7 @@ export function handleWebSocket(
         atomicCSS: {},
         cssRules: [],
         lastRuleAdded: 0,
-      }
+      },
     }
 
     ws.on("message", async data => {
@@ -477,6 +478,7 @@ export async function render(
 
     let root: ConnectedRoot | DisconnectedRoot
     if (purviewState) {
+      // This is the request from the websocket connection.
       component._id = idStateTree!.id
       root = {
         connected: true,
@@ -489,12 +491,12 @@ export async function render(
       purviewState.roots = purviewState.roots || []
       purviewState.roots.push(root)
     } else {
+      // This is the initial render.
       req.purviewCSSState = req.purviewCSSState ?? {
         atomicCSS: {},
         cssRules: [],
         lastRuleAdded: 0,
       }
-      // This is the initial render.
       root = {
         connected: false,
         cssState: req.purviewCSSState,
@@ -513,20 +515,20 @@ export async function render(
         component._id,
         makeStateTree(component, false),
       )
-      let html = toHTML(pNode)
-
-      const { cssRules } = (root as DisconnectedRoot).cssState
-      if (cssRules.length > 0) {
-        const styleNode: PNode = {
-          sel: "style",
-          data: { id: "" },
-          children: [{ text: cssRules.join("\n") }],
-        }
-        html = toHTML(styleNode) + html
-      }
-      return html
+      return toHTML(pNode)
     }
   })
+}
+
+export async function renderCSS(req: http.IncomingMessage): Promise<string> {
+  if (!req.purviewCSSState) {
+    return ""
+  }
+
+  const { cssRules } = req.purviewCSSState
+  const textPNode = createTextPNode(cssRules.join("\n"))
+  const pNode = createPNode("style", { id: STYLE_TAG_ID }, [textPNode])
+  return toHTML(pNode)
 }
 
 function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
@@ -866,7 +868,11 @@ async function renderComponent(
   return pNode
 }
 
-function createPNode(sel: string, attrs: Attrs, children: PNode[]): PNode {
+function createPNode(
+  sel: string,
+  attrs: Attrs,
+  children: PNode[],
+): PNodeRegular {
   return { sel, data: { attrs }, children }
 }
 
@@ -951,6 +957,7 @@ export default {
   createElem,
   handleWebSocket,
   render,
+  renderCSS,
   Component,
   scriptPath,
   reloadOptions,
