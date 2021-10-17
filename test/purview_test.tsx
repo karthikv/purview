@@ -14,6 +14,7 @@ import Purview, {
   KeyEvent,
   SubmitEvent,
   css,
+  RENDER_CSS_ORDERING_ERROR,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
@@ -992,6 +993,35 @@ test("render css re-use", async () => {
   expect(span.getAttribute("class")).toBe("p-e")
   expect(p.getAttribute("class")).toBe("p-a")
   expect(a.getAttribute("class")).toBe("p-f")
+})
+
+test("render css ordering error", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div css={css({ color: "black" })} />
+    }
+  }
+
+  const req = {} as any
+  await Purview.renderCSS(req)
+  await expect(Purview.render(<Foo />, req)).rejects.toThrow(
+    RENDER_CSS_ORDERING_ERROR,
+  )
+})
+
+test("render css ordering error with multiple roots", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div css={css({ color: "black" })} />
+    }
+  }
+
+  const req = {} as any
+  await Purview.render(<Foo />, req)
+  await Purview.renderCSS(req)
+  await expect(Purview.render(<Foo />, req)).rejects.toThrow(
+    RENDER_CSS_ORDERING_ERROR,
+  )
 })
 
 test("componentDidMount", async () => {

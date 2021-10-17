@@ -39,13 +39,24 @@ export interface WebSocketOptions {
   origin: string | null
 }
 
-interface WebSocketState {
+type WebSocketState = WebSocketStateHasCSS | WebSocketStateNoCSS
+
+interface WebSocketStateHasCSS extends BaseWebSocketState {
+  hasCSS: true
+  cssState: CSSState
+}
+
+interface WebSocketStateNoCSS extends BaseWebSocketState {
+  hasCSS: false
+  cssState?: undefined
+}
+
+interface BaseWebSocketState {
   ws: WebSocket
   roots: ConnectedRoot[]
   connected: boolean
   mounted: boolean
   seenEventNames: Set<string>
-  cssState: CSSState
 }
 
 // Represents a root of a component tree after the WebSocket has connected.
@@ -65,7 +76,8 @@ interface DisconnectedRoot {
   cssState: CSSState
 }
 
-interface CSSState {
+export interface CSSState {
+  id: string
   // Maps a single CSS property to a class name.
   atomicCSS: Record<string, string | undefined>
   // Each element is a propertly formatted CSS rule with a class
@@ -105,6 +117,7 @@ declare module "http" {
       roots?: ConnectedRoot[]
     }
     purviewCSSState?: CSSState
+    purviewCSSRendered?: boolean
   }
 }
 
@@ -122,6 +135,10 @@ const WEBSOCKET_BAD_STATUS_FORMAT =
   "Purview: request to your server (GET %s) returned status code %d, so we couldn't start the WebSocket connection."
 const WEBSOCKET_NO_RENDER_FORMAT =
   "Purview: request to your server (GET %s) didn't render any components, so we couldn't start the WebSocket connection."
+export const RENDER_CSS_ORDERING_ERROR =
+  "Purview: you called renderCSS() and then subsequently called render(). Calls to render() must come before renderCSS() so that renderCSS() can add all relevant styles."
+const RENDER_CSS_NOT_CALLED_ERROR =
+  "Purview: You attempted to use the css attribute in a tag, but renderCSS was never called, so Purview could not add styles. Make sure to call renderCSS and include its output in the head tag during the initial render."
 
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
@@ -256,18 +273,19 @@ export function handleWebSocket(
       throw new Error("Only GET requests are supported")
     }
 
-    const wsState: WebSocketState = {
+    const wsStateBase: WebSocketState = {
       ws,
       roots: [] as ConnectedRoot[],
       connected: false,
       mounted: false,
       seenEventNames: new Set(),
-      cssState: {
-        atomicCSS: {},
-        cssRules: [],
-        lastRuleAdded: 0,
-      },
+      hasCSS: false,
     }
+    // wsStateBase is narrowed here to WebSocketStateNoCSS. This can be
+    // problematic in the handlers below because it may have changed to
+    // WebSocketStateHasCSS via the connect message. To avoid this, explicitly
+    // widen the type here.
+    const wsState = wsStateBase as WebSocketState
 
     ws.on("message", async data => {
       const parsed = tryParseJSON(data.toString())
@@ -283,6 +301,13 @@ export function handleWebSocket(
         await reloadOptions.saveStateTree(root.component._id, stateTree)
         await root.component._triggerUnmount(root.allComponentsMap)
       })
+      if (wsState.hasCSS) {
+        const cssPromise = reloadOptions.saveCSSState(
+          wsState.cssState.id,
+          wsState.cssState,
+        )
+        promises.push(cssPromise)
+      }
       await Promise.all(promises)
     })
   })
@@ -323,11 +348,24 @@ async function handleMessage(
       }
       wsState.connected = true
 
+      const cssStateID = message.cssStateID
+      if (cssStateID) {
+        const cssState = await reloadOptions.getCSSState(cssStateID)
+        if (!cssState) {
+          // Can't load CSS state; close WebSocket and force refresh.
+          wsState.ws.close()
+          return
+        }
+        wsState.hasCSS = true
+        wsState.cssState = cssState
+      }
+
       const promises = message.rootIDs.map(async id => {
         return { id, stateTree: await reloadOptions.getStateTree(id) }
       })
       const idStateTrees = await Promise.all(promises)
       if (idStateTrees.some(ist => !ist.stateTree)) {
+        // Can't load state tree; close WebSocket and force refresh.
         wsState.ws.close()
         return
       }
@@ -380,9 +418,13 @@ async function handleMessage(
       })
       wsState.mounted = true
 
-      await Promise.all(
-        message.rootIDs.map(id => reloadOptions.deleteStateTree(id)),
+      const deletePromises = message.rootIDs.map(id =>
+        reloadOptions.deleteStateTree(id),
       )
+      if (cssStateID) {
+        deletePromises.push(reloadOptions.deleteCSSState(cssStateID))
+      }
+      await Promise.all(deletePromises)
       break
     }
 
@@ -493,9 +535,13 @@ export async function render(
     } else {
       // This is the initial render.
       req.purviewCSSState = req.purviewCSSState ?? {
+        id: nanoid(),
         atomicCSS: {},
         cssRules: [],
         lastRuleAdded: 0,
+      }
+      if (req.purviewCSSRendered) {
+        throw new Error(RENDER_CSS_ORDERING_ERROR)
       }
       root = {
         connected: false,
@@ -521,13 +567,20 @@ export async function render(
 }
 
 export async function renderCSS(req: http.IncomingMessage): Promise<string> {
-  if (!req.purviewCSSState) {
+  const cssState = req.purviewCSSState
+  if (!cssState) {
+    req.purviewCSSRendered = true
     return ""
   }
 
-  const { cssRules } = req.purviewCSSState
-  const textPNode = createTextPNode(cssRules.join("\n"))
-  const pNode = createPNode("style", { id: STYLE_TAG_ID }, [textPNode])
+  const textPNode = createTextPNode(cssState.cssRules.join("\n"))
+  const pNode = createPNode(
+    "style",
+    { id: STYLE_TAG_ID, "data-css-state-id": cssState.id },
+    [textPNode],
+  )
+  await reloadOptions.saveCSSState(cssState.id, cssState)
+  req.purviewCSSRendered = true
   return toHTML(pNode)
 }
 
@@ -675,6 +728,9 @@ async function makeRegularElem(
   if (css) {
     let cssState: CSSState
     if (root.connected) {
+      if (!root.wsState.hasCSS) {
+        throw new Error(RENDER_CSS_NOT_CALLED_ERROR)
+      }
       cssState = root.wsState.cssState
     } else {
       cssState = root.cssState
@@ -925,21 +981,39 @@ function unalias(id: string, root: ConnectedRoot): string {
   return id
 }
 
-const globalStateTrees: Record<string, StateTree> = {}
+const globalStateTrees: Record<string, StateTree | undefined> = {}
+const globalCSSState: Record<string, CSSState | undefined> = {}
+const DELETE_INTERVAL = 60 * 1000 // 60 seconds
+
 export const reloadOptions = {
   async saveStateTree(id: string, tree: StateTree): Promise<void> {
     globalStateTrees[id] = tree
     if (process.env.NODE_ENV !== "test") {
-      setTimeout(() => this.deleteStateTree(id), 60 * 1000)
+      setTimeout(() => this.deleteStateTree(id), DELETE_INTERVAL)
     }
   },
 
   async getStateTree(id: string): Promise<StateTree | null> {
-    return globalStateTrees[id]
+    return globalStateTrees[id] ?? null
   },
 
   async deleteStateTree(id: string): Promise<void> {
     delete globalStateTrees[id]
+  },
+
+  async saveCSSState(id: string, cssState: CSSState): Promise<void> {
+    globalCSSState[id] = cssState
+    if (process.env.NODE_ENV !== "test") {
+      setTimeout(() => this.deleteCSSState(id), DELETE_INTERVAL)
+    }
+  },
+
+  async getCSSState(id: string): Promise<CSSState | null> {
+    return globalCSSState[id] ?? null
+  },
+
+  async deleteCSSState(id: string): Promise<void> {
+    delete globalCSSState[id]
   },
 }
 

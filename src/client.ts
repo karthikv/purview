@@ -1,4 +1,4 @@
-import { tryParseJSON, isSelect, isInput } from "./helpers"
+import { tryParseJSON, isSelect, isInput, STYLE_TAG_ID } from "./helpers"
 import { initMorph, morph, clearSetValueTimer } from "./morph"
 import { ServerMessage, ClientMessage, EventMessage } from "./types/ws"
 
@@ -47,8 +47,14 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
       return elem.getAttribute("data-component-id") as string
     })
 
+    const style = document.getElementById(STYLE_TAG_ID)
+    let cssStateID: string | undefined
+    if (style) {
+      cssStateID = style.getAttribute("data-css-state-id") as string
+    }
+
     rootElems.forEach(initMorph)
-    sendMessage(ws, { type: "connect", rootIDs })
+    sendMessage(ws, { type: "connect", rootIDs, cssStateID })
   })
 
   ws.addEventListener("message", (messageEvent: MessageEvent) => {

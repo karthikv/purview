@@ -40,10 +40,13 @@ check<KeyEventValidator, KeyEvent>()
 check<KeyEvent, KeyEventValidator>()
 
 const connectMessageValidator = t.exact(
-  t.type({
-    type: t.literal("connect"),
-    rootIDs: t.array(t.string),
-  }),
+  t.intersection([
+    t.type({
+      type: t.literal("connect"),
+      rootIDs: t.array(t.string),
+    }),
+    t.partial({ cssStateID: t.string }),
+  ]),
 )
 type ConnectMessageValidator = t.TypeOf<typeof connectMessageValidator>
 check<ConnectMessageValidator, ConnectMessage>()

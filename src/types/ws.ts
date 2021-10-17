@@ -44,6 +44,7 @@ export type EventCallback = (event?: PurviewEvent) => void
 export interface ConnectMessage {
   type: "connect"
   rootIDs: string[]
+  cssStateID?: string
 }
 
 export interface EventMessage {
