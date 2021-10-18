@@ -16,14 +16,20 @@ const server = http.createServer(async (req, res) => {
   const url = urlLib.parse(req.url)
   switch (url.pathname) {
     case "/":
+      const app = await Purview.render(<App />, req)
+      const css = await Purview.renderCSS(req)
+
       const html = `
         <!DOCTYPE html>
         <html>
-          <head><meta charset="utf-8" /></head>
+          <head>
+            <meta charset="utf-8" />
+            ${css}
+          </head>
           <body>
             <h1>This is a counter</h1>
             <div id="root">
-              ${await Purview.render(<App />, req)}
+              ${app}
             </div>
             <script src="http://localhost:8080/browser.js"></script>
           </body>

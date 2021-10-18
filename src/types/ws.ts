@@ -60,16 +60,23 @@ export interface SeenEventNamesMessage {
   seenEventNames: string[]
 }
 
+export interface NextRuleIndexMessage {
+  type: "nextRuleIndex"
+  nextRuleIndex: number
+}
+
 export type ClientMessage =
   | ConnectMessage
   | EventMessage
   | SeenEventNamesMessage
+  | NextRuleIndexMessage
 
 export interface UpdateMessage {
   type: "update"
   componentID: string
   pNode: PNodeRegular
   newEventNames: string[]
+  cssUpdates?: { newCSSRules: string[]; nextRuleIndex: number }
 }
 
 export type ServerMessage = UpdateMessage

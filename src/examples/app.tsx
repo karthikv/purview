@@ -1,4 +1,4 @@
-import Purview, { ChangeEvent } from "../purview"
+import Purview, { ChangeEvent, css } from "../purview"
 import Animation from "./animation"
 
 interface AppState {
@@ -8,7 +8,7 @@ interface AppState {
 }
 
 export default class extends Purview.Component<{}, AppState> {
-  state = { help: true, animation: false, value: "" }
+  state = { help: false, animation: false, value: "" }
 
   toggleHelp = () => this.setState(state => ({ help: !state.help }))
 
@@ -16,34 +16,12 @@ export default class extends Purview.Component<{}, AppState> {
     this.setState({ value: event.value as string })
 
   render(): JSX.Element {
-    const help = this.state.help ? <p>This is some help text</p> : null
+    const help = this.state.help ? (
+      <p css={css({ color: "red" })}>This is some help text</p>
+    ) : null
 
     return (
       <div>
-        <style>{`
-          .animated-sin-wave {
-            position: relative;
-            height: 150px;
-            width: 100%;
-            overflow: hidden;
-          }
-
-          .animated-sin-wave > .bar {
-            position: absolute;
-            height: 100%;
-            border-radius: 50%;
-            max-width:10px;
-          }
-
-          .animated-sin-wave-description {
-            width:100%;
-            text-align:center;
-            font-size:0.8em;
-            color:#747678;
-            padding: 2em
-          }
-        `}</style>
-
         <Animation />
 
         <input type="text" />
@@ -94,7 +72,11 @@ export default class extends Purview.Component<{}, AppState> {
         <br />
 
         <textarea defaultValue="foo" />
-        <textarea value={this.state.value} onInput={this.setValue} />
+        <textarea
+          css={css({ border: "2px solid black" })}
+          value={this.state.value}
+          onInput={this.setValue}
+        />
 
         {help}
         <button onClick={this.toggleHelp}>Toggle Help</button>

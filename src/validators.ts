@@ -8,6 +8,7 @@ import {
   EventMessage,
   SeenEventNamesMessage,
   ClientMessage,
+  NextRuleIndexMessage,
 } from "./types/ws"
 
 // ------------------------------------------------------------------------
@@ -79,10 +80,24 @@ type SeenEventNamesMessageValidator = t.TypeOf<
 check<SeenEventNamesMessageValidator, SeenEventNamesMessage>()
 check<SeenEventNamesMessage, SeenEventNamesMessageValidator>()
 
+const nextRuleIndexMessageValidator = t.exact(
+  t.type({
+    type: t.literal("nextRuleIndex"),
+    nextRuleIndex: t.number,
+  }),
+)
+type NextRuleIndexMessageValidator = t.TypeOf<
+  typeof nextRuleIndexMessageValidator
+>
+
+check<NextRuleIndexMessageValidator, NextRuleIndexMessage>()
+check<NextRuleIndexMessage, NextRuleIndexMessageValidator>()
+
 export const clientMessageValidator = t.taggedUnion("type", [
   connectMessageValidator,
   eventMessageValidator,
   seenEventNamesMessageValidator,
+  nextRuleIndexMessageValidator,
 ])
 type ClientMessageValidator = t.TypeOf<typeof clientMessageValidator>
 check<ClientMessageValidator, ClientMessage>()

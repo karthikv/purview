@@ -22,6 +22,7 @@ import {
   EventCallback,
   PNode,
   PNodeRegular,
+  UpdateMessage,
 } from "./types/ws"
 import {
   makeInputEventValidator,
@@ -83,8 +84,8 @@ export interface CSSState {
   // Each element is a propertly formatted CSS rule with a class
   // name and single property.
   cssRules: string[]
-  // The index of the last rule that was added to the DOM.
-  lastRuleAdded: number
+  // The index of the next rule to add to the CSSOM.
+  nextRuleIndex: number
 }
 
 export type ChildMap<T> = Record<string, T[] | undefined>
@@ -487,6 +488,17 @@ async function handleMessage(
       wsState.seenEventNames = new Set(message.seenEventNames)
       break
     }
+
+    case "nextRuleIndex": {
+      const { cssState } = wsState
+      if (cssState) {
+        cssState.nextRuleIndex = Math.max(
+          cssState.nextRuleIndex,
+          message.nextRuleIndex,
+        )
+      }
+      break
+    }
   }
 }
 
@@ -538,7 +550,7 @@ export async function render(
         id: nanoid(),
         atomicCSS: {},
         cssRules: [],
-        lastRuleAdded: 0,
+        nextRuleIndex: 0,
       }
       if (req.purviewCSSRendered) {
         throw new Error(RENDER_CSS_ORDERING_ERROR)
@@ -573,13 +585,16 @@ export async function renderCSS(req: http.IncomingMessage): Promise<string> {
     return ""
   }
 
-  const textPNode = createTextPNode(cssState.cssRules.join("\n"))
+  const { id, cssRules } = cssState
+  const textPNode = createTextPNode(cssRules.join("\n"))
   const pNode = createPNode(
     "style",
-    { id: STYLE_TAG_ID, "data-css-state-id": cssState.id },
+    { id: STYLE_TAG_ID, "data-css-state-id": id },
     [textPNode],
   )
-  await reloadOptions.saveCSSState(cssState.id, cssState)
+
+  cssState.nextRuleIndex = cssRules.length
+  await reloadOptions.saveCSSState(id, cssState)
   req.purviewCSSRendered = true
   return toHTML(pNode)
 }
@@ -737,7 +752,6 @@ async function makeRegularElem(
     }
 
     const classNames = Object.keys(css).map(rawKey => {
-      // tslint:disable-next-line:forin
       const key = rawKey as keyof typeof css
       const property = generateProperty(key, css[key])
 
@@ -884,11 +898,22 @@ async function renderComponent(
         }
       })
 
+      let cssUpdates: UpdateMessage["cssUpdates"]
+      if (root.wsState.hasCSS) {
+        const { cssState } = root.wsState
+        const { nextRuleIndex } = cssState
+        cssUpdates = {
+          newCSSRules: cssState.cssRules.slice(nextRuleIndex),
+          nextRuleIndex: cssState.nextRuleIndex,
+        }
+      }
+
       sendMessage(root.wsState.ws, {
         type: "update",
         componentID: unalias(component._id, root),
         pNode: toLatestPNode(newPNode),
         newEventNames: Array.from(newEventNames),
+        cssUpdates,
       })
     }
   }

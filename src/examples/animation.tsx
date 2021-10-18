@@ -1,10 +1,24 @@
-import Purview from "../purview"
+import Purview, { css } from "../purview"
 
 interface AnimationState {
   visible: boolean
   count: number
   step: number
 }
+
+const waveCSS = css({
+  position: "relative",
+  height: "150px",
+  width: "100%",
+  overflow: "hidden",
+})
+
+const baseBarCSS = css({
+  position: "absolute",
+  height: "100%",
+  borderRadius: "50%",
+  maxWidth: "10px",
+})
 
 export default class extends Purview.Component<{}, AnimationState> {
   interval: NodeJS.Timer | null = null
@@ -48,20 +62,22 @@ export default class extends Purview.Component<{}, AnimationState> {
       const rotation = (count + i) % 360
       const barX = barWidth * i
 
-      const style =
-        `width: ${barWidth}%;` +
-        `left: ${barX}%;` +
-        `transform: scale(0.8,.5) translateY(${translateY}%)` +
-        `rotate(${rotation}deg);` +
-        `background-color: ${color}`
+      const barCSS = css({
+        width: `${barWidth}%`,
+        left: `${barX}%`,
+        backgroundColor: color,
+      })
 
-      bars.push(<div class="bar" style={style} />)
+      // Don't use Purview's built-in CSS handling for this rule, as it requires too many unique rules for the atomic CSS.
+      const transformStyle = `transform: scale(0.8,.5) translateY(${translateY}%) rotate(${rotation}deg);`
+
+      bars.push(<div css={css(baseBarCSS, barCSS)} style={transformStyle} />)
     }
 
     let wave = null
     if (this.state.visible) {
       wave = (
-        <div onClick={this.flip} class="animated-sin-wave">
+        <div onClick={this.flip} css={waveCSS}>
           {bars}
         </div>
       )
