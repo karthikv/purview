@@ -900,11 +900,12 @@ async function renderComponent(
 
       let cssUpdates: UpdateMessage["cssUpdates"]
       if (root.wsState.hasCSS) {
-        const { cssState } = root.wsState
-        const { nextRuleIndex } = cssState
-        cssUpdates = {
-          newCSSRules: cssState.cssRules.slice(nextRuleIndex),
-          nextRuleIndex: cssState.nextRuleIndex,
+        const {
+          cssState: { cssRules, nextRuleIndex },
+        } = root.wsState
+        const newCSSRules = cssRules.slice(nextRuleIndex)
+        if (newCSSRules.length > 0) {
+          cssUpdates = { newCSSRules, nextRuleIndex }
         }
       }
 

@@ -3,9 +3,15 @@ import * as WebSocket from "ws"
 
 const {
   window,
-  window: { document, HTMLElement },
+  window: { document, HTMLElement, HTMLStyleElement },
 } = new JSDOM()
-Object.assign(global, { window, document, HTMLElement, WebSocket })
+Object.assign(global, {
+  window,
+  document,
+  HTMLElement,
+  HTMLStyleElement,
+  WebSocket,
+})
 
 import * as http from "http"
 import * as net from "net"
@@ -13,14 +19,15 @@ import Purview from "../src/purview"
 import AsyncQueue from "./async_queue"
 import { connectWebSocket } from "../src/client"
 import {
+  PNodeRegular,
   SeenEventNamesMessage,
   EventMessage,
   ConnectMessage,
   UpdateMessage,
   ClientMessage,
-  PNodeRegular,
+  NextRuleIndexMessage,
 } from "../src/types/ws"
-import { virtualize, concretize } from "../src/helpers"
+import { virtualize, concretize, STYLE_TAG_ID } from "../src/helpers"
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
@@ -69,6 +76,66 @@ test("connectWebSocket update", async () => {
     expect(a.nodeName).toBe("A")
     expect(a.getAttribute("href")).toBe("#")
     expect(a.textContent).toBe("Link")
+  })
+})
+
+test("connectWebSocket update css", async () => {
+  populate(
+    <p data-root="true" data-component-id="foo" class="p-a p-b">
+      This is a paragraph.
+    </p>,
+  )
+
+  const origCSSRules = [".p-a {letter-spacing: 0;}", ".p-b {color: black;}"]
+  const { cssRules } = populateCSS(origCSSRules)
+  expect(cssRules.length).toBe(origCSSRules.length)
+
+  // We emulate a message where one rule overlaps the original CSS rules. This
+  // can happen if the server triggers a CSS update before it receives and
+  // processes the nextRuleIndex client message.
+  const newCSSRules = [
+    origCSSRules[1],
+    ".p-c {font-size: 16rem;}",
+    ".p-d {margin-right: 1rem;}",
+  ]
+
+  await connect(async conn => {
+    // Ignore connect message.
+    await conn.messages.next()
+
+    const updateMessage: UpdateMessage = {
+      type: "update",
+      componentID: "foo",
+      pNode: virtualize(
+        <p data-root="true" data-component-id="foo" class="p-a p-b p-c p-d">
+          <a href="#">Link</a>
+        </p>,
+      ),
+      newEventNames: [],
+      cssUpdates: {
+        newCSSRules,
+        // -1 because we overlap one of the original CSS rules.
+        nextRuleIndex: origCSSRules.length - 1,
+      },
+    }
+
+    conn.ws.send(JSON.stringify(updateMessage))
+    await new Promise(resolve => {
+      conn.wsClient.addEventListener("message", resolve)
+    })
+
+    expect(cssRules[0].cssText).toBe(origCSSRules[0])
+    expect(cssRules[1].cssText).toBe(origCSSRules[1])
+    expect(cssRules[2].cssText).toBe(newCSSRules[1])
+    expect(cssRules[3].cssText).toBe(newCSSRules[2])
+    expect(cssRules.length).toBe(4)
+
+    const p = document.querySelector('[data-component-id="foo"]') as Element
+    expect(p.getAttribute("class")).toBe("p-a p-b p-c p-d")
+
+    const message = (await conn.messages.next()) as NextRuleIndexMessage
+    expect(message.type).toBe("nextRuleIndex")
+    expect(message.nextRuleIndex).toBe(4)
   })
 })
 
@@ -345,14 +412,24 @@ function populate(jsx: JSX.Element): PNodeRegular {
   return pNode
 }
 
+function populateCSS(rules: string[]): CSSStyleSheet {
+  const pNode = virtualize(<style id={STYLE_TAG_ID} />)
+  const elem = concretize(pNode, document) as HTMLStyleElement
+  document.head.appendChild(elem)
+
+  const sheet = elem.sheet!
+  for (const rule of rules) {
+    sheet.insertRule(rule, sheet.cssRules.length)
+  }
+  return elem.sheet!
+}
+
 async function connect<T>(
-  callback: (
-    conn: {
-      ws: WebSocket
-      wsClient: WebSocket
-      messages: AsyncQueue<ClientMessage>
-    },
-  ) => Promise<T>,
+  callback: (conn: {
+    ws: WebSocket
+    wsClient: WebSocket
+    messages: AsyncQueue<ClientMessage>
+  }) => Promise<T>,
 ): Promise<T> {
   const server = http.createServer()
   await new Promise(resolve => server.listen(resolve))

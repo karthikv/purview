@@ -23,6 +23,7 @@ import {
   SeenEventNamesMessage,
   ServerMessage,
   ClientMessage,
+  NextRuleIndexMessage,
 } from "../src/types/ws"
 import { MAX_SET_STATE_AFTER_UNMOUNT } from "../src/component"
 
@@ -1284,11 +1285,11 @@ test("event names", async () => {
     expect(message1.componentID).toBe(conn.rootID)
     expect(message1.newEventNames).toEqual(["change", "keydown"])
 
-    const seenEventNames: SeenEventNamesMessage = {
+    const seenEventNamesMessage: SeenEventNamesMessage = {
       type: "seenEventNames",
       seenEventNames: ["change"],
     }
-    conn.ws.send(JSON.stringify(seenEventNames))
+    conn.ws.send(JSON.stringify(seenEventNamesMessage))
 
     // Must wait for seenEventNames to propagate to server.
     await new Promise(resolve => setTimeout(resolve, 25))
@@ -1329,11 +1330,11 @@ test("invalid event names", async () => {
     expect(message1.componentID).toBe(conn.rootID)
     expect(message1.newEventNames).toEqual(["change", "keydown"])
 
-    const seenEventNames: SeenEventNamesMessage = {
+    const seenEventNamesMessage: SeenEventNamesMessage = {
       type: "seenEventNames",
       seenEventNames: ["change", false] as any,
     }
-    conn.ws.send(JSON.stringify(seenEventNames))
+    conn.ws.send(JSON.stringify(seenEventNamesMessage))
 
     // Must wait for seenEventNames to propagate to server.
     await new Promise(resolve => setTimeout(resolve, 25))
@@ -1343,6 +1344,72 @@ test("invalid event names", async () => {
     expect(message2.type).toBe("update")
     expect(message2.componentID).toBe(conn.rootID)
     expect(message2.newEventNames).toEqual(["change", "keydown"])
+  })
+})
+
+test("cssUpdates and nextRuleIndex in messages", async () => {
+  let instance: Foo = null as any
+
+  class Foo extends Purview.Component<{}, { enabled: boolean }> {
+    state = { enabled: false }
+
+    constructor(props: {}) {
+      super(props)
+      instance = this
+    }
+
+    render(): JSX.Element {
+      if (this.state.enabled) {
+        return <input css={css({ color: "red", marginLeft: 0 })} />
+      }
+      return <input css={css({ color: "black" })} />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    void instance.setState({ enabled: true })
+    const message1 = await conn.messages.next()
+    expect(message1.type).toBe("update")
+    expect(message1.componentID).toBe(conn.rootID)
+
+    const expectedCSSUpdates = {
+      newCSSRules: [".p-b { color: red }", ".p-c { margin-left: 0 }"],
+      nextRuleIndex: 1,
+    }
+    expect(message1.cssUpdates).toEqual(expectedCSSUpdates)
+
+    // Invalid nextRuleIndex that's less than the existing one.
+    const invalidNextRuleIndexMessage: NextRuleIndexMessage = {
+      type: "nextRuleIndex",
+      nextRuleIndex: 0,
+    }
+    conn.ws.send(JSON.stringify(invalidNextRuleIndexMessage))
+
+    // Must wait for nextRuleIndexMessage to propagate to server.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    void instance.setState({ enabled: true })
+
+    const message2 = await conn.messages.next()
+    expect(message2.type).toBe("update")
+    expect(message2.componentID).toBe(conn.rootID)
+    expect(message2.cssUpdates).toEqual(expectedCSSUpdates)
+
+    // Valid nextRuleIndex that means all rules have been processed.
+    const nextRuleIndexMessage: NextRuleIndexMessage = {
+      type: "nextRuleIndex",
+      nextRuleIndex: 3,
+    }
+    conn.ws.send(JSON.stringify(nextRuleIndexMessage))
+
+    // Must wait for nextRuleIndexMessage to propagate to server.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    void instance.setState({ enabled: true })
+
+    const message3 = await conn.messages.next()
+    expect(message3.type).toBe("update")
+    expect(message3.componentID).toBe(conn.rootID)
+    // No further updates.
+    expect(message3.cssUpdates).toBe(undefined)
   })
 })
 
@@ -1722,24 +1789,43 @@ async function renderAndConnect<T>(
     messages: AsyncQueue<ServerMessage>
   }) => Promise<T>,
 ): Promise<T> {
+  let rootID: string | null = null
+  let cssStateID: string | null = null
+
   const server = http.createServer(async (req, res) => {
-    res.end(await Purview.render(jsxElem, req))
+    // The WebSocket connection will make a second request where the return
+    // value of render() is empty, so the check below is necessary.
+    const body = await Purview.render(jsxElem, req)
+    if (!rootID) {
+      rootID = parseHTML(body).getAttribute("data-component-id")
+    }
+
+    // The WebSocket connection will make a second request where the return
+    // value of renderCSS() is empty, so the check below is necessary.
+    const style = await Purview.renderCSS(req)
+    if (!cssStateID) {
+      cssStateID = parseHTML(style).getAttribute("data-css-state-id")
+    }
+
+    res.end("")
   })
   await new Promise(resolve => server.listen(resolve))
 
   const port = (server.address() as net.AddressInfo).port
-  const html = await new Promise<string>(resolve => {
+  await new Promise(resolve => {
     http.get(`http://localhost:${port}`, res => {
-      let data = ""
-      res.setEncoding("utf8")
-      res.on("data", chunk => (data += chunk))
-      res.on("end", () => resolve(data))
+      res.on("data", () => null)
+      res.on("end", () => resolve())
     })
   })
 
-  const id = parseHTML(html).getAttribute("data-component-id")
-  if (!id) {
-    throw new Error(`Expected component ID, but got: ${id}`)
+  // tslint:disable-next-line:strict-type-predicates
+  if (rootID === null) {
+    throw new Error("Missing rootID")
+  }
+  // tslint:disable-next-line:strict-type-predicates
+  if (cssStateID === null) {
+    throw new Error("Missing cssStateID")
   }
 
   const origin = `http://localhost:${port}`
@@ -1769,7 +1855,8 @@ async function renderAndConnect<T>(
 
     const connect: ClientMessage = {
       type: "connect",
-      rootIDs: [id],
+      rootIDs: [rootID!],
+      cssStateID: cssStateID!,
     }
     ws.send(JSON.stringify(connect))
   })
@@ -1779,7 +1866,7 @@ async function renderAndConnect<T>(
     result = await callback({
       ws,
       port,
-      rootID: id,
+      rootID,
       elem: concretize(updateMessage.pNode),
       updateMessage,
       messages,
