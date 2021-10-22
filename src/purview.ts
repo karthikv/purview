@@ -751,10 +751,15 @@ async function makeRegularElem(
       cssState = root.cssState
     }
 
-    const classNames = Object.keys(css).map(rawKey => {
+    const classNames: string[] = []
+    for (const rawKey of Object.keys(css)) {
       const key = rawKey as keyof typeof css
-      const property = generateProperty(key, css[key])
+      const value = css[key]
+      if (value === undefined) {
+        continue
+      }
 
+      const property = generateProperty(key, value)
       let className = cssState.atomicCSS[property]
       if (className === undefined) {
         className = generateClass(cssState.cssRules.length)
@@ -762,8 +767,8 @@ async function makeRegularElem(
         cssState.cssRules.push(generateRule(className, property))
       }
 
-      return className
-    })
+      classNames.push(className)
+    }
 
     if (typeof attrs.class === "string") {
       attrs.class += " " + classNames.join(" ")

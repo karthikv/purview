@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@types/ws": "^6.0.1",
+    "css-tree": "^1.1.3",
     "csstype": "^3.0.9",
     "dev-null": "^0.1.1",
     "inline-style-expand-shorthand": "^1.3.0",

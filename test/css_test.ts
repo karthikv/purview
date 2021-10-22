@@ -5,6 +5,7 @@ import {
   generateProperty,
   generateRule,
   CLASS_PREFIX,
+  PropertyText,
 } from "../src/css"
 
 test("css no args", () => {
@@ -133,8 +134,18 @@ test("generateProperty numeric", () => {
   expect(generateProperty("letterSpacing", 0)).toBe("letter-spacing: 0")
 })
 
+test("generateProperty invalid", () => {
+  expect(() => generateProperty("foo" as any, 3)).toThrow(/unknown property/i)
+  expect(() => generateProperty("fontSize", "asdf")).toThrow(
+    /mismatch\s+syntax/i,
+  )
+  expect(() => generateProperty("lineHeight", "auto")).toThrow(
+    /mismatch\s+syntax/i,
+  )
+})
+
 test("generateRule", () => {
-  expect(generateRule("foo", "margin-bottom: 0")).toBe(
+  expect(generateRule("foo", "margin-bottom: 0" as PropertyText)).toBe(
     ".foo { margin-bottom: 0 }",
   )
 })

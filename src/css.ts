@@ -1,12 +1,16 @@
 import { Properties } from "csstype"
 import { expandProperty } from "inline-style-expand-shorthand"
+import { lexer } from "css-tree"
 
 export type CSSProperties = {
   [key in keyof Properties]?: Properties[key] | null | false
 }
 
 // Branded type to distinguish from Properties.
-export type CSS = Properties & { __normalized: true }
+export type CSS = Properties & { __brand: "CSS" }
+
+// Branded type to distinguish from string.
+export type PropertyText = string & { __brand: "PropertyText" }
 
 const CHAR_CODE_LOWER_A = "a".charCodeAt(0)
 const CHAR_CODE_UPPER_A = "A".charCodeAt(0)
@@ -50,8 +54,9 @@ export function generateClass(index: number): string {
 
 export function generateProperty<T extends keyof CSS>(
   key: T,
-  value: CSS[T],
-): string {
+  // Don't allow undefined values.
+  value: NonNullable<CSS[T]>,
+): PropertyText {
   let propertyName = ""
   for (let i = 0; i < key.length; i++) {
     const code = key.charCodeAt(i)
@@ -61,9 +66,17 @@ export function generateProperty<T extends keyof CSS>(
       propertyName += key[i]
     }
   }
-  return `${propertyName}: ${value}`
+
+  const match = lexer.matchProperty(propertyName, String(value))
+  if (match.error) {
+    throw match.error
+  }
+  return `${propertyName}: ${value}` as PropertyText
 }
 
-export function generateRule(className: string, propertyText: string): string {
+export function generateRule(
+  className: string,
+  propertyText: PropertyText,
+): string {
   return `.${className} { ${propertyText} }`
 }
