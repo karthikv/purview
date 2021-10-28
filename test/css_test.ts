@@ -144,6 +144,30 @@ test("generateProperty invalid", () => {
   )
 })
 
+test("generateProperty cache", () => {
+  const start1 = process.hrtime.bigint()
+  const result1 = generateProperty("backgroundColor", "green")
+  const time1 = process.hrtime.bigint() - start1
+
+  const start2 = process.hrtime.bigint()
+  const result2 = generateProperty("backgroundColor", "green")
+  const time2 = process.hrtime.bigint() - start2
+
+  const start3 = process.hrtime.bigint()
+  const result3 = generateProperty("backgroundColor", "green")
+  const time3 = process.hrtime.bigint() - start3
+
+  // These values are in ns.
+  expect(time1).toBeGreaterThan(1_000_000)
+  expect(time2).toBeLessThan(500_000)
+  // The LRU cache seems to perform much better on subsequent accesses.
+  expect(time3).toBeLessThan(100_000)
+
+  expect(result1).toBe("background-color: green")
+  expect(result2).toBe("background-color: green")
+  expect(result3).toBe("background-color: green")
+})
+
 test("generateRule", () => {
   expect(generateRule("foo", "margin-bottom: 0" as PropertyText)).toBe(
     ".foo { margin-bottom: 0 }",

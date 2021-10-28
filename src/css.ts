@@ -1,6 +1,7 @@
 import { Properties } from "csstype"
 import { expandProperty } from "inline-style-expand-shorthand"
 import { lexer } from "css-tree"
+import * as LRU from "lru-cache"
 
 export type CSSProperties = {
   [key in keyof Properties]?: Properties[key] | null | false
@@ -16,6 +17,16 @@ const CHAR_CODE_LOWER_A = "a".charCodeAt(0)
 const CHAR_CODE_UPPER_A = "A".charCodeAt(0)
 const CHAR_CODE_UPPER_Z = "Z".charCodeAt(0)
 const NUM_LETTERS = 26
+
+// Per https://acss.io/frequently-asked-questions.html#:~:text=declarations:
+// - The largest sites seem to have fewer than 20,000 declarations.
+// - There are approximately 40 bytes per declaration (property) if you
+//   aggregate across the listed sites.
+//
+// We use a limit of 25,000 here to account for most sites. This will take
+// approximately 25,000 * 40 = ~1 MB (not including the boolean value or any
+// other internals of the LRU cache), which is very little.
+const VALID_CSS_PROPERTIES_CACHE = new LRU<string, boolean>(25_000)
 
 export const CLASS_PREFIX = "p-"
 
@@ -67,11 +78,21 @@ export function generateProperty<T extends keyof CSS>(
     }
   }
 
+  // Calling lexer.matchProperty() below can be expensive, taking over 5ms in
+  // certain instances. We use a cache to reduce the time for subsequent calls
+  // of the same property.
+  const propertyText = `${propertyName}: ${value}`
+  if (VALID_CSS_PROPERTIES_CACHE.get(propertyText)) {
+    return propertyText as PropertyText
+  }
+
   const match = lexer.matchProperty(propertyName, String(value))
   if (match.error) {
     throw match.error
   }
-  return `${propertyName}: ${value}` as PropertyText
+
+  VALID_CSS_PROPERTIES_CACHE.set(propertyText, true)
+  return propertyText as PropertyText
 }
 
 export function generateRule(
