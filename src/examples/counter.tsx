@@ -1,7 +1,7 @@
 // Normally you'd import from "purview". We use "../purview" here since we're in
 // the Purview codebase.
 import Purview from "../purview"
-import * as Sequelize from "sequelize"
+import { Sequelize, QueryTypes, DataTypes } from "sequelize"
 import * as http from "http"
 import * as express from "express"
 
@@ -12,7 +12,10 @@ const db = new Sequelize("sqlite:purview.db")
 class Counter extends Purview.Component<{}, { count: number }> {
   async getInitialState(): Promise<{ count: number }> {
     // Query the current count from the database.
-    const [rows] = await db.query("SELECT count FROM counters LIMIT 1")
+    const rows = await db.query<{ count: number }>(
+      "SELECT count FROM counters LIMIT 1",
+      { type: QueryTypes.SELECT },
+    )
     return { count: rows[0].count }
   }
 
@@ -53,7 +56,7 @@ async function startServer(): Promise<void> {
   })
 
   // Reset database and insert our initial counter.
-  db.define("counter", { count: Sequelize.INTEGER }, { timestamps: false })
+  db.define("counter", { count: DataTypes.INTEGER }, { timestamps: false })
   await db.sync({ force: true })
   await db.query("INSERT INTO counters (count) VALUES (0)")
 
