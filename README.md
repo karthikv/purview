@@ -16,26 +16,30 @@ events.
 Below is a snippet of an example; see [full example code here](#usage).
 
 ```tsx
-import Purview from "purview"
-import * as Sequelize from "sequelize"
+import Purview, { css } from "purview"
+import { Sequelize, QueryTypes } from "sequelize"
 
 const db = new Sequelize("sqlite:purview.db")
 
 class Counter extends Purview.Component<{}, { count: number }> {
   async getInitialState(): Promise<{ count: number }> {
     // Query the current count from the database.
-    const [rows] = await db.query("SELECT count FROM counters LIMIT 1")
+    const rows = await db.query<{ count: number }>(
+      "SELECT count FROM counters LIMIT 1",
+      { type: QueryTypes.SELECT },
+    )
     return { count: rows[0].count }
   }
 
   increment = async () => {
     await db.query("UPDATE counters SET count = count + 1")
-    this.setState(await this.getInitialState())
+    await this.setState(await this.getInitialState())
   }
 
   render(): JSX.Element {
     return (
-      <div>
+      // Atomic CSS-in-JS support is built-in.
+      <div css={css({ border: "1px solid #333", padding: "10px" })}>
         <p>The count is {this.state.count}</p>
         <button onClick={this.increment}>Click to increment</button>
       </div>
@@ -95,7 +99,8 @@ tsconfig.json, you can do this like so:
 ## Usage
 1) Write components by extending `Purview.Component`.
 1) Send down (a) the server-rendered HTML of your component and (b) a script tag
-pointing to Purview's client-side JS file.
+pointing to Purview's client-side JS file. If you'd like to enable Purview's
+[CSS-in-JS support](#atomic-css-in-js-support), also send (c) the server-rendered CSS (a style tag) in the head of your document.
     - For (a), call `Purview.render(<Component />, req)`, where `Component` is
       your root component, and `req` is the standard request object, of type
       `http.IncomingMessage`, from express or `http.createServer`. This returns
@@ -103,6 +108,12 @@ pointing to Purview's client-side JS file.
     - For (b), either serve the JavaScript in `Purview.scriptPath` directly (see
       example below) or, in an existing client-side codebase, `import
       "purview/dist/browser"`.
+    - For (c), call `Purview.renderCSS(req)`, where `req` is the standard
+      request object, of type `http.IncomingMessage`, from express or
+      `http.createServer`. This returns a promise with HTML containing a style
+      tag that should be inserted in the head of the document. Make sure to call
+      this after `Purview.render()` in step (a), as the CSS depends on the
+      components that are being rendered.
 1) Handle WebSocket connections by calling `Purview.handleWebSocket(server,
 options)`, where `server` is an `http.Server` object. If you're using Express,
 call `http.createServer(app)` to a create a server from your `app` object. Then
@@ -120,8 +131,8 @@ call `server.listen()` instead of `app.listen()` to bind your server to a port.
 Below is a full working example:
 
 ```tsx
-import Purview from "purview"
-import * as Sequelize from "sequelize"
+import Purview, { css } from "purview"
+import { Sequelize, QueryTypes, DataTypes } from "sequelize"
 import * as http from "http"
 import * as express from "express"
 
@@ -132,18 +143,22 @@ const db = new Sequelize("sqlite:purview.db")
 class Counter extends Purview.Component<{}, { count: number }> {
   async getInitialState(): Promise<{ count: number }> {
     // Query the current count from the database.
-    const [rows] = await db.query("SELECT count FROM counters LIMIT 1")
+    const rows = await db.query<{ count: number }>(
+      "SELECT count FROM counters LIMIT 1",
+      { type: QueryTypes.SELECT },
+    )
     return { count: rows[0].count }
   }
 
   increment = async () => {
     await db.query("UPDATE counters SET count = count + 1")
-    this.setState(await this.getInitialState())
+    await this.setState(await this.getInitialState())
   }
 
   render(): JSX.Element {
     return (
-      <div>
+      // Atomic CSS-in-JS support is built-in.
+      <div css={css({ border: "1px solid #333", padding: "10px" })}>
         <p>The count is {this.state.count}</p>
         <button onClick={this.increment}>Click to increment</button>
       </div>
@@ -152,15 +167,24 @@ class Counter extends Purview.Component<{}, { count: number }> {
 }
 
 async function startServer(): Promise<void> {
-  // (2) Send down server-rendered HTML and a script tag with Purview's
-  // client-side JavaScript.
+  // (2) Send down server-rendered HTML and CSS alongside a script tag with
+  // Purview's client-side JavaScript.
   const app = express()
   app.get("/", async (req, res) => {
+    const counterHTML = await Purview.render(<Counter />, req)
+    // Make sure to call Purview.renderCSS() after Purview.render(), as the CSS
+    // is determined by the components rendered on the page.
+    const styleHTML = await Purview.renderCSS(req)
     res.send(`
-      <body>
-        ${await Purview.render(<Counter />, req)}
-        <script src="/script.js"></script>
-      </body>
+      <html>
+        <head>
+          ${styleHTML}
+        </head>
+        <body>
+          ${counterHTML}
+          <script src="/script.js"></script>
+        </body>
+      </html>
     `)
   })
   app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
@@ -173,7 +197,7 @@ async function startServer(): Promise<void> {
   })
 
   // Reset database and insert our initial counter.
-  db.define("counter", { count: Sequelize.INTEGER }, { timestamps: false })
+  db.define("counter", { count: DataTypes.INTEGER }, { timestamps: false })
   await db.sync({ force: true })
   await db.query("INSERT INTO counters (count) VALUES (0)")
 
@@ -265,6 +289,104 @@ In addition to the above, Purview also differs from React in the following ways:
   `componentWillReceiveProps()`, and `componentWillUnmount()`.
 - Context, refs, fragments, error boundaries, portals, and hooks are
   unsupported.
+
+## Atomic CSS-in-JS support
+Purview comes with built-in atomic CSS-in-JS support. To enable CSS-in-JS, make sure to send the rendered CSS to the client per [step 2 of the usage instructions](#usage).
+
+To use CSS-in-JS, first call Purview's `css` function to generate a set of CSS
+properties. Note that the object passed to the `css` function is typchecked
+thanks to [CSSType](https://github.com/frenic/csstype), and it expects
+camelCased keys representing CSS properties. Then, pass the return value to the
+`css={...}` attribute of any standard JSX element.
+
+```ts
+const buttonCSS = css({
+  padding: "6px 8px",
+  fontSize: "1.4rem",
+  backgroundColor: "#ccc",
+})
+
+class Button extends Purview.Component<{}, {}> {
+  render(): JSX.Element {
+    return <button css={buttonCSS}>Button</button>
+  }
+}
+```
+
+Note that you can compose CSS rules by passing multiple objects to the `css` function:
+
+```ts
+const blueCSS = css({ backgroundColor: "blue" })
+// Combines all styles in buttonCSS and in blueCSS, returning a new object
+// representing the joint properties. If there are conflicts, styles in blueCSS
+// will take precedence over styles in buttonCSS.
+const blueButtonCSS = css(buttonCSS, blueCSS)
+
+class BlueButton extends Purview.Component<{}, {}> {
+  render(): JSX.Element {
+    return <button css={blueButtonCSS}>Blue Button</button>
+  }
+}
+```
+
+Styles do not need to be static--you can generate and change them dynamically
+(even based on props/state, but be careful about user input), and Purview will
+update the DOM appropriately. Purview checks that all CSS rules are valid and
+will let you know if there are issues.
+
+When Purview renders the button in the example above, the markup will look
+like the following:
+
+```html
+<-- in the head -->
+<style>
+  .p-a { padding-top: 6px }
+  .p-b { padding-right: 8px }
+  .p-c { padding-bottom: 6px }
+  .p-d { padding-left: 8px }
+  .p-e { font-size: 1.4rem }
+  .p-f { background-color: blue }
+</style>
+
+<!-- in the body -->
+<button class="p-a p-b p-c p-d p-e p-f">Blue Button</button>
+```
+
+In the markup above, notice how `blueButtonCSS` has been split up into multiple CSS classes, each of which
+has one declaration. This is called atomic CSS-in-JS, and it's [described in detail by
+Sébastian Lorber](https://sebastienlorber.com/atomic-css-in-js).
+
+In short, atomic CSS-in-JS solves the following problems (among others, all
+identified by Christopher Chedeau in [his
+talk](https://speakerdeck.com/vjeux/react-css-in-js)):
+
+- **Global namespace**: CSS has one global namespace. If two selectors happen to
+  use the same class, tag, or ID, the rules could unintentionally affect one
+  another. Purview's atomic CSS-in-JS is locally scoped because it generates
+  unique class names for each unique property.
+- **Dead code elimination**: It's hard to identify CSS selectors that are no
+  longer used without auditing a website in full. With atomic CSS-in-JS, we get
+  dead code elimination for free: TypeScript and ESLint/TSLint can identify
+  unused variables, and only the CSS that is included in a rendered component
+  via the `css={...}` attribute is actually sent to the client.
+- **Non-deterministic resolution**: If an element has two different classes that
+  define conflicting CSS properties, the properties that take precedence are
+  based on the specifity of the CSS selectors, or if the specifity is the same,
+  the ordering of the selectors in the stylesheet. This leads to unexpected
+  behavior. Atomic CSS-in-JS has deterministic resolution--the last property
+  passed to the `css` function is the one that takes precedence, as in the
+  `BlueButton` example above.
+- **Minification**: With classic CSS, each new component requires new CSS rules
+  to be written, so CSS grows linearly. With Atomic CSS-in-JS, if an individual
+  rule has been used in the past by any component, it is reused thanks to the
+  single-purpose classes. This allows CSS to grow much more slowly; large sites
+  like Facebook have experienced significant savings per Sébastian's article
+  linked above (413KB before to 74KB after).
+
+Note that traditional CSS-in-JS frameworks, like [Styled
+Components](https://github.com/styled-components/styled-components) and
+[Emotion](https://github.com/emotion-js/emotion), don't work with Purview, since
+Purview components do not run in the browser.
 
 ## Inspiration
 Phoenix Live View -- https://www.youtube.com/watch?v=Z2DU0qLfPIY
