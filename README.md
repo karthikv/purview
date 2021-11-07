@@ -291,10 +291,12 @@ In addition to the above, Purview also differs from React in the following ways:
   unsupported.
 
 ## Atomic CSS-in-JS support
-Purview comes with built-in atomic CSS-in-JS support. To enable CSS-in-JS, make sure to send the rendered CSS to the client per [step 2 of the usage instructions](#usage).
+Purview comes with built-in atomic CSS-in-JS support. To enable CSS-in-JS, make
+sure to send the rendered CSS to the client per [step 2 of the usage
+instructions](#usage).
 
 To use CSS-in-JS, first call Purview's `css` function to generate a set of CSS
-properties. Note that the object passed to the `css` function is typchecked
+properties. Note that the object passed to the `css` function is typechecked
 thanks to [CSSType](https://github.com/frenic/csstype), and it expects
 camelCased keys representing CSS properties. Then, pass the return value to the
 `css={...}` attribute of any standard JSX element.
@@ -352,9 +354,10 @@ like the following:
 <button class="p-a p-b p-c p-d p-e p-f">Blue Button</button>
 ```
 
-In the markup above, notice how `blueButtonCSS` has been split up into multiple CSS classes, each of which
-has one declaration. This is called atomic CSS-in-JS, and it's [described in detail by
-Sébastian Lorber](https://sebastienlorber.com/atomic-css-in-js).
+In the markup above, notice how `blueButtonCSS` has been split up into multiple
+CSS classes, each of which has one declaration. This is called atomic CSS-in-JS,
+and it's [described in detail by Sébastian
+Lorber](https://sebastienlorber.com/atomic-css-in-js).
 
 In short, atomic CSS-in-JS solves the following problems (among others, all
 identified by Christopher Chedeau in [his
@@ -363,7 +366,8 @@ talk](https://speakerdeck.com/vjeux/react-css-in-js)):
 - **Global namespace**: CSS has one global namespace. If two selectors happen to
   use the same class, tag, or ID, the rules could unintentionally affect one
   another. Purview's atomic CSS-in-JS is locally scoped because it generates
-  unique class names for each unique property.
+  unique class names for each unique property and is directly integrated into
+  JSX.
 - **Dead code elimination**: It's hard to identify CSS selectors that are no
   longer used without auditing a website in full. With atomic CSS-in-JS, we get
   dead code elimination for free: TypeScript and ESLint/TSLint can identify
@@ -371,11 +375,11 @@ talk](https://speakerdeck.com/vjeux/react-css-in-js)):
   via the `css={...}` attribute is actually sent to the client.
 - **Non-deterministic resolution**: If an element has two different classes that
   define conflicting CSS properties, the properties that take precedence are
-  based on the specifity of the CSS selectors, or if the specifity is the same,
-  the ordering of the selectors in the stylesheet. This leads to unexpected
-  behavior. Atomic CSS-in-JS has deterministic resolution--the last property
-  passed to the `css` function is the one that takes precedence, as in the
-  `BlueButton` example above.
+  based on the specificity of the CSS selectors, or if the specificity is the
+  same, the ordering of the selectors in the stylesheet. This leads to
+  unexpected behavior. Atomic CSS-in-JS has deterministic resolution--the last
+  property passed to the `css` function is the one that takes precedence, as in
+  the `BlueButton` example above.
 - **Minification**: With classic CSS, each new component requires new CSS rules
   to be written, so CSS grows linearly. With Atomic CSS-in-JS, if an individual
   rule has been used in the past by any component, it is reused thanks to the
