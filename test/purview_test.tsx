@@ -15,6 +15,7 @@ import Purview, {
   SubmitEvent,
   css,
   RENDER_CSS_ORDERING_ERROR,
+  styledTag,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
@@ -26,6 +27,7 @@ import {
   NextRuleIndexMessage,
 } from "../src/types/ws"
 import { MAX_SET_STATE_AFTER_UNMOUNT } from "../src/component"
+import { CSSProperties } from "../src/css"
 
 test("createElem", () => {
   const p = (
@@ -894,20 +896,29 @@ test("render triple nested", async () => {
   })
 })
 
-test("render css simple", async () => {
-  class Foo extends Purview.Component<{}, {}> {
-    render(): JSX.Element {
-      return <div css={css({ color: "black" })} />
+test.each([false, true])(
+  "render css simple (useStyledTag: %s)",
+  async (useStyledTag: boolean) => {
+    const styles = { color: "black" }
+    let Foo
+    if (useStyledTag) {
+      Foo = styledTag("div", styles)
+    } else {
+      Foo = class extends Purview.Component<{}, {}> {
+        render(): JSX.Element {
+          return <div css={css(styles)} />
+        }
+      }
     }
-  }
 
-  const req = {} as any
-  const div = parseHTML(await Purview.render(<Foo />, req))
-  const style = parseHTML(await Purview.renderCSS(req))
-  expect(style.textContent).toBe(".p-a { color: black }")
-  expect(div.getAttribute("class")).toBe("p-a")
-  expect(style.id).toBe(STYLE_TAG_ID)
-})
+    const req = {} as any
+    const div = parseHTML(await Purview.render(<Foo />, req))
+    const style = parseHTML(await Purview.renderCSS(req))
+    expect(style.textContent).toBe(".p-a { color: black }")
+    expect(div.getAttribute("class")).toBe("p-a")
+    expect(style.id).toBe(STYLE_TAG_ID)
+  },
+)
 
 test("render css existing class", async () => {
   class Foo extends Purview.Component<{}, {}> {
@@ -923,46 +934,74 @@ test("render css existing class", async () => {
   expect(div.getAttribute("class")).toBe("foo p-a")
 })
 
-test("render css expanded", async () => {
-  class Foo extends Purview.Component<{}, {}> {
-    render(): JSX.Element {
-      return <div css={css({ margin: "3px 2.5rem" })} />
+test.each([false, true])(
+  "render css expanded (useStyledTag: %s)",
+  async (useStyledTag: boolean) => {
+    const styles = { margin: "3px 2.5rem" }
+    let Foo
+    if (useStyledTag) {
+      Foo = styledTag("div", styles)
+    } else {
+      Foo = class extends Purview.Component<{}, {}> {
+        render(): JSX.Element {
+          return <div css={css(styles)} />
+        }
+      }
     }
-  }
 
-  const req = {} as any
-  const div = parseHTML(await Purview.render(<Foo />, req))
-  const style = parseHTML(await Purview.renderCSS(req))
-  expect(style.textContent!.split("\n")).toEqual([
-    ".p-a { margin-top: 3px }",
-    ".p-b { margin-right: 2.5rem }",
-    ".p-c { margin-bottom: 3px }",
-    ".p-d { margin-left: 2.5rem }",
-  ])
-  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d")
-})
+    const req = {} as any
+    const div = parseHTML(await Purview.render(<Foo />, req))
+    const style = parseHTML(await Purview.renderCSS(req))
+    expect(style.textContent!.split("\n")).toEqual([
+      ".p-a { margin-top: 3px }",
+      ".p-b { margin-right: 2.5rem }",
+      ".p-c { margin-bottom: 3px }",
+      ".p-d { margin-left: 2.5rem }",
+    ])
+    expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d")
+  },
+)
 
-test("render css conflict", async () => {
-  class Foo extends Purview.Component<{}, {}> {
-    render(): JSX.Element {
-      return (
-        <div css={css({ padding: 0, flex: 1 }, { paddingLeft: "10rem" })} />
-      )
+test.each([false, true])(
+  "render css conflict (useStyledTag: %s)",
+  async (useStyledTag: boolean) => {
+    const styles: CSSProperties[] = [
+      { padding: 0 },
+      { flex: 1 },
+      { paddingLeft: "10rem" },
+    ]
+    let jsx
+
+    if (useStyledTag) {
+      // We can override styles in two ways here:
+      // - Additional arguments to styledTag. We do this for all styles
+      //   except the last.
+      // - The css property when we render the resulting component. We do this
+      //   for the final style.
+      const Foo = styledTag("div", ...styles.slice(0, styles.length - 1))
+      jsx = <Foo css={css(styles[styles.length - 1])} />
+    } else {
+      class Foo extends Purview.Component<{}, {}> {
+        render(): JSX.Element {
+          return <div css={css(...styles)} />
+        }
+      }
+      jsx = <Foo />
     }
-  }
 
-  const req = {} as any
-  const div = parseHTML(await Purview.render(<Foo />, req))
-  const style = parseHTML(await Purview.renderCSS(req))
-  expect(style.textContent!.split("\n")).toEqual([
-    ".p-a { padding-top: 0 }",
-    ".p-b { padding-right: 0 }",
-    ".p-c { padding-bottom: 0 }",
-    ".p-d { padding-left: 10rem }",
-    ".p-e { flex-grow: 1 }",
-  ])
-  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e")
-})
+    const req = {} as any
+    const div = parseHTML(await Purview.render(jsx, req))
+    const style = parseHTML(await Purview.renderCSS(req))
+    expect(style.textContent!.split("\n")).toEqual([
+      ".p-a { padding-top: 0 }",
+      ".p-b { padding-right: 0 }",
+      ".p-c { padding-bottom: 0 }",
+      ".p-d { padding-left: 10rem }",
+      ".p-e { flex-grow: 1 }",
+    ])
+    expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e")
+  },
+)
 
 test("render css re-use", async () => {
   class Foo extends Purview.Component<{}, {}> {
@@ -997,12 +1036,7 @@ test("render css re-use", async () => {
 })
 
 test("render css ordering error", async () => {
-  class Foo extends Purview.Component<{}, {}> {
-    render(): JSX.Element {
-      return <div css={css({ color: "black" })} />
-    }
-  }
-
+  const Foo = styledTag("div", { color: "black" })
   const req = {} as any
   await Purview.renderCSS(req)
   await expect(Purview.render(<Foo />, req)).rejects.toThrow(
@@ -1011,18 +1045,38 @@ test("render css ordering error", async () => {
 })
 
 test("render css ordering error with multiple roots", async () => {
-  class Foo extends Purview.Component<{}, {}> {
-    render(): JSX.Element {
-      return <div css={css({ color: "black" })} />
-    }
-  }
-
+  const Foo = styledTag("div", { color: "black" })
   const req = {} as any
   await Purview.render(<Foo />, req)
   await Purview.renderCSS(req)
   await expect(Purview.render(<Foo />, req)).rejects.toThrow(
     RENDER_CSS_ORDERING_ERROR,
   )
+})
+
+test("render css styledTag children", async () => {
+  const Foo = styledTag("div", { color: "black" })
+  const req = {} as any
+  const div = parseHTML(
+    await Purview.render(
+      <Foo>
+        <span>some</span>
+        <p>children</p>
+      </Foo>,
+      req,
+    ),
+  )
+
+  const style = parseHTML(await Purview.renderCSS(req))
+  expect(style.textContent).toBe(".p-a { color: black }")
+  expect(div.getAttribute("class")).toBe("p-a")
+  expect(style.id).toBe(STYLE_TAG_ID)
+
+  const [span, p] = Array.from(div.children)
+  expect(span.nodeName).toBe("SPAN")
+  expect(span.textContent).toBe("some")
+  expect(p.nodeName).toBe("P")
+  expect(p.textContent).toBe("children")
 })
 
 test("componentDidMount", async () => {

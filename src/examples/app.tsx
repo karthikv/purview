@@ -1,4 +1,4 @@
-import Purview, { ChangeEvent, css } from "../purview"
+import Purview, { ChangeEvent, css, styledTag } from "../purview"
 import Animation from "./animation"
 
 interface AppState {
@@ -6,6 +6,8 @@ interface AppState {
   help: boolean
   value: string
 }
+
+const Help = styledTag("p", { color: "red" })
 
 export default class extends Purview.Component<{}, AppState> {
   state = { help: false, animation: false, value: "" }
@@ -16,9 +18,7 @@ export default class extends Purview.Component<{}, AppState> {
     this.setState({ value: event.value as string })
 
   render(): JSX.Element {
-    const help = this.state.help ? (
-      <p css={css({ color: "red" })}>This is some help text</p>
-    ) : null
+    const help = this.state.help ? <Help>This is some help text</Help> : null
 
     return (
       <div>

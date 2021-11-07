@@ -2,6 +2,7 @@ import { Properties } from "csstype"
 import { expandProperty } from "inline-style-expand-shorthand"
 import { lexer } from "css-tree"
 import * as LRU from "lru-cache"
+import * as Purview from "./purview"
 
 export type CSSProperties = {
   [key in keyof Properties]?: Properties[key] | null | false
@@ -100,4 +101,32 @@ export function generateRule(
   propertyText: PropertyText,
 ): string {
   return `.${className} { ${propertyText} }`
+}
+
+export function styledTag<K extends keyof JSX.IntrinsicElements>(
+  // Even though this is a string, it must be uppercase for JSX.
+  Tag: K,
+  ...baseCSSProperties: CSSProperties[]
+): new (props: JSX.IntrinsicElements[K]) => Purview.Component<
+  JSX.IntrinsicElements[K],
+  {}
+> {
+  let baseCSS: CSS | undefined
+  return class extends Purview.Component<JSX.IntrinsicElements[K], {}> {
+    render(): JSX.Element {
+      // Lazily compute the CSS.
+      if (!baseCSS) {
+        baseCSS = css(...baseCSSProperties)
+      }
+
+      const { css: cssProperties, children, ...otherProps } = this.props
+      const finalCSS = cssProperties ? css(baseCSS, cssProperties!) : baseCSS
+      return (
+        // TS seems to have trouble type-checking otherProps here.
+        <Tag css={finalCSS} {...(otherProps as unknown)}>
+          {children}
+        </Tag>
+      )
+    }
+  }
 }

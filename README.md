@@ -301,8 +301,8 @@ thanks to [CSSType](https://github.com/frenic/csstype), and it expects
 camelCased keys representing CSS properties. Then, pass the return value to the
 `css={...}` attribute of any standard JSX element.
 
-```ts
-const buttonCSS = css({
+```tsx
+const buttonStyles = css({
   padding: "6px 8px",
   fontSize: "1.4rem",
   backgroundColor: "#ccc",
@@ -310,25 +310,37 @@ const buttonCSS = css({
 
 class Button extends Purview.Component<{}, {}> {
   render(): JSX.Element {
-    return <button css={buttonCSS}>Button</button>
+    return <button css={buttonStyles}>Button</button>
   }
 }
 ```
 
 Note that you can compose CSS rules by passing multiple objects to the `css` function:
 
-```ts
-const blueCSS = css({ backgroundColor: "blue" })
-// Combines all styles in buttonCSS and in blueCSS, returning a new object
-// representing the joint properties. If there are conflicts, styles in blueCSS
-// will take precedence over styles in buttonCSS.
-const blueButtonCSS = css(buttonCSS, blueCSS)
+```tsx
+const blueStyles = css({ backgroundColor: "blue" })
+// Combines all styles in buttonStyles and in blueStyles, returning a new object
+// representing the joint properties. If there are conflicts, styles in
+blueStyles
+// will take precedence over styles in buttonStyles.
+const blueButtonStyles = css(buttonStyles, blueStyles)
 
 class BlueButton extends Purview.Component<{}, {}> {
   render(): JSX.Element {
-    return <button css={blueButtonCSS}>Blue Button</button>
+    return <button css={blueButtonStyles}>Blue Button</button>
   }
 }
+```
+
+The above code can be expressed more succinctly by using Purview's `styledTag`
+helper function, which will accept a tag name and CSS, and return a new
+component that renders that tag with the given CSS:
+
+```tsx
+const BlueButton = styledTag("button", buttonStyles, blueStyles)
+// BlueButton can now be used just like any other component. If the following
+// JSX is rendered, it'll appear the same as in the example above:
+<BlueButton>Blue Button</BlueButton>
 ```
 
 Styles do not need to be static--you can generate and change them dynamically
@@ -354,9 +366,9 @@ like the following:
 <button class="p-a p-b p-c p-d p-e p-f">Blue Button</button>
 ```
 
-In the markup above, notice how `blueButtonCSS` has been split up into multiple
-CSS classes, each of which has one declaration. This is called atomic CSS-in-JS,
-and it's [described in detail by Sébastian
+In the markup above, notice how `blueButtonStyles` has been split up into
+multiple CSS classes, each of which has one declaration. This is called atomic
+CSS-in-JS, and it's [described in detail by Sébastian
 Lorber](https://sebastienlorber.com/atomic-css-in-js).
 
 In short, atomic CSS-in-JS solves the following problems (among others, all
