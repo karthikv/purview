@@ -338,7 +338,7 @@ When Purview renders the button in the example above, the markup will look
 like the following:
 
 ```html
-<-- in the head -->
+<!-- in the head -->
 <style>
   .p-a { padding-top: 6px }
   .p-b { padding-right: 8px }
