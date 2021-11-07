@@ -321,8 +321,7 @@ Note that you can compose CSS rules by passing multiple objects to the `css` fun
 const blueStyles = css({ backgroundColor: "blue" })
 // Combines all styles in buttonStyles and in blueStyles, returning a new object
 // representing the joint properties. If there are conflicts, styles in
-blueStyles
-// will take precedence over styles in buttonStyles.
+// blueStyles will take precedence over styles in buttonStyles.
 const blueButtonStyles = css(buttonStyles, blueStyles)
 
 class BlueButton extends Purview.Component<{}, {}> {
