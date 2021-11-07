@@ -158,8 +158,8 @@ test("generateProperty cache", () => {
   const time3 = process.hrtime.bigint() - start3
 
   // These values are in ns.
-  expect(time1).toBeGreaterThan(1_000_000)
-  expect(time2).toBeLessThan(500_000)
+  expect(time1).toBeGreaterThan(700_000)
+  expect(time2).toBeLessThan(400_000)
   // The LRU cache seems to perform much better on subsequent accesses.
   expect(time3).toBeLessThan(100_000)
 
