@@ -403,6 +403,77 @@ Components](https://github.com/styled-components/styled-components) and
 [Emotion](https://github.com/emotion-js/emotion), don't work with Purview, since
 Purview components do not run in the browser.
 
+## Using Purview with load balancing / multiple processes
+When a user makes a request to a web server using Purview, Purview will
+initialize and render the root component (and any sub-components) on the server,
+and it'll return the rendered HTML to the client. By default, Purview will
+retain the component state in memory on the server.
+
+Purview comes with client-side JS that sets up a persistent WebSocket
+connection. This connection is used by the client to notify the server of events
+that occur, and for the server to send re-rendered HTML to the client.
+
+When the client makes a request to initiate the WebSocket connection, Purview
+re-uses the component state that it had saved in memory. This abstraction breaks
+donw if there is load balancing where multiple processes (or servers) are
+handling requests--the initial web request may go to a different process/server
+than the WebSocket request, so storing the component state in memory is not
+sufficient.
+
+In order to handle this case, you can tell Purview how to store and load
+component state by overriding the functions in `Purview.reloadOptions`. It's
+generally advised to serialize and persist component state in a central database
+that any process/server can access--then, even if the WebSocket request goes to
+a different process/server, that process/server can reload the component state.
+
+Component state is represented by the `StateTree` type, which contains the state
+of all components in a hierarchical, tree-like structure. If you put types that
+aren't easily serializable in state, you may need to recursively traverse the
+`StateTree` and convert any such types accordingly. For this reason, it's
+generally recommended to use JSON-serializable values in component state.
+
+The reload functions are as follows:
+
+```ts
+// Stores the state tree and associates it with the provided ID. This should
+// act like an update or insert (upsert) operation, since the same ID may be
+// used to update a state tree.
+Purview.reloadOptions.saveStateTree(id: string, tree: StateTree): Promise<void>
+
+// Returns the previously stored state tree with the given ID, or null if no
+// such tree exists.
+Purview.reloadOptions.getStateTree(id: string): Promise<StateTree | null>
+
+// Deletes the state tree with the given ID. It's recommended to also delete
+// sufficiently old trees (i.e. trees that haven't been updated in a few days)
+// within this function.
+Purview.reloadOptions.deleteStateTree(id: string): Promise<void>
+```
+
+If you're using atomic CSS-in-JS, you'll also need to tell Purview how to save
+and reload CSS state. CSS state is represented by the `CSSState` type, which is
+JSON serializable.
+
+```ts
+// Stores the CSS state and associates it with the provided ID. This should
+// act like an update or insert (upsert) operation, since the same ID may be
+// used to update CSS state.
+Purview.reloadOptions.saveCSSState(id: string, cssState: CSSState): Promise<void>
+
+// Returns the previously stored CSS state with the given ID, or null if no
+// such state exists.
+Purview.reloadOptions.getCSSState(id: string): Promise<CSSState | null>
+
+// Deletes the CSS state with the given ID. It's recommended to also delete
+// sufficiently old state (i.e. state that hasn't been updated in a few days)
+// within this function.
+Purview.reloadOptions.deleteCSSState(id: string): Promise<void>
+```
+
+Note that these reload functions are also used when a WebSocket connection is
+closed/re-established--in this way, they help account for disconnects and flaky
+connections.
+
 ## Inspiration
 Phoenix Live View -- https://www.youtube.com/watch?v=Z2DU0qLfPIY
 
