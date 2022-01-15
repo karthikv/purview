@@ -16,11 +16,40 @@ test("css empty object", () => {
   expect(css({})).toEqual({})
 })
 
+test("css pseudo empty object", () => {
+  const cssProperties: CSSProperties = {
+    ":hover": {},
+  }
+  expect(css(cssProperties)).toEqual(cssProperties)
+})
+
+test("css undefined", () => {
+  expect(css({ color: undefined })).toStrictEqual({})
+})
+
+test("css pseudo undefined", () => {
+  expect(css({ ":link": undefined })).toStrictEqual({})
+})
+
 test("css no-op", () => {
   const cssProperties: CSSProperties = {
     color: "black",
     letterSpacing: "1px",
     paddingLeft: "30rem",
+  }
+  expect(css(cssProperties)).toEqual(cssProperties)
+})
+
+test("css pseudo no-op", () => {
+  const cssProperties: CSSProperties = {
+    ":hover": {
+      color: "black",
+      letterSpacing: "1px",
+    },
+    ":link": {
+      paddingLeft: "30rem",
+    },
+    backgroundColor: "red",
   }
   expect(css(cssProperties)).toEqual(cssProperties)
 })
@@ -35,6 +64,23 @@ test("css simple", () => {
     borderTopStyle: "solid",
     borderTopColor: "red",
     position: "fixed",
+  })
+})
+
+test("css pseudo simple", () => {
+  const cssProperties: CSSProperties = {
+    ":hover": {
+      borderTop: "1px solid red",
+      position: "fixed",
+    },
+  }
+  expect(css(cssProperties)).toEqual({
+    ":hover": {
+      borderTopWidth: "1px",
+      borderTopStyle: "solid",
+      borderTopColor: "red",
+      position: "fixed",
+    },
   })
 })
 
@@ -56,6 +102,37 @@ test("css many expansions", () => {
   })
 })
 
+test("css pseudo many expansions", () => {
+  const cssProperties: CSSProperties = {
+    ":active": {
+      borderTop: "1px solid red",
+      padding: "10px 7px",
+    },
+    ":visited": {
+      margin: "5px",
+    },
+    flex: "1",
+  }
+  expect(css(cssProperties)).toEqual({
+    ":active": {
+      borderTopWidth: "1px",
+      borderTopStyle: "solid",
+      borderTopColor: "red",
+      paddingTop: "10px",
+      paddingRight: "7px",
+      paddingBottom: "10px",
+      paddingLeft: "7px",
+    },
+    ":visited": {
+      marginTop: "5px",
+      marginRight: "5px",
+      marginBottom: "5px",
+      marginLeft: "5px",
+    },
+    flexGrow: "1",
+  })
+})
+
 test("css precedence", () => {
   const cssProperties: CSSProperties = {
     marginLeft: "15px",
@@ -69,6 +146,25 @@ test("css precedence", () => {
     marginRight: "7px",
     marginBottom: "3px",
     marginLeft: "7px",
+  })
+})
+
+test("css pseudo precedence", () => {
+  const cssProperties: CSSProperties = {
+    ":active": {
+      marginLeft: "15px", // Overrides marginLeft above.
+      margin: "10px 7px",
+      // Overrides part of margin shorthand above.
+      marginBottom: "3px",
+    },
+  }
+  expect(css(cssProperties)).toEqual({
+    ":active": {
+      marginTop: "10px",
+      marginRight: "7px",
+      marginBottom: "3px",
+      marginLeft: "7px",
+    },
   })
 })
 
@@ -102,6 +198,52 @@ test("css multiple", () => {
     marginLeft: "15px",
     marginBottom: "15px",
     marginRight: "15px",
+    letterSpacing: "1px",
+  })
+})
+
+test("css pseudo multiple", () => {
+  const cssProperties1: CSSProperties = {
+    color: "black",
+    letterSpacing: "1px",
+    ":link": {
+      paddingLeft: "30rem",
+    },
+  }
+  const cssProperties2: CSSProperties = {
+    ":link": {
+      borderTop: "1px solid red",
+      padding: "10px 7px",
+    },
+  }
+  const cssProperties3: CSSProperties = {
+    ":active": {
+      margin: "15px",
+    },
+    ":link": {
+      borderTopColor: "blue",
+      // Overrides part of margin shorthand above.
+      paddingBottom: "3px",
+    },
+    letterSpacing: "1px",
+  }
+  expect(css(cssProperties1, cssProperties2, cssProperties3)).toEqual({
+    color: "black",
+    ":link": {
+      borderTopWidth: "1px",
+      borderTopStyle: "solid",
+      borderTopColor: "blue",
+      paddingTop: "10px",
+      paddingLeft: "7px",
+      paddingBottom: "3px",
+      paddingRight: "7px",
+    },
+    ":active": {
+      marginTop: "15px",
+      marginLeft: "15px",
+      marginBottom: "15px",
+      marginRight: "15px",
+    },
     letterSpacing: "1px",
   })
 })

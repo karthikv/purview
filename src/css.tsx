@@ -1,15 +1,24 @@
-import { Properties } from "csstype"
+import { Properties, SimplePseudos } from "csstype"
 import { expandProperty } from "inline-style-expand-shorthand"
 import { lexer } from "css-tree"
 import * as LRU from "lru-cache"
 import * as Purview from "./purview"
+import { SIMPLE_PSEUDO_CLASSES } from "./pseudo_classes"
 
-export type CSSProperties = {
+type OptionalProperties = {
   [key in keyof Properties]?: Properties[key] | null | false
 }
 
-// Branded type to distinguish from Properties.
-export type CSS = Properties & { __brand: "CSS" }
+type PseudoProperties<T> = { [key in SimplePseudos]?: T }
+
+export interface CSSProperties
+  extends OptionalProperties,
+    PseudoProperties<OptionalProperties> {}
+
+// Branded type to distinguish from Properties and PseudoProperties.
+export interface CSS extends Properties, PseudoProperties<Properties> {
+  __brand: "CSS"
+}
 
 // Branded type to distinguish from string.
 export type PropertyText = string & { __brand: "PropertyText" }
@@ -32,13 +41,23 @@ const VALID_CSS_PROPERTIES_CACHE = new LRU<string, boolean>(25_000)
 export const CLASS_PREFIX = "p-"
 
 export function css(...allCSSProperties: CSSProperties[]): CSS {
-  const result: Properties = {}
+  // tslint:disable-next-line no-object-literal-type-assertion
+  const result: CSS = {} as CSS
 
   for (const cssProperties of allCSSProperties) {
     Object.keys(cssProperties).forEach(rawKey => {
       const key = rawKey as keyof typeof cssProperties
       const value = cssProperties[key]
       if (value === null || value === undefined || value === false) {
+        return
+      }
+
+      // We expect only one layer of pseudo classes, but this will technically
+      // expand manny layers recursively. We rely on the type system to prevent
+      // nested layers of pseudo properties from being passed in.
+      if (SIMPLE_PSEUDO_CLASSES.hasOwnProperty(key)) {
+        ;(result as any)[key] = result[key] ?? {}
+        Object.assign(result[key], css(value as OptionalProperties))
         return
       }
 
@@ -51,7 +70,7 @@ export function css(...allCSSProperties: CSSProperties[]): CSS {
     })
   }
 
-  return result as CSS
+  return result
 }
 
 export function generateClass(index: number): string {
