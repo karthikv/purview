@@ -2,10 +2,12 @@ import {
   css,
   CSSProperties,
   generateClass,
-  generateProperty,
+  generateRuleTemplate,
   generateRule,
   CLASS_PREFIX,
-  PropertyText,
+  RuleTemplate,
+  getAtomicProperties,
+  AtomicProperty,
 } from "../src/css"
 
 test("css no args", () => {
@@ -263,40 +265,90 @@ test.each([
   },
 )
 
-test("generateProperty simple", () => {
-  expect(generateProperty("color", "#333")).toBe("color: #333")
-})
-
-test("generateProperty dashed rule", () => {
-  expect(generateProperty("paddingLeft", "30px")).toBe("padding-left: 30px")
-})
-
-test("generateProperty numeric", () => {
-  expect(generateProperty("lineHeight", 3)).toBe("line-height: 3")
-  expect(generateProperty("letterSpacing", 0)).toBe("letter-spacing: 0")
-})
-
-test("generateProperty invalid", () => {
-  expect(() => generateProperty("foo" as any, 3)).toThrow(/unknown property/i)
-  expect(() => generateProperty("fontSize", "asdf")).toThrow(
-    /mismatch\s+syntax/i,
-  )
-  expect(() => generateProperty("lineHeight", "auto")).toThrow(
-    /mismatch\s+syntax/i,
+test("generateRuleTemplate simple", () => {
+  expect(generateRuleTemplate({ key: "color", value: "#333" })).toBe(
+    " { color: #333 }",
   )
 })
 
-test("generateProperty cache", () => {
+test("generateRuleTemplate simple pseudo", () => {
+  expect(
+    generateRuleTemplate({
+      key: "color",
+      value: "#333",
+      pseudoClass: ":active",
+    }),
+  ).toBe(":active { color: #333 }")
+})
+
+test("generateRuleTemplate dashed rule", () => {
+  expect(generateRuleTemplate({ key: "paddingLeft", value: "30px" })).toBe(
+    " { padding-left: 30px }",
+  )
+})
+
+test("generateRuleTemplate dashed rule pseudo", () => {
+  expect(
+    generateRuleTemplate({
+      key: "paddingLeft",
+      value: "30px",
+      pseudoClass: ":link",
+    }),
+  ).toBe(":link { padding-left: 30px }")
+})
+
+test("generateRuleTemplate numeric", () => {
+  expect(generateRuleTemplate({ key: "lineHeight", value: "3" })).toBe(
+    " { line-height: 3 }",
+  )
+  expect(
+    generateRuleTemplate({
+      key: "letterSpacing",
+      value: 0,
+      pseudoClass: ":visited",
+    }),
+  ).toBe(":visited { letter-spacing: 0 }")
+})
+
+test("generateRuleTemplate invalid", () => {
+  expect(() => generateRuleTemplate({ key: "foo" as any, value: 3 })).toThrow(
+    /unknown property/i,
+  )
+  expect(() =>
+    generateRuleTemplate({ key: "fontSize", value: "asdf" }),
+  ).toThrow(/mismatch\s+syntax/i)
+  expect(() =>
+    generateRuleTemplate({ key: "lineHeight", value: "auto" }),
+  ).toThrow(/mismatch\s+syntax/i)
+  expect(() =>
+    generateRuleTemplate({
+      key: "letterSpacing",
+      value: 0,
+      pseudoClass: ":asdf" as any,
+    }),
+  ).toThrow(/Invalid\s+pseudo\s+class/i)
+})
+
+test("generateRuleTemplate cache", () => {
   const start1 = process.hrtime.bigint()
-  const result1 = generateProperty("backgroundColor", "green")
+  const result1 = generateRuleTemplate({
+    key: "backgroundColor",
+    value: "green",
+  })
   const time1 = process.hrtime.bigint() - start1
 
   const start2 = process.hrtime.bigint()
-  const result2 = generateProperty("backgroundColor", "green")
+  const result2 = generateRuleTemplate({
+    key: "backgroundColor",
+    value: "green",
+  })
   const time2 = process.hrtime.bigint() - start2
 
   const start3 = process.hrtime.bigint()
-  const result3 = generateProperty("backgroundColor", "green")
+  const result3 = generateRuleTemplate({
+    key: "backgroundColor",
+    value: "green",
+  })
   const time3 = process.hrtime.bigint() - start3
 
   // These values are in ns.
@@ -305,13 +357,50 @@ test("generateProperty cache", () => {
   // The LRU cache seems to perform much better on subsequent accesses.
   expect(time3).toBeLessThan(100_000)
 
-  expect(result1).toBe("background-color: green")
-  expect(result2).toBe("background-color: green")
-  expect(result3).toBe("background-color: green")
+  expect(result1).toBe(" { background-color: green }")
+  expect(result2).toBe(" { background-color: green }")
+  expect(result3).toBe(" { background-color: green }")
 })
 
 test("generateRule", () => {
-  expect(generateRule("foo", "margin-bottom: 0" as PropertyText)).toBe(
+  expect(generateRule("foo", " { margin-bottom: 0 }" as RuleTemplate)).toBe(
     ".foo { margin-bottom: 0 }",
   )
+})
+
+test("getAtomicProperties", () => {
+  // tslint:disable-next-line no-object-literal-type-assertion
+  const cssAttr = css({
+    ":active": {
+      borderTopWidth: "1px",
+      borderTopStyle: "solid",
+      borderTopColor: "red",
+      paddingTop: "10px",
+      paddingRight: "7px",
+      paddingBottom: "10px",
+      paddingLeft: "7px",
+    },
+    ":visited": {
+      marginTop: "5px",
+      marginRight: "5px",
+      marginBottom: "5px",
+      marginLeft: "5px",
+    },
+    flex: "1",
+  })
+  const aps: Array<AtomicProperty<any>> = [
+    { key: "borderTopWidth", value: "1px", pseudoClass: ":active" },
+    { key: "borderTopStyle", value: "solid", pseudoClass: ":active" },
+    { key: "borderTopColor", value: "red", pseudoClass: ":active" },
+    { key: "paddingTop", value: "10px", pseudoClass: ":active" },
+    { key: "paddingRight", value: "7px", pseudoClass: ":active" },
+    { key: "paddingBottom", value: "10px", pseudoClass: ":active" },
+    { key: "paddingLeft", value: "7px", pseudoClass: ":active" },
+    { key: "marginTop", value: "5px", pseudoClass: ":visited" },
+    { key: "marginRight", value: "5px", pseudoClass: ":visited" },
+    { key: "marginBottom", value: "5px", pseudoClass: ":visited" },
+    { key: "marginLeft", value: "5px", pseudoClass: ":visited" },
+    { key: "flexGrow", value: "1" },
+  ]
+  expect(getAtomicProperties(cssAttr)).toEqual(aps)
 })

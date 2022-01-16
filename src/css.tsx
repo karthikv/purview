@@ -3,7 +3,7 @@ import { expandProperty } from "inline-style-expand-shorthand"
 import { lexer } from "css-tree"
 import * as LRU from "lru-cache"
 import * as Purview from "./purview"
-import { SIMPLE_PSEUDO_CLASSES } from "./pseudo_classes"
+import { isPseudoClass } from "./pseudo_classes"
 
 type OptionalProperties = {
   [key in keyof Properties]?: Properties[key] | null | false
@@ -20,8 +20,14 @@ export interface CSS extends Properties, PseudoProperties<Properties> {
   __brand: "CSS"
 }
 
+export interface AtomicProperty<K extends keyof Properties> {
+  key: K
+  value: Properties[K]
+  pseudoClass?: SimplePseudos
+}
+
 // Branded type to distinguish from string.
-export type PropertyText = string & { __brand: "PropertyText" }
+export type RuleTemplate = string & { __brand: "RuleTemplate" }
 
 const CHAR_CODE_LOWER_A = "a".charCodeAt(0)
 const CHAR_CODE_UPPER_A = "A".charCodeAt(0)
@@ -53,10 +59,10 @@ export function css(...allCSSProperties: CSSProperties[]): CSS {
       }
 
       // We expect only one layer of pseudo classes, but this will technically
-      // expand manny layers recursively. We rely on the type system to prevent
+      // expand many layers recursively. We rely on the type system to prevent
       // nested layers of pseudo properties from being passed in.
-      if (SIMPLE_PSEUDO_CLASSES.hasOwnProperty(key)) {
-        ;(result as any)[key] = result[key] ?? {}
+      if (isPseudoClass(key)) {
+        result[key] = result[key] ?? {}
         Object.assign(result[key], css(value as OptionalProperties))
         return
       }
@@ -83,12 +89,12 @@ export function generateClass(index: number): string {
   return CLASS_PREFIX + classChars.reverse().join("")
 }
 
-export function generateProperty<T extends keyof CSS>(
-  key: T,
-  // Don't allow undefined values.
-  value: NonNullable<CSS[T]>,
-): PropertyText {
+export function generateRuleTemplate<K extends keyof Properties>(
+  ap: AtomicProperty<K>,
+): RuleTemplate {
+  const { key, value, pseudoClass } = ap
   let propertyName = ""
+
   for (let i = 0; i < key.length; i++) {
     const code = key.charCodeAt(i)
     if (code >= CHAR_CODE_UPPER_A && code <= CHAR_CODE_UPPER_Z) {
@@ -103,7 +109,7 @@ export function generateProperty<T extends keyof CSS>(
   // of the same property.
   const propertyText = `${propertyName}: ${value}`
   if (VALID_CSS_PROPERTIES_CACHE.get(propertyText)) {
-    return propertyText as PropertyText
+    return addPseudoClass(propertyText, pseudoClass)
   }
 
   const match = lexer.matchProperty(propertyName, String(value))
@@ -112,14 +118,51 @@ export function generateProperty<T extends keyof CSS>(
   }
 
   VALID_CSS_PROPERTIES_CACHE.set(propertyText, true)
-  return propertyText as PropertyText
+  return addPseudoClass(propertyText, pseudoClass)
+}
+
+function addPseudoClass(
+  propertyText: string,
+  pseudoClass: SimplePseudos | undefined,
+): RuleTemplate {
+  if (pseudoClass) {
+    if (!isPseudoClass(pseudoClass)) {
+      throw new Error(`Invalid pseudo class: ${pseudoClass}`)
+    }
+    return `${pseudoClass} { ${propertyText} }` as RuleTemplate
+  }
+  return ` { ${propertyText} }` as RuleTemplate
 }
 
 export function generateRule(
   className: string,
-  propertyText: PropertyText,
+  ruleTemplate: RuleTemplate,
 ): string {
-  return `.${className} { ${propertyText} }`
+  return `.${className}${ruleTemplate}`
+}
+
+export function getAtomicProperties(cssAttr: CSS): Array<AtomicProperty<any>> {
+  let atomicProperties: Array<AtomicProperty<any>> = []
+
+  Object.keys(cssAttr).forEach(rawKey => {
+    const key = rawKey as keyof typeof cssAttr
+
+    // We expect only one layer of pseudo classes, but this will technically
+    // expand many layers recursively. We rely on the type system to prevent
+    // nested layers of pseudo properties from being passed in.
+    if (isPseudoClass(key)) {
+      const value = cssAttr[key]
+      if (value) {
+        const subProperties = getAtomicProperties(value as CSS)
+        subProperties.forEach(ap => (ap.pseudoClass = key))
+        atomicProperties = atomicProperties.concat(subProperties)
+      }
+    } else {
+      atomicProperties.push({ key, value: cssAttr[key] })
+    }
+  })
+
+  return atomicProperties
 }
 
 export function styledTag<K extends keyof JSX.IntrinsicElements>(

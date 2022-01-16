@@ -7,7 +7,10 @@ interface AppState {
   value: string
 }
 
-const Help = styledTag("p", { color: "red" })
+const Help = styledTag("p", {
+  color: "red",
+  ":hover": { backgroundColor: "red", color: "white" },
+})
 
 export default class extends Purview.Component<{}, AppState> {
   state = { help: false, animation: false, value: "" }

@@ -1,6 +1,6 @@
 import { SimplePseudos } from "csstype"
 
-export const SIMPLE_PSEUDO_CLASSES: Record<SimplePseudos, true> = {
+const PSEUDO_CLASS_MAP: Record<SimplePseudos, true> = {
   ":-khtml-any-link": true,
   ":-moz-any-link": true,
   ":-moz-focusring": true,
@@ -108,4 +108,8 @@ export const SIMPLE_PSEUDO_CLASSES: Record<SimplePseudos, true> = {
   ":user-valid": true,
   ":valid": true,
   ":visited": true,
+}
+
+export function isPseudoClass(value: string): value is SimplePseudos {
+  return PSEUDO_CLASS_MAP.hasOwnProperty(value)
 }

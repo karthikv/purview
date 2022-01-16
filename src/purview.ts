@@ -34,7 +34,12 @@ import {
 import { Attrs } from "snabbdom/modules/attributes"
 import * as DevNull from "dev-null"
 import { toHTML } from "./to_html"
-import { generateClass, generateProperty, generateRule } from "./css"
+import {
+  generateClass,
+  generateRuleTemplate,
+  generateRule,
+  getAtomicProperties,
+} from "./css"
 
 export interface WebSocketOptions {
   origin: string | null
@@ -752,19 +757,15 @@ async function makeRegularElem(
     }
 
     const classNames: string[] = []
-    for (const rawKey of Object.keys(css)) {
-      const key = rawKey as keyof typeof css
-      const value = css[key]
-      if (value === undefined) {
-        continue
-      }
+    const aps = getAtomicProperties(css)
+    for (const ap of aps) {
+      const ruleTemplate = generateRuleTemplate(ap)
+      let className = cssState.atomicCSS[ruleTemplate]
 
-      const property = generateProperty(key, value)
-      let className = cssState.atomicCSS[property]
       if (className === undefined) {
         className = generateClass(cssState.cssRules.length)
-        cssState.atomicCSS[property] = className
-        cssState.cssRules.push(generateRule(className, property))
+        cssState.atomicCSS[ruleTemplate] = className
+        cssState.cssRules.push(generateRule(className, ruleTemplate))
       }
 
       classNames.push(className)

@@ -920,6 +920,30 @@ test.each([false, true])(
   },
 )
 
+test.each([false, true])(
+  "render css simple pseudo (useStyledTag: %s)",
+  async (useStyledTag: boolean) => {
+    const styles = { ":active": { color: "black" } }
+    let Foo
+    if (useStyledTag) {
+      Foo = styledTag("div", styles)
+    } else {
+      Foo = class extends Purview.Component<{}, {}> {
+        render(): JSX.Element {
+          return <div css={css(styles)} />
+        }
+      }
+    }
+
+    const req = {} as any
+    const div = parseHTML(await Purview.render(<Foo />, req))
+    const style = parseHTML(await Purview.renderCSS(req))
+    expect(style.textContent).toBe(".p-a:active { color: black }")
+    expect(div.getAttribute("class")).toBe("p-a")
+    expect(style.id).toBe(STYLE_TAG_ID)
+  },
+)
+
 test("render css existing class", async () => {
   class Foo extends Purview.Component<{}, {}> {
     render(): JSX.Element {
@@ -937,7 +961,10 @@ test("render css existing class", async () => {
 test.each([false, true])(
   "render css expanded (useStyledTag: %s)",
   async (useStyledTag: boolean) => {
-    const styles = { margin: "3px 2.5rem" }
+    const styles = {
+      margin: "3px 2.5rem",
+      ":link": { borderTop: "1px solid black" },
+    }
     let Foo
     if (useStyledTag) {
       Foo = styledTag("div", styles)
@@ -957,8 +984,11 @@ test.each([false, true])(
       ".p-b { margin-right: 2.5rem }",
       ".p-c { margin-bottom: 3px }",
       ".p-d { margin-left: 2.5rem }",
+      ".p-e:link { border-top-width: 1px }",
+      ".p-f:link { border-top-style: solid }",
+      ".p-g:link { border-top-color: black }",
     ])
-    expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d")
+    expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e p-f p-g")
   },
 )
 
@@ -969,6 +999,8 @@ test.each([false, true])(
       { padding: 0 },
       { flex: 1 },
       { paddingLeft: "10rem" },
+      { ":hover": { outline: "2px dotted yellow" } },
+      { ":hover": { outlineStyle: "groove" } },
     ]
     let jsx
 
@@ -998,19 +1030,23 @@ test.each([false, true])(
       ".p-c { padding-bottom: 0 }",
       ".p-d { padding-left: 10rem }",
       ".p-e { flex-grow: 1 }",
+      ".p-f:hover { outline-width: 2px }",
+      ".p-g:hover { outline-style: groove }",
+      ".p-h:hover { outline-color: yellow }",
     ])
-    expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e")
+    expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e p-f p-g p-h")
   },
 )
 
 test("render css re-use", async () => {
+  const hover = { ":hover": { color: "black" } }
   class Foo extends Purview.Component<{}, {}> {
     render(): JSX.Element {
       return (
-        <div css={css({ color: "white", padding: 0 })}>
+        <div css={css({ color: "white", padding: 0, ...hover })}>
           <span css={css({ paddingLeft: 0 })} />
           <p css={css({ color: "white" })} />
-          <a css={css({ color: "green" })} />
+          <a css={css({ color: "green", ...hover })} />
         </div>
       )
     }
@@ -1025,14 +1061,15 @@ test("render css re-use", async () => {
     ".p-c { padding-right: 0 }",
     ".p-d { padding-bottom: 0 }",
     ".p-e { padding-left: 0 }",
-    ".p-f { color: green }",
+    ".p-f:hover { color: black }",
+    ".p-g { color: green }",
   ])
-  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e")
+  expect(div.getAttribute("class")).toBe("p-a p-b p-c p-d p-e p-f")
 
   const [span, p, a] = Array.from(div.children)
   expect(span.getAttribute("class")).toBe("p-e")
   expect(p.getAttribute("class")).toBe("p-a")
-  expect(a.getAttribute("class")).toBe("p-f")
+  expect(a.getAttribute("class")).toBe("p-g p-f")
 })
 
 test("render css ordering error", async () => {
