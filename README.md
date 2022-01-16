@@ -298,14 +298,18 @@ instructions](#usage).
 To use CSS-in-JS, first call Purview's `css` function to generate a set of CSS
 properties. Note that the object passed to the `css` function is typechecked
 thanks to [CSSType](https://github.com/frenic/csstype), and it expects
-camelCased keys representing CSS properties. Then, pass the return value to the
-`css={...}` attribute of any standard JSX element.
+camelCased keys representing CSS properties or pseudo classes with nested CSS
+properties (see example below). Then, pass the return value to the `css={...}`
+attribute of any standard JSX element.
 
 ```tsx
 const buttonStyles = css({
   padding: "6px 8px",
   fontSize: "1.4rem",
   backgroundColor: "#ccc",
+  ":hover": {
+    textDecoration: "underline",
+  },
 })
 
 class Button extends Purview.Component<{}, {}> {
@@ -359,10 +363,11 @@ like the following:
   .p-d { padding-left: 8px }
   .p-e { font-size: 1.4rem }
   .p-f { background-color: blue }
+  .p-g:hover { text-decoration: underline }
 </style>
 
 <!-- in the body -->
-<button class="p-a p-b p-c p-d p-e p-f">Blue Button</button>
+<button class="p-a p-b p-c p-d p-e p-f p-g">Blue Button</button>
 ```
 
 In the markup above, notice how `blueButtonStyles` has been split up into
