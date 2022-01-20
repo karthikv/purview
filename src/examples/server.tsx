@@ -25,13 +25,13 @@ const server = http.createServer(async (req, res) => {
           <head>
             <meta charset="utf-8" />
             ${css}
+            <script src="http://localhost:8080/browser.js"></script>
           </head>
           <body>
             <h1>This is a counter</h1>
             <div id="root">
               ${app}
             </div>
-            <script src="http://localhost:8080/browser.js"></script>
           </body>
         </html>
       `

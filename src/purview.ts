@@ -366,6 +366,10 @@ async function handleMessage(
         wsState.cssState = cssState
       }
 
+      if (message.rootIDs.length === 0) {
+        throw new Error("Purview: no rootIDs provided.")
+      }
+
       const promises = message.rootIDs.map(async id => {
         return { id, stateTree: await reloadOptions.getStateTree(id) }
       })
