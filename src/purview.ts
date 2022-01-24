@@ -2,7 +2,7 @@ import * as http from "http"
 import * as pathLib from "path"
 import * as util from "util"
 import * as WebSocket from "ws"
-import nanoid = require("nanoid")
+import { nanoid } from "nanoid"
 import * as t from "io-ts"
 
 import Component, { ComponentConstructor } from "./component"

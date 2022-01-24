@@ -19,7 +19,6 @@
     "@types/jest": "^23.3.1",
     "@types/jsdom": "^11.12.0",
     "@types/lru-cache": "^5.1.1",
-    "@types/nanoid": "^1.2.0",
     "@types/node": "^14.6.2",
     "@types/sequelize": "^4.27.33",
     "express": "^4.16.4",
@@ -48,7 +47,7 @@
     "inline-style-expand-shorthand": "^1.3.0",
     "io-ts": "1.4.2",
     "lru-cache": "^6.0.0",
-    "nanoid": "^1.2.3",
+    "nanoid": "^3.2.0",
     "snabbdom": "^0.7.3",
     "ws": "^6.2.2"
   },

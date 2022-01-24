@@ -1,4 +1,4 @@
-import nanoid = require("nanoid")
+import { nanoid } from "nanoid"
 import { StateTree, ChildMap, EventHandler } from "./purview"
 import { PNodeRegular } from "./types/ws"
 
