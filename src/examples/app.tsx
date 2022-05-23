@@ -13,17 +13,15 @@ const Help = styledTag("p", {
   ":hover": { backgroundColor: "red", color: "white" },
 })
 
-const FirstButton = styledTag(
-  "button",
-  { backgroundColor: "#ccc", color: "black" },
-  // { backgroundColor: "blue", color: "white" },
-)
+const FirstButton = styledTag("button", {
+  backgroundColor: "#ccc",
+  color: "black",
+})
 
-const SecondButton = styledTag(
-  "button",
-  // { backgroundColor: "#ccc", color: "black" },
-  { backgroundColor: "blue", color: "white" },
-)
+const SecondButton = styledTag("button", {
+  backgroundColor: "blue",
+  color: "white",
+})
 
 export default class App extends Purview.Component<{}, AppState> {
   state = { help: false, animation: false, value: "", showFirst: false }
