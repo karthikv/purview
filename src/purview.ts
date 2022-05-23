@@ -333,8 +333,12 @@ function makeStateTree(
     )
   })
 
+  const componentConstructor = component.constructor as ComponentConstructor<
+    unknown,
+    unknown
+  >
   return {
-    name: component.constructor.name,
+    name: componentConstructor.getUniqueName(),
     state: (component as any).state,
     childMap,
     reload,
@@ -529,7 +533,7 @@ export async function render(
   let idStateTree: IDStateTree | undefined
   if (purviewState) {
     idStateTree = purviewState.idStateTrees.find(
-      ist => ist.stateTree.name === jsx.nodeName.name,
+      ist => ist.stateTree.name === jsx.nodeName.getUniqueName(),
     )
   }
 
