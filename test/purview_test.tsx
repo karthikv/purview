@@ -149,7 +149,7 @@ test("createElem intrinsic falsy attributes", () => {
 
 test("createElem component falsy attributes", () => {
   const props = { foo: false, bar: null, baz: undefined, class: "" }
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return <div />
     }
@@ -165,7 +165,7 @@ test("createElem component falsy attributes", () => {
 })
 
 test("createElem component defaultValue", () => {
-  class Foo extends Purview.Component<{ defaultValue: string }, {}> {
+  class Foo extends TestComponent<{ defaultValue: string }, {}> {
     render(): JSX.Element {
       return <p>{this.props.defaultValue}</p>
     }
@@ -190,7 +190,7 @@ test("createElem ignoreChildren", () => {
 })
 
 test("render simple", async () => {
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return (
         <p>
@@ -211,7 +211,7 @@ test("render simple", async () => {
 })
 
 test("render special content", async () => {
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return (
         <p>
@@ -228,7 +228,7 @@ test("render special content", async () => {
 // Snabbdom may replace an element if the vNode's attribute case is different.
 test("render lowercase attributes", async () => {
   let instance: Foo
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     constructor(props: {}) {
       super(props)
       instance = this
@@ -250,7 +250,7 @@ test("render lowercase attributes", async () => {
 })
 
 test("render getInitialState", async () => {
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     async getInitialState(): Promise<{ text: string }> {
       // Simulate some work.
       await new Promise(resolve => setTimeout(resolve, 10))
@@ -267,7 +267,7 @@ test("render getInitialState", async () => {
 })
 
 test("render custom children", async () => {
-  class Foo extends Purview.Component<{ children: () => string }, {}> {
+  class Foo extends TestComponent<{ children: () => string }, {}> {
     render(): JSX.Element {
       return <p>{this.props.children()}</p>
     }
@@ -279,7 +279,7 @@ test("render custom children", async () => {
 
 test("render setState", async () => {
   let instance: Foo = null as any
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     state = { text: "hi" }
 
     constructor(props: {}) {
@@ -306,7 +306,7 @@ test("render setState", async () => {
 })
 
 test("render event", async () => {
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
@@ -333,7 +333,7 @@ test("render event", async () => {
 
 test("render directly nested event", async () => {
   let foo: Foo = null as any
-  class Foo extends Purview.Component<{}, { nested: boolean }> {
+  class Foo extends TestComponent<{}, { nested: boolean }> {
     state = { nested: false }
     nest = () => this.setState({ nested: true })
 
@@ -350,13 +350,21 @@ test("render directly nested event", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{}, {}> {
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     render(): JSX.Element {
       return <Baz />
     }
   }
 
-  class Baz extends Purview.Component<{}, { text: string }> {
+  class Baz extends TestComponent<{}, { text: string }> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-baz`
+    }
+
     state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
@@ -416,7 +424,7 @@ test("render directly nested event", async () => {
 })
 
 test("render togglable sub-component with event", async () => {
-  class Foo extends Purview.Component<{}, { showBar: boolean }> {
+  class Foo extends TestComponent<{}, { showBar: boolean }> {
     state = { showBar: false }
     toggleBar = () => this.setState(state => ({ showBar: !state.showBar }))
 
@@ -430,7 +438,11 @@ test("render togglable sub-component with event", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{}, { text: string }> {
+  class Bar extends TestComponent<{}, { text: string }> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
@@ -473,7 +485,7 @@ test("render togglable sub-component with event", async () => {
 })
 
 test("render event capture", async () => {
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
@@ -503,7 +515,7 @@ test("render input/change event", async () => {
   let checkboxEvent: InputEvent<boolean>
   let selectEvent: ChangeEvent<string[]>
 
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     state = {}
 
     handleInput = (event: InputEvent) => (inputEvent = event)
@@ -626,7 +638,7 @@ test("render input/change event", async () => {
 
 test("render change event other element", async () => {
   let changeEvent: ChangeEvent<any>
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     state = {}
     handleChange = (event: ChangeEvent<any>) => (changeEvent = event)
 
@@ -666,7 +678,7 @@ test("render change event other element", async () => {
 
 test("render keydown event", async () => {
   let keyEvent: KeyEvent
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     state = {}
     handleKeyDown = (event: KeyEvent) => (keyEvent = event)
 
@@ -706,7 +718,7 @@ test("render keydown event", async () => {
 
 test("render submit event", async () => {
   let fields: Record<string, unknown>
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     state = {}
     handleSubmit = (event: SubmitEvent) => (fields = event.fields)
 
@@ -745,7 +757,7 @@ test("render submit event", async () => {
 })
 
 test("render retain state", async () => {
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     state = { text: "hi" }
     setText = () => this.setState({ text: "hello" })
 
@@ -759,10 +771,11 @@ test("render retain state", async () => {
     }
   }
 
-  class Bar extends Purview.Component<
-    { initialCount: number },
-    { count: number }
-  > {
+  class Bar extends TestComponent<{ initialCount: number }, { count: number }> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     constructor(props: { initialCount: number }) {
       super(props)
       this.state = { count: props.initialCount }
@@ -811,7 +824,7 @@ test("render retain state", async () => {
 
 test("render directly nested", async () => {
   let foo: Foo = null as any
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     state = { text: "" }
 
     constructor(props: {}) {
@@ -829,7 +842,11 @@ test("render directly nested", async () => {
   }
 
   let bar: Bar = null as any
-  class Bar extends Purview.Component<{}, { count: number }> {
+  class Bar extends TestComponent<{}, { count: number }> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     state = { count: 0 }
 
     constructor(props: {}) {
@@ -867,7 +884,7 @@ test("render directly nested", async () => {
 
 test("render triple nested", async () => {
   let foo: Foo = null as any
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     constructor(props: {}) {
       super(props)
       foo = this
@@ -878,13 +895,21 @@ test("render triple nested", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{}, {}> {
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     render(): JSX.Element {
       return <Baz />
     }
   }
 
-  class Baz extends Purview.Component<{}, {}> {
+  class Baz extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-baz`
+    }
+
     render(): JSX.Element {
       return <p>hello</p>
     }
@@ -904,7 +929,7 @@ test.each([false, true])(
     if (useStyledTag) {
       Foo = styledTag("div", styles)
     } else {
-      Foo = class extends Purview.Component<{}, {}> {
+      Foo = class extends TestComponent<{}, {}> {
         render(): JSX.Element {
           return <div css={css(styles)} />
         }
@@ -928,7 +953,7 @@ test.each([false, true])(
     if (useStyledTag) {
       Foo = styledTag("div", styles)
     } else {
-      Foo = class extends Purview.Component<{}, {}> {
+      Foo = class extends TestComponent<{}, {}> {
         render(): JSX.Element {
           return <div css={css(styles)} />
         }
@@ -945,7 +970,7 @@ test.each([false, true])(
 )
 
 test("render css existing class", async () => {
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return <div class="foo" css={css({ color: "black" })} />
     }
@@ -969,7 +994,7 @@ test.each([false, true])(
     if (useStyledTag) {
       Foo = styledTag("div", styles)
     } else {
-      Foo = class extends Purview.Component<{}, {}> {
+      Foo = class extends TestComponent<{}, {}> {
         render(): JSX.Element {
           return <div css={css(styles)} />
         }
@@ -1013,7 +1038,7 @@ test.each([false, true])(
       const Foo = styledTag("div", ...styles.slice(0, styles.length - 1))
       jsx = <Foo css={css(styles[styles.length - 1])} />
     } else {
-      class Foo extends Purview.Component<{}, {}> {
+      class Foo extends TestComponent<{}, {}> {
         render(): JSX.Element {
           return <div css={css(...styles)} />
         }
@@ -1040,7 +1065,7 @@ test.each([false, true])(
 
 test("render css re-use", async () => {
   const hover = { ":hover": { color: "black" } }
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return (
         <div css={css({ color: "white", padding: 0, ...hover })}>
@@ -1118,7 +1143,7 @@ test("render css styledTag children", async () => {
 
 test("componentDidMount", async () => {
   let mounted = false
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     componentDidMount(): void {
       mounted = true
     }
@@ -1136,7 +1161,7 @@ test("componentDidMount", async () => {
 
 test("nested mount cycle", async () => {
   let instance: Foo = null as any
-  class Foo extends Purview.Component<{}, { on: boolean }> {
+  class Foo extends TestComponent<{}, { on: boolean }> {
     state = { on: false }
 
     constructor(props: {}) {
@@ -1153,7 +1178,11 @@ test("nested mount cycle", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{}, {}> {
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     render(): JSX.Element {
       return <Baz />
     }
@@ -1164,7 +1193,11 @@ test("nested mount cycle", async () => {
   let mountCount = 0
   let unmountCount = 0
 
-  class Baz extends Purview.Component<{}, {}> {
+  class Baz extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-baz`
+    }
+
     componentDidMount(): void {
       mountCount++
     }
@@ -1200,7 +1233,7 @@ test("locked mount cycle", async () => {
   let fooInstance: Foo
   let barInstance: Bar
 
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     constructor(props: {}) {
       super(props)
       fooInstance = this
@@ -1219,7 +1252,11 @@ test("locked mount cycle", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{}, {}> {
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     constructor(props: {}) {
       super(props)
       barInstance = this
@@ -1275,7 +1312,7 @@ test("locked mount cycle", async () => {
 
 test("componentWillUnmount", async () => {
   let unmounted = false
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     componentWillUnmount(): void {
       unmounted = true
     }
@@ -1298,7 +1335,7 @@ test("componentWillReceiveProps", async () => {
   let instance: Foo = null as any
   let receivedProps: { count: number } | null = null
 
-  class Foo extends Purview.Component<{}, { count: number }> {
+  class Foo extends TestComponent<{}, { count: number }> {
     state = { count: 0 }
 
     constructor(props: {}) {
@@ -1311,7 +1348,11 @@ test("componentWillReceiveProps", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{ count: number }, { label: string }> {
+  class Bar extends TestComponent<{ count: number }, { label: string }> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     state = { label: "Count" }
 
     componentWillReceiveProps(props: { count: number }): void {
@@ -1351,7 +1392,7 @@ test("componentWillReceiveProps", async () => {
 test("event names", async () => {
   let instance: Foo = null as any
 
-  class Foo extends Purview.Component<{}, { enabled: boolean }> {
+  class Foo extends TestComponent<{}, { enabled: boolean }> {
     state = { enabled: false }
 
     constructor(props: {}) {
@@ -1396,7 +1437,7 @@ test("event names", async () => {
 test("invalid event names", async () => {
   let instance: Foo = null as any
 
-  class Foo extends Purview.Component<{}, { enabled: boolean }> {
+  class Foo extends TestComponent<{}, { enabled: boolean }> {
     state = { enabled: false }
 
     constructor(props: {}) {
@@ -1441,7 +1482,7 @@ test("invalid event names", async () => {
 test("cssUpdates and nextRuleIndex in messages", async () => {
   let instance: Foo = null as any
 
-  class Foo extends Purview.Component<{}, { enabled: boolean }> {
+  class Foo extends TestComponent<{}, { enabled: boolean }> {
     state = { enabled: false }
 
     constructor(props: {}) {
@@ -1506,7 +1547,7 @@ test("cssUpdates and nextRuleIndex in messages", async () => {
 
 test("child map ordering", async () => {
   let foo: Foo
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     state = {}
 
     constructor(props: {}) {
@@ -1526,7 +1567,11 @@ test("child map ordering", async () => {
 
   let keyChanged = false
   let firstBar: Bar
-  class Bar extends Purview.Component<{ key: string }, {}> {
+  class Bar extends TestComponent<{ key: string }, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     state = {}
 
     constructor(props: { key: string }) {
@@ -1564,7 +1609,7 @@ test("child map ordering", async () => {
 
 test("render consistency", async () => {
   let foo: Foo
-  class Foo extends Purview.Component<{}, { showBaz: boolean }> {
+  class Foo extends TestComponent<{}, { showBaz: boolean }> {
     state = { showBaz: false }
 
     constructor(props: {}) {
@@ -1583,7 +1628,11 @@ test("render consistency", async () => {
   }
 
   let bar: Bar
-  class Bar extends Purview.Component<{}, { text: string }> {
+  class Bar extends TestComponent<{}, { text: string }> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     state = { text: "Bar" }
 
     constructor(props: {}) {
@@ -1596,7 +1645,11 @@ test("render consistency", async () => {
     }
   }
 
-  class Baz extends Purview.Component<{}, {}> {
+  class Baz extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-baz`
+    }
+
     async getInitialState(): Promise<{}> {
       await new Promise(resolve => setTimeout(resolve, 100))
       return {}
@@ -1654,7 +1707,7 @@ test("reconnect", async () => {
   let mountCount = 0
   let unmountCount = 0
 
-  class Foo extends Purview.Component<{}, { text: string }> {
+  class Foo extends TestComponent<{}, { text: string }> {
     state = { text: "hi" }
 
     constructor(props: {}) {
@@ -1723,7 +1776,7 @@ test("reconnect new child component mount cycle", async () => {
   let mountCount = 0
   let unmountCount = 0
 
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       if (showBar) {
         return <Bar />
@@ -1732,7 +1785,11 @@ test("reconnect new child component mount cycle", async () => {
     }
   }
 
-  class Bar extends Purview.Component<{}, {}> {
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
     componentDidMount(): void {
       mountCount++
     }
@@ -1784,7 +1841,7 @@ test("reconnect new child component mount cycle", async () => {
 
 test("reconnect getInitialState()", async () => {
   let count = 0
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     async getInitialState(): Promise<{}> {
       count += 1
       return {}
@@ -1824,7 +1881,7 @@ test("reconnect getInitialState()", async () => {
 })
 
 test("reconnect early", async () => {
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return <p>Hi</p>
     }
@@ -1846,7 +1903,7 @@ test("reconnect early", async () => {
 
 test("setState() after unmount", async () => {
   let instance: Foo = null as any
-  class Foo extends Purview.Component<{}, {}> {
+  class Foo extends TestComponent<{}, {}> {
     constructor(props: {}) {
       super(props)
       instance = this
@@ -1867,6 +1924,96 @@ test("setState() after unmount", async () => {
   await expect(instance.setState({})).rejects.toThrow(
     "setState() called after unmount",
   )
+})
+
+test("non-unique component name", async () => {
+  let Foo = class extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+  await Purview.render(<Foo />, {} as any)
+
+  Foo = class extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <p>bar</p>
+    }
+  }
+  await expect(() => Purview.render(<Foo />, {} as any)).rejects.toThrow(
+    /name isn't unique: Foo/,
+  )
+})
+
+test("unique component names", async () => {
+  class Foo1 extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+  await Purview.render(<Foo1 />, {} as any)
+
+  class Foo2 extends Purview.Component<{}, {}> {
+    render(): JSX.Element {
+      return <p>bar</p>
+    }
+  }
+  const p = parseHTML(await Purview.render(<Foo2 />, {} as any))
+  expect(p.nodeName).toEqual("P")
+  expect(p.childNodes[0].textContent).toEqual("bar")
+  expect(p.hasAttribute("data-root")).toBe(true)
+})
+
+test("non-unique component name with getUniqueName", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    static getUniqueName(): string {
+      return "example"
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+  await Purview.render(<Foo />, {} as any)
+
+  class Bar extends Purview.Component<{}, {}> {
+    static getUniqueName(): string {
+      return "example"
+    }
+
+    render(): JSX.Element {
+      return <p>bar</p>
+    }
+  }
+  await expect(() => Purview.render(<Bar />, {} as any)).rejects.toThrow(
+    /name isn't unique: example/,
+  )
+})
+
+test("unique component name with getUniqueName", async () => {
+  class Foo extends Purview.Component<{}, {}> {
+    static getUniqueName(): string {
+      return "example1"
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+  await Purview.render(<Foo />, {} as any)
+
+  class Bar extends Purview.Component<{}, {}> {
+    static getUniqueName(): string {
+      return "example2"
+    }
+
+    render(): JSX.Element {
+      return <p>bar</p>
+    }
+  }
+  const p = parseHTML(await Purview.render(<Bar />, {} as any))
+  expect(p.nodeName).toEqual("P")
+  expect(p.childNodes[0].textContent).toEqual("bar")
+  expect(p.hasAttribute("data-root")).toBe(true)
 })
 
 async function renderAndConnect<T>(
@@ -1967,4 +2114,14 @@ async function renderAndConnect<T>(
     ws.close()
   }
   return result
+}
+
+interface ExpectGetState extends jest.Expect {
+  getState(): { currentTestName: string }
+}
+
+abstract class TestComponent<P, S> extends Purview.Component<P, S> {
+  static getUniqueName(): string {
+    return (expect as ExpectGetState).getState().currentTestName
+  }
 }

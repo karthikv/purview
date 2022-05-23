@@ -5,7 +5,7 @@ import { PNodeRegular } from "./types/ws"
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
 export interface ComponentConstructor<P, S> {
-  _typeID: string
+  getUniqueName(): string
   new (props: P): Component<P, S>
 }
 
@@ -14,6 +14,11 @@ interface Component<P, S> {
 }
 
 export const MAX_SET_STATE_AFTER_UNMOUNT = 10
+
+const NAMED_CONSTRUCTORS: Record<
+  string,
+  ComponentConstructor<unknown, unknown> | undefined
+> = {}
 
 abstract class Component<P, S> {
   /* tslint:disable variable-name */
@@ -38,8 +43,37 @@ abstract class Component<P, S> {
   private _numSetStateAfterUnmount = 0
   /* tslint:enable variable-name */
 
+  // Returns a unique name for this component (i.e. a name not shared by any
+  // other components), defaulting to the class name. Because the unique name
+  // is used for reloading the state of the component for the initial web
+  // socket connection, any disconnects, and code restarts, it should be
+  // deterministic--i.e. even if the app is restarted or a different process
+  // handles a request, the unique name for a class should remain the same. If
+  // the name changes, Purview won't be able to reload the state correctly and
+  // the page may not work as expected until it is refreshed.
+  static getUniqueName(): string {
+    return this.name
+  }
+
   constructor(protected props: Readonly<P>) {
     this._id = nanoid()
+    const componentConstructor = this.constructor as ComponentConstructor<
+      unknown,
+      unknown
+    >
+    const name = componentConstructor.getUniqueName()
+    if (!name) {
+      throw new Error("Please give each Purview Component class a name.")
+    }
+
+    if (!NAMED_CONSTRUCTORS.hasOwnProperty(name)) {
+      NAMED_CONSTRUCTORS[name] = componentConstructor
+    }
+    if (NAMED_CONSTRUCTORS[name] !== componentConstructor) {
+      throw new Error(
+        `Each Purview Component class must have a unique name. This name isn't unique: ${name}. You may define a static getUniqueName() function to specify a name different from the class name if you'd like.`,
+      )
+    }
   }
 
   abstract render(): JSX.Element

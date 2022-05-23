@@ -625,7 +625,7 @@ async function makeElem(
 ): Promise<PNode | null> {
   let key: string
   if (isComponentElem(jsx)) {
-    key = parentKey + "/" + jsx.nodeName.name
+    key = parentKey + "/" + jsx.nodeName.getUniqueName()
     const cached = parent._childMap[key]
     const existing = cached ? cached.shift() : null
 

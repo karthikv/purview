@@ -5,6 +5,7 @@ interface AppState {
   animation: boolean
   help: boolean
   value: string
+  showFirst: boolean
 }
 
 const Help = styledTag("p", {
@@ -12,8 +13,20 @@ const Help = styledTag("p", {
   ":hover": { backgroundColor: "red", color: "white" },
 })
 
-export default class extends Purview.Component<{}, AppState> {
-  state = { help: false, animation: false, value: "" }
+const FirstButton = styledTag(
+  "button",
+  { backgroundColor: "#ccc", color: "black" },
+  // { backgroundColor: "blue", color: "white" },
+)
+
+const SecondButton = styledTag(
+  "button",
+  // { backgroundColor: "#ccc", color: "black" },
+  { backgroundColor: "blue", color: "white" },
+)
+
+export default class App extends Purview.Component<{}, AppState> {
+  state = { help: false, animation: false, value: "", showFirst: false }
 
   toggleHelp = () => this.setState(state => ({ help: !state.help }))
 
@@ -26,6 +39,14 @@ export default class extends Purview.Component<{}, AppState> {
     return (
       <div>
         <Animation />
+
+        {this.state.showFirst && <FirstButton>Bar</FirstButton>}
+        <SecondButton
+          onClick={() => this.setState({ showFirst: !this.state.showFirst })}
+        >
+          foo
+        </SecondButton>
+        <br />
 
         <input type="text" />
         <input type="text" value={this.state.value} onInput={this.setValue} />

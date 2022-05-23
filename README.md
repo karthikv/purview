@@ -420,7 +420,7 @@ that occur, and for the server to send re-rendered HTML to the client.
 
 When the client makes a request to initiate the WebSocket connection, Purview
 re-uses the component state that it had saved in memory. This abstraction breaks
-donw if there is load balancing where multiple processes (or servers) are
+down if there is load balancing where multiple processes (or servers) are
 handling requests--the initial web request may go to a different process/server
 than the WebSocket request, so storing the component state in memory is not
 sufficient.
@@ -478,6 +478,23 @@ Purview.reloadOptions.deleteCSSState(id: string): Promise<void>
 Note that these reload functions are also used when a WebSocket connection is
 closed/re-established--in this way, they help account for disconnects and flaky
 connections.
+
+## Unique component names
+In order to reload component state as described in the section above, Purview
+needs to be able to associate state with a component, which means it has to be
+able to identify a component with some unique, serializable data type. Purview
+uses the name of the component class by default as the unique identifier. If two
+component classes have the same name, Purview will throw an error at runtime and
+inform you of the conflict accordingly. Note that you may alternatively define
+a static `getUniqueName` function to return a unique name for your component,
+which would then let you use the same class name for multiple components.
+
+Because the unique name is used for reloading the state of the component for the
+initial web socket connection, any disconnects, and code restarts, it should be
+deterministic--i.e. even if the app is restarted or a different process handles
+a request, the unique name for a class should remain the same. If the name
+changes, Purview won't be able to reload the state correctly and the page may
+not work as expected until it is refreshed.
 
 ## Inspiration
 Phoenix Live View -- https://www.youtube.com/watch?v=Z2DU0qLfPIY
