@@ -9,6 +9,7 @@ import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import Purview, {
+  ErrorHandler,
   InputEvent,
   ChangeEvent,
   KeyEvent,
@@ -2016,6 +2017,94 @@ test("unique component name with getUniqueName", async () => {
   expect(p.hasAttribute("data-root")).toBe(true)
 })
 
+test("onError, top-level getInitialState", async () => {
+  const errorMessage = "getInitialState error"
+  class Foo extends TestComponent<{}, {}> {
+    async getInitialState(): Promise<{}> {
+      throw new Error(errorMessage)
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  const onError = jest.fn()
+  await expect(Purview.render(<Foo />, {} as any, onError)).rejects.toThrow(
+    errorMessage,
+  )
+  expect(onError).toBeCalledTimes(1)
+})
+
+test("onError, child getInitialState", async () => {
+  const errorMessage = "getInitialState error"
+  class Foo extends TestComponent<{}, {}> {
+    render(): JSX.Element {
+      return <Bar />
+    }
+  }
+
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
+    async getInitialState(): Promise<{}> {
+      throw new Error(errorMessage)
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  const onError = jest.fn()
+  await expect(Purview.render(<Foo />, {} as any, onError)).rejects.toThrow(
+    errorMessage,
+  )
+  expect(onError).toBeCalledTimes(1)
+})
+
+test("onError, top-level render", async () => {
+  const errorMessage = "render error"
+  class Foo extends TestComponent<{}, {}> {
+    render(): JSX.Element {
+      throw new Error(errorMessage)
+    }
+  }
+
+  const onError = jest.fn()
+  await expect(Purview.render(<Foo />, {} as any, onError)).rejects.toThrow(
+    errorMessage,
+  )
+  expect(onError).toBeCalledTimes(1)
+})
+
+test("onError, child render", async () => {
+  const errorMessage = "render error"
+  class Foo extends TestComponent<{}, {}> {
+    render(): JSX.Element {
+      return <Bar />
+    }
+  }
+
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
+    render(): JSX.Element {
+      throw new Error(errorMessage)
+    }
+  }
+
+  const onError = jest.fn()
+  await expect(Purview.render(<Foo />, {} as any, onError)).rejects.toThrow(
+    errorMessage,
+  )
+  expect(onError).toBeCalledTimes(1)
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (conn: {
@@ -2026,6 +2115,7 @@ async function renderAndConnect<T>(
     updateMessage: UpdateMessage
     messages: AsyncQueue<ServerMessage>
   }) => Promise<T>,
+  onError: ErrorHandler | null = null,
 ): Promise<T> {
   let rootID: string | null = null
   let cssStateID: string | null = null
@@ -2033,7 +2123,7 @@ async function renderAndConnect<T>(
   const server = http.createServer(async (req, res) => {
     // The WebSocket connection will make a second request where the return
     // value of render() is empty, so the check below is necessary.
-    const body = await Purview.render(jsxElem, req)
+    const body = await Purview.render(jsxElem, req, onError)
     if (!rootID) {
       rootID = parseHTML(body).getAttribute("data-component-id")
     }

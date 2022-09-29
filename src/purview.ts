@@ -73,6 +73,7 @@ interface ConnectedRoot {
   eventNames: Set<string>
   aliases: Record<string, string | undefined>
   allComponentsMap: Record<string, Component<any, any> | undefined>
+  onError: ErrorHandler | null
 }
 
 // Represents a root of a component tree before the WebSocket has connected
@@ -80,6 +81,7 @@ interface ConnectedRoot {
 interface DisconnectedRoot {
   connected: false
   cssState: CSSState
+  onError: ErrorHandler | null
 }
 
 export interface CSSState {
@@ -109,6 +111,8 @@ export interface EventHandler {
   callback: EventCallback
   validator?: t.Type<any, any, any>
 }
+
+export type ErrorHandler = (error: Error) => void
 
 interface IDStateTree {
   id: string
@@ -489,10 +493,20 @@ async function handleMessage(
       if (handler.validator) {
         const decoded = handler.validator.decode(message.event)
         if (decoded.isRight()) {
-          handler.callback(decoded.value)
+          try {
+            await handler.callback(decoded.value)
+          } catch (error) {
+            root.onError?.(error)
+            throw error
+          }
         }
       } else {
-        handler.callback()
+        try {
+          await handler.callback()
+        } catch (error) {
+          root.onError?.(error)
+          throw error
+        }
       }
       break
     }
@@ -524,6 +538,7 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
 export async function render(
   jsx: JSX.Element,
   req: http.IncomingMessage,
+  onError: ErrorHandler | null = null,
 ): Promise<string> {
   if (!isComponentElem(jsx)) {
     throw new Error("Root element must be a Purview.Component")
@@ -538,57 +553,64 @@ export async function render(
   }
 
   const stateTree = idStateTree && idStateTree.stateTree
-  return await withComponent(jsx, stateTree, async component => {
-    if (!component) {
-      throw new Error("Expected non-null component")
-    }
+  try {
+    return await withComponent(jsx, stateTree, async component => {
+      if (!component) {
+        throw new Error("Expected non-null component")
+      }
 
-    let root: ConnectedRoot | DisconnectedRoot
-    if (purviewState) {
-      // This is the request from the websocket connection.
-      component._id = idStateTree!.id
-      root = {
-        connected: true,
-        component,
-        wsState: purviewState.wsState,
-        eventNames: new Set(),
-        aliases: {},
-        allComponentsMap: { [component._id]: component },
+      let root: ConnectedRoot | DisconnectedRoot
+      if (purviewState) {
+        // This is the request from the websocket connection.
+        component._id = idStateTree!.id
+        root = {
+          connected: true,
+          component,
+          wsState: purviewState.wsState,
+          eventNames: new Set(),
+          aliases: {},
+          allComponentsMap: { [component._id]: component },
+          onError,
+        }
+        purviewState.roots = purviewState.roots || []
+        purviewState.roots.push(root)
+      } else {
+        // This is the initial render.
+        req.purviewCSSState = req.purviewCSSState ?? {
+          id: nanoid(),
+          atomicCSS: {},
+          cssRules: [],
+          nextRuleIndex: 0,
+        }
+        if (req.purviewCSSRendered) {
+          throw new Error(RENDER_CSS_ORDERING_ERROR)
+        }
+        root = {
+          connected: false,
+          cssState: req.purviewCSSState,
+          onError,
+        }
       }
-      purviewState.roots = purviewState.roots || []
-      purviewState.roots.push(root)
-    } else {
-      // This is the initial render.
-      req.purviewCSSState = req.purviewCSSState ?? {
-        id: nanoid(),
-        atomicCSS: {},
-        cssRules: [],
-        nextRuleIndex: 0,
-      }
-      if (req.purviewCSSRendered) {
-        throw new Error(RENDER_CSS_ORDERING_ERROR)
-      }
-      root = {
-        connected: false,
-        cssState: req.purviewCSSState,
-      }
-    }
 
-    const pNode = await renderComponent(component, component._id, root)
-    if (!pNode) {
-      throw new Error("Expected non-null node")
-    }
+      const pNode = await renderComponent(component, component._id, root)
+      if (!pNode) {
+        throw new Error("Expected non-null node")
+      }
 
-    if (purviewState) {
-      return ""
-    } else {
-      await reloadOptions.saveStateTree(
-        component._id,
-        makeStateTree(component, false),
-      )
-      return toHTML(pNode)
-    }
-  })
+      if (purviewState) {
+        return ""
+      } else {
+        await reloadOptions.saveStateTree(
+          component._id,
+          makeStateTree(component, false),
+        )
+        return toHTML(pNode)
+      }
+    })
+  } catch (error) {
+    onError?.(error)
+    throw error
+  }
 }
 
 export async function renderCSS(req: http.IncomingMessage): Promise<string> {

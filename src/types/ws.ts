@@ -39,7 +39,7 @@ export type PurviewEvent =
   | ChangeEvent<any>
   | SubmitEvent
   | KeyEvent
-export type EventCallback = (event?: PurviewEvent) => void
+export type EventCallback = (event?: PurviewEvent) => void | Promise<void>
 
 export interface ConnectMessage {
   type: "connect"
