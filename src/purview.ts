@@ -41,6 +41,10 @@ import {
   getAtomicProperties,
 } from "./css"
 
+export interface RenderOptions {
+  onError?: ErrorHandler
+}
+
 export interface WebSocketOptions {
   origin: string | null
 }
@@ -140,6 +144,7 @@ const INPUT_TYPE_VALIDATOR: Record<
 }
 
 const cachedEventIDs: WeakMap<EventCallback, string> = new WeakMap()
+const seenErrors: WeakSet<Error> = new WeakSet()
 
 const WEBSOCKET_BAD_STATUS_FORMAT =
   "Purview: request to your server (GET %s) returned status code %d, so we couldn't start the WebSocket connection."
@@ -493,20 +498,10 @@ async function handleMessage(
       if (handler.validator) {
         const decoded = handler.validator.decode(message.event)
         if (decoded.isRight()) {
-          try {
-            await handler.callback(decoded.value)
-          } catch (error) {
-            root.onError?.(error)
-            throw error
-          }
+          await handler.callback(decoded.value)
         }
       } else {
-        try {
-          await handler.callback()
-        } catch (error) {
-          root.onError?.(error)
-          throw error
-        }
+        await handler.callback()
       }
       break
     }
@@ -538,8 +533,10 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
 export async function render(
   jsx: JSX.Element,
   req: http.IncomingMessage,
-  onError: ErrorHandler | null = null,
+  options: RenderOptions = {},
 ): Promise<string> {
+  const onError = options.onError ?? null
+
   if (!isComponentElem(jsx)) {
     throw new Error("Root element must be a Purview.Component")
   }
@@ -553,64 +550,69 @@ export async function render(
   }
 
   const stateTree = idStateTree && idStateTree.stateTree
-  try {
-    return await withComponent(jsx, stateTree, async component => {
-      if (!component) {
-        throw new Error("Expected non-null component")
-      }
+  return await withComponent(jsx, stateTree, async component => {
+    if (!component) {
+      throw new Error("Expected non-null component")
+    }
 
-      let root: ConnectedRoot | DisconnectedRoot
-      if (purviewState) {
-        // This is the request from the websocket connection.
-        component._id = idStateTree!.id
-        root = {
-          connected: true,
-          component,
-          wsState: purviewState.wsState,
-          eventNames: new Set(),
-          aliases: {},
-          allComponentsMap: { [component._id]: component },
-          onError,
-        }
-        purviewState.roots = purviewState.roots || []
-        purviewState.roots.push(root)
-      } else {
-        // This is the initial render.
-        req.purviewCSSState = req.purviewCSSState ?? {
-          id: nanoid(),
-          atomicCSS: {},
-          cssRules: [],
-          nextRuleIndex: 0,
-        }
-        if (req.purviewCSSRendered) {
-          throw new Error(RENDER_CSS_ORDERING_ERROR)
-        }
-        root = {
-          connected: false,
-          cssState: req.purviewCSSState,
-          onError,
+    let onUnseenError: ErrorHandler | null = null
+    if (onError) {
+      onUnseenError = error => {
+        if (!seenErrors.has(error)) {
+          seenErrors.add(error)
+          onError(error)
         }
       }
+    }
 
-      const pNode = await renderComponent(component, component._id, root)
-      if (!pNode) {
-        throw new Error("Expected non-null node")
+    let root: ConnectedRoot | DisconnectedRoot
+    if (purviewState) {
+      // This is the request from the websocket connection.
+      component._id = idStateTree!.id
+      root = {
+        connected: true,
+        component,
+        wsState: purviewState.wsState,
+        eventNames: new Set(),
+        aliases: {},
+        allComponentsMap: { [component._id]: component },
+        onError: onUnseenError,
       }
+      purviewState.roots = purviewState.roots || []
+      purviewState.roots.push(root)
+    } else {
+      // This is the initial render.
+      req.purviewCSSState = req.purviewCSSState ?? {
+        id: nanoid(),
+        atomicCSS: {},
+        cssRules: [],
+        nextRuleIndex: 0,
+      }
+      if (req.purviewCSSRendered) {
+        throw new Error(RENDER_CSS_ORDERING_ERROR)
+      }
+      root = {
+        connected: false,
+        cssState: req.purviewCSSState,
+        onError: onUnseenError,
+      }
+    }
 
-      if (purviewState) {
-        return ""
-      } else {
-        await reloadOptions.saveStateTree(
-          component._id,
-          makeStateTree(component, false),
-        )
-        return toHTML(pNode)
-      }
-    })
-  } catch (error) {
-    onError?.(error)
-    throw error
-  }
+    const pNode = await renderComponent(component, component._id, root)
+    if (!pNode) {
+      throw new Error("Expected non-null node")
+    }
+
+    if (purviewState) {
+      return ""
+    } else {
+      await reloadOptions.saveStateTree(
+        component._id,
+        makeStateTree(component, false),
+      )
+      return toHTML(pNode)
+    }
+  })
 }
 
 export async function renderCSS(req: http.IncomingMessage): Promise<string> {
@@ -725,7 +727,16 @@ async function makeRegularElem(
     if (root.connected) {
       parent._newEventHandlers[eventID] = {
         eventName,
-        callback,
+        callback: async event => {
+          try {
+            return await callback(event)
+          } catch (error) {
+            root.onError?.(error)
+            if (process.env.NODE_ENV !== "test") {
+              throw error
+            }
+          }
+        },
       }
       root.eventNames.add(eventName)
 
@@ -858,6 +869,7 @@ async function withComponent<T>(
   jsx: JSX.ComponentElement,
   existing: Component<any, any> | StateTree | null | undefined,
   callback: (component: Component<any, any> | null) => T,
+  root?: ConnectedRoot | DisconnectedRoot,
 ): Promise<T> {
   const { nodeName, attributes, children } = jsx
   const props = Object.assign({ children }, attributes)
@@ -874,15 +886,24 @@ async function withComponent<T>(
       return callback(null)
     }
 
+    let result
     if (existing instanceof Component) {
       component._setProps(props)
       component._applyChangesetsLocked()
     } else if (existing) {
       component._childMap = existing.childMap
-      await component._initState(existing.state, existing.reload)
+      result = component._initState(existing.state, existing.reload)
     } else {
-      await component._initState()
+      result = component._initState()
     }
+
+    try {
+      await result
+    } catch (error) {
+      root?.onError?.(error)
+      throw error
+    }
+
     return callback(component)
   })
 }
@@ -895,8 +916,16 @@ async function renderComponent(
   component._newChildMap = {}
   component._newEventHandlers = {}
 
+  let jsx
+  try {
+    jsx = component.render()
+  } catch (error) {
+    root.onError?.(error)
+    throw error
+  }
+
   const pNode = (await makeElem(
-    component.render(),
+    jsx,
     component,
     rootID,
     root,

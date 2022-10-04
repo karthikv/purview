@@ -134,8 +134,12 @@ abstract class Component<P, S> {
     }
 
     this._lockedPromise = (async () => {
-      const result = await callback()
-      this._lockedPromise = null
+      let result
+      try {
+        result = await callback()
+      } finally {
+        this._lockedPromise = null
+      }
       return result
     })()
 
