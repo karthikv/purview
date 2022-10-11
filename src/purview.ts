@@ -144,6 +144,14 @@ const INPUT_TYPE_VALIDATOR: Record<
 }
 
 const cachedEventIDs: WeakMap<EventCallback, string> = new WeakMap()
+
+// By definition, the onError handler is expected to have side effects, so it
+// is important that each error is passed to it exactly once.
+//
+// We keep track of errors that have already been passed to the onError handler
+// below such that the same error is never passed twice. For example, an error
+// that occurs in a component.render() call caused by an event callback could
+// otherwise be passed to onError more than once.
 const seenErrors: WeakSet<Error> = new WeakSet()
 
 const WEBSOCKET_BAD_STATUS_FORMAT =
@@ -729,10 +737,10 @@ async function makeRegularElem(
         eventName,
         callback: async event => {
           try {
-            return await callback(event)
+            await callback(event)
           } catch (error) {
             root.onError?.(error)
-            if (process.env.NODE_ENV !== "test") {
+            if (process.env.NODE_ENV !== "test" || !root.onError) {
               throw error
             }
           }
@@ -886,19 +894,19 @@ async function withComponent<T>(
       return callback(null)
     }
 
-    let result
+    let stateInitialized
     if (existing instanceof Component) {
       component._setProps(props)
       component._applyChangesetsLocked()
     } else if (existing) {
       component._childMap = existing.childMap
-      result = component._initState(existing.state, existing.reload)
+      stateInitialized = component._initState(existing.state, existing.reload)
     } else {
-      result = component._initState()
+      stateInitialized = component._initState()
     }
 
     try {
-      await result
+      await stateInitialized
     } catch (error) {
       root?.onError?.(error)
       throw error

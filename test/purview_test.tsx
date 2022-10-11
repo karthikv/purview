@@ -2018,22 +2018,23 @@ test("unique component name with getUniqueName", async () => {
 })
 
 test("onError, top-level render", async () => {
-  const errorMessage = "render error"
+  const error = new Error("top-level render error")
   class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
-      throw new Error(errorMessage)
+      throw error
     }
   }
 
   const onError = jest.fn()
   await expect(Purview.render(<Foo />, {} as any, { onError })).rejects.toThrow(
-    errorMessage,
+    error,
   )
   expect(onError).toBeCalledTimes(1)
+  expect(onError).toBeCalledWith(error)
 })
 
 test("onError, child render", async () => {
-  const errorMessage = "render error"
+  const error = new Error("child render error")
   class Foo extends TestComponent<{}, {}> {
     render(): JSX.Element {
       return <Bar />
@@ -2046,22 +2047,25 @@ test("onError, child render", async () => {
     }
 
     render(): JSX.Element {
-      throw new Error(errorMessage)
+      throw error
     }
   }
 
   const onError = jest.fn()
   await expect(Purview.render(<Foo />, {} as any, { onError })).rejects.toThrow(
-    errorMessage,
+    error,
   )
   expect(onError).toBeCalledTimes(1)
+  expect(onError).toBeCalledWith(error)
 })
 
 test("onError, eventCallback", async () => {
-  const errorMessage = "eventCallback error"
+  const error = new Error("eventCallback error")
   class Foo extends TestComponent<{}, {}> {
     async onClick(): Promise<void> {
-      throw new Error(errorMessage)
+      // Await a promise in order to execute in a microtask.
+      await new Promise(resolve => setTimeout(resolve, 1))
+      throw error
     }
 
     render(): JSX.Element {
@@ -2083,13 +2087,14 @@ test("onError, eventCallback", async () => {
       // Wait for handlers to be called.
       await new Promise(resolve => setTimeout(resolve, 25))
       expect(onError).toBeCalledTimes(1)
+      expect(onError).toBeCalledWith(error)
     },
     { onError },
   )
 })
 
 test("onError, eventCallback and getInitialState", async () => {
-  const errorMessage = "eventCallback and getInitialState error"
+  const error = new Error("eventCallback and getInitialState error")
   class Foo extends TestComponent<{}, { on: boolean }> {
     state = { on: false }
 
@@ -2112,7 +2117,9 @@ test("onError, eventCallback and getInitialState", async () => {
     }
 
     async getInitialState(): Promise<{}> {
-      throw new Error(errorMessage)
+      // Await a promise in order to execute in a microtask.
+      await new Promise(resolve => setTimeout(resolve, 1))
+      throw error
     }
 
     render(): JSX.Element {
@@ -2134,13 +2141,14 @@ test("onError, eventCallback and getInitialState", async () => {
       // Wait for handlers to be called.
       await new Promise(resolve => setTimeout(resolve, 25))
       expect(onError).toBeCalledTimes(1)
+      expect(onError).toBeCalledWith(error)
     },
     { onError },
   )
 })
 
 test("onError, eventCallback and render", async () => {
-  const errorMessage = "eventCallback and render error"
+  const error = new Error("eventCallback and render error")
   class Foo extends TestComponent<{}, { on: boolean }> {
     state = { on: false }
 
@@ -2163,7 +2171,7 @@ test("onError, eventCallback and render", async () => {
     }
 
     render(): JSX.Element {
-      throw new Error(errorMessage)
+      throw error
     }
   }
 
@@ -2181,6 +2189,7 @@ test("onError, eventCallback and render", async () => {
       // Wait for handlers to be called.
       await new Promise(resolve => setTimeout(resolve, 25))
       expect(onError).toBeCalledTimes(1)
+      expect(onError).toBeCalledWith(error)
     },
     { onError },
   )
