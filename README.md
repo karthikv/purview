@@ -408,6 +408,60 @@ Components](https://github.com/styled-components/styled-components) and
 [Emotion](https://github.com/emotion-js/emotion), don't work with Purview, since
 Purview components do not run in the browser.
 
+## Error handling
+Uncaught errors within Purview will bubble up as
+[`uncaughtException`][uncaught-exception] or
+[`unhandledRejection`][unhandled-rejection] events. These can be caught and
+handled by registering event listeners on `process`.
+
+Additionally, certain classes of errors can be instrumented in Purview prior to
+going to these top-level events:
+
+- Errors within event callbacks.
+- Errors in the component render path.
+- Errors when setting initial component state, after WebSocket connection is
+established.
+
+Register an instrumentation function by passing it in as an option parameter to
+`Purview.render()`:
+
+```tsx
+const app = express()
+
+app.get("/", async (req, res) => {
+  function onError(error: unknown): void {
+    // Instrument your error here, such as sending it to a monitoring service
+    // or adding context from the request.
+  }
+
+  // Pass onError inside Purview.render's third argument.
+  const appHTML = Purview.render(<App />, req, { onError })
+  const styleHTML = await Purview.renderCSS(req)
+  res.send(`
+    <html>
+      <head>
+        ${styleHTML}
+      </head>
+      <body>
+        ${appHTML}
+        <script src="/script.js"></script>
+      </body>
+    </html>
+  `)
+})
+app.get("/script.js", (_, res) => res.sendFile(Purview.scriptPath))
+
+// Even instrumented errors will bubble up, because the error handler does not
+// prevent the error from occurring.
+process.on("uncaughtException", (error) => {
+  // Handle Purview errors here.
+})
+
+process.on("unhandledRejection", (reason, promise) => {
+  // Handle Purview errors here.
+})
+```
+
 ## Using Purview with load balancing / multiple processes
 When a user makes a request to a web server using Purview, Purview will
 initialize and render the root component (and any sub-components) on the server,
@@ -518,3 +572,5 @@ Purview is [MIT licensed](LICENSE).
 [class-validator]: https://github.com/typestack/class-validator
 [disabled]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#disabled
 [readonly]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#readonly
+[uncaught-exception]: https://nodejs.org/docs/latest-v19.x/api/process.html#event-uncaughtexception
+[unhandled-rejection]: https://nodejs.org/docs/latest-v19.x/api/process.html#event-unhandledrejection

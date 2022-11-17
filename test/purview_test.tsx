@@ -2063,8 +2063,6 @@ test("onError, eventCallback", async () => {
   const error = new Error("eventCallback error")
   class Foo extends TestComponent<{}, {}> {
     async onClick(): Promise<void> {
-      // Await a promise in order to execute in a microtask.
-      await new Promise(resolve => setTimeout(resolve, 1))
       throw error
     }
 
@@ -2117,8 +2115,6 @@ test("onError, eventCallback and getInitialState", async () => {
     }
 
     async getInitialState(): Promise<{}> {
-      // Await a promise in order to execute in a microtask.
-      await new Promise(resolve => setTimeout(resolve, 1))
       throw error
     }
 

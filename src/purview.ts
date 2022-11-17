@@ -23,6 +23,7 @@ import {
   PNode,
   PNodeRegular,
   UpdateMessage,
+  PurviewEvent,
 } from "./types/ws"
 import {
   makeInputEventValidator,
@@ -150,7 +151,8 @@ const cachedEventIDs: WeakMap<EventCallback, string> = new WeakMap()
 //
 // We keep track of errors that have already been passed to the onError handler
 // below such that the same error is never passed twice. For example, an error
-// that occurs in a component.render() call caused by an event callback could
+// that occurs in a component.render() call caused by an event callback (e.g.
+// an awaited component.setState() that subsequently triggers a render) could
 // otherwise be passed to onError more than once.
 const seenErrors: WeakSet<Error> = new WeakSet()
 
@@ -735,7 +737,7 @@ async function makeRegularElem(
     if (root.connected) {
       parent._newEventHandlers[eventID] = {
         eventName,
-        callback: async event => {
+        async callback(event?: PurviewEvent): Promise<void> {
           try {
             await callback(event)
           } catch (error) {
