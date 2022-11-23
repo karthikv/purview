@@ -429,7 +429,7 @@ in order to prevent execution of further code.
 
 ```tsx
 app.get("/", async (req, res) => {
-  function onError(error: unknown): void {
+  function onError(error: Error): void {
     // Instrument the error here, such as to add context:
     error.userID = req.userID
     // Or send it to a monitoring service:
@@ -439,6 +439,7 @@ app.get("/", async (req, res) => {
   }
 
   const appHTML = Purview.render(<App />, req, { onError })
+  // ...
 })
 ```
 
