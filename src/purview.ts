@@ -117,7 +117,7 @@ export interface EventHandler {
   validator?: t.Type<any, any, any>
 }
 
-export type ErrorHandler = (error: Error) => void
+export type ErrorHandler = (error: unknown) => void
 
 interface IDStateTree {
   id: string
@@ -154,7 +154,7 @@ const cachedEventIDs: WeakMap<EventCallback, string> = new WeakMap()
 // that occurs in a component.render() call caused by an event callback (e.g.
 // an awaited component.setState() that subsequently triggers a render) could
 // otherwise be passed to onError more than once.
-const seenErrors: WeakSet<Error> = new WeakSet()
+const seenErrors = new WeakSet()
 
 const WEBSOCKET_BAD_STATUS_FORMAT =
   "Purview: request to your server (GET %s) returned status code %d, so we couldn't start the WebSocket connection."
@@ -568,6 +568,11 @@ export async function render(
     let onUnseenError: ErrorHandler | null = null
     if (onError) {
       onUnseenError = error => {
+        if (typeof error !== "object" || error === null) {
+          onError(error)
+          return
+        }
+
         if (!seenErrors.has(error)) {
           seenErrors.add(error)
           onError(error)
