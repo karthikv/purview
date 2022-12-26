@@ -2316,12 +2316,8 @@ async function renderAndConnect<T>(
   return result
 }
 
-interface ExpectGetState extends jest.Expect {
-  getState(): { currentTestName: string }
-}
-
 abstract class TestComponent<P, S> extends Purview.Component<P, S> {
   static getUniqueName(): string {
-    return (expect as ExpectGetState).getState().currentTestName
+    return expect.getState().currentTestName
   }
 }
