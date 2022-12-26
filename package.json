@@ -28,7 +28,7 @@
     "nodemon": "^2.0.14",
     "prettier": "^1.19.1",
     "sequelize": "^6.8.0",
-    "sqlite3": "^4.2.0",
+    "sqlite3": "^5.1.4",
     "ts-jest": "^27.0.7",
     "ts-loader": "^9.2.6",
     "tslint": "^5.13.0",
