@@ -27,8 +27,13 @@ import {
   ClientMessage,
   NextRuleIndexMessage,
 } from "../src/types/ws"
-import { MAX_SET_STATE_AFTER_UNMOUNT } from "../src/component"
+import {
+  MAX_SET_STATE_AFTER_UNMOUNT,
+  ComponentConstructor,
+} from "../src/component"
 import { CSSProperties } from "../src/css"
+
+const NANO_ID_REGEX = /^[A-Za-z0-9_-]{21}$/
 
 test("createElem", () => {
   const p = (
@@ -2015,6 +2020,25 @@ test("unique component name with getUniqueName", async () => {
   expect(p.nodeName).toEqual("P")
   expect(p.childNodes[0].textContent).toEqual("bar")
   expect(p.hasAttribute("data-root")).toBe(true)
+})
+
+test("stateless styledTag with unique component name", async () => {
+  const class1 = styledTag("p", {}) as ComponentConstructor<unknown, unknown>
+  const class2 = styledTag("p", {}) as ComponentConstructor<unknown, unknown>
+
+  const name1 = class1.getUniqueName()
+  const name2 = class2.getUniqueName()
+
+  expect(class1._stateless).toBe(true)
+  expect(class2._stateless).toBe(true)
+
+  expect(name1).toMatch(NANO_ID_REGEX)
+  expect(name2).toMatch(NANO_ID_REGEX)
+  expect(name1).not.toBe(name2)
+
+  // Ensure name doesn't change even though component is stateless.
+  expect(class1.getUniqueName()).toBe(name1)
+  expect(class2.getUniqueName()).toBe(name2)
 })
 
 test("onError, top-level render", async () => {

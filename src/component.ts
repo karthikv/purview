@@ -5,6 +5,7 @@ import { PNodeRegular } from "./types/ws"
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
 export interface ComponentConstructor<P, S> {
+  _stateless: boolean
   getUniqueName(): string
   new (props: P): Component<P, S>
 }
@@ -15,10 +16,15 @@ interface Component<P, S> {
 
 export const MAX_SET_STATE_AFTER_UNMOUNT = 10
 
-const NAMED_CONSTRUCTORS: Record<
-  string,
-  ComponentConstructor<unknown, unknown> | undefined
-> = {}
+// Used to ensure components have globally unique names. If classes are garbage
+// collected, we don't want to hold strong references to them and leak memory,
+// so we use a WeakSet. Note that we will still leak a small amount of memory
+// for component names, but we anticipate this to be negligible unless millions
+// of classes are dynamically generated. If we switch to supporting ES2021+, we
+// could use WeakRef and FinalizationRegistry to accomplish this without leaking
+// names. See https://github.com/tc39/proposal-weakrefs#weak-caches
+const SEEN_COMPONENTS = new WeakSet<ComponentConstructor<unknown, unknown>>()
+const SEEN_COMPONENT_NAMES = new Set<string>()
 
 abstract class Component<P, S> {
   /* tslint:disable variable-name */
@@ -52,8 +58,16 @@ abstract class Component<P, S> {
   // the name changes, Purview won't be able to reload the state correctly and
   // the page may not work as expected until it is refreshed.
   static getUniqueName(): string {
+    // We don't need to reload state if this component is stateless, and hence
+    // we can use a random name that can change across restarts/processes.
+    if (this._stateless) {
+      this._statelessName = this._statelessName ?? nanoid()
+      return this._statelessName
+    }
     return this.name
   }
+  static _stateless = false
+  static _statelessName: string | undefined
 
   constructor(protected props: Readonly<P>) {
     this._id = nanoid()
@@ -61,18 +75,24 @@ abstract class Component<P, S> {
       unknown,
       unknown
     >
+    if (componentConstructor._stateless) {
+      return
+    }
+
     const name = componentConstructor.getUniqueName()
     if (!name) {
       throw new Error("Please give each Purview Component class a name.")
     }
 
-    if (!NAMED_CONSTRUCTORS.hasOwnProperty(name)) {
-      NAMED_CONSTRUCTORS[name] = componentConstructor
-    }
-    if (NAMED_CONSTRUCTORS[name] !== componentConstructor) {
-      throw new Error(
-        `Each Purview Component class must have a unique name. This name isn't unique: ${name}. You may define a static getUniqueName() function to specify a name different from the class name if you'd like.`,
-      )
+    if (!SEEN_COMPONENTS.has(componentConstructor)) {
+      if (SEEN_COMPONENT_NAMES.has(name)) {
+        throw new Error(
+          `Each Purview Component class must have a unique name. This name isn't unique: ${name}. You may define a static getUniqueName() function to specify a name different from the class name if you'd like.`,
+        )
+      }
+
+      SEEN_COMPONENTS.add(componentConstructor)
+      SEEN_COMPONENT_NAMES.add(name)
     }
   }
 

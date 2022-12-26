@@ -4,7 +4,6 @@ import { lexer } from "css-tree"
 import * as LRU from "lru-cache"
 import * as Purview from "./purview"
 import { isPseudoClass } from "./pseudo_classes"
-import { nanoid } from "nanoid"
 
 type OptionalProperties = {
   [key in keyof Properties]?: Properties[key] | null | false
@@ -175,16 +174,9 @@ export function styledTag<K extends keyof JSX.IntrinsicElements>(
   {}
 > {
   let baseCSS: CSS | undefined
-  const uniqueName = nanoid()
 
   return class extends Purview.Component<JSX.IntrinsicElements[K], {}> {
-    // We generally want the unique name to be determinstic (see comment in
-    // src/component.ts), but because this component has no state and hence does
-    // not need to have its state reloaded, it is OK to use a random name
-    // generated at runtime.
-    static getUniqueName(): string {
-      return uniqueName
-    }
+    static _stateless = true
 
     render(): JSX.Element {
       // Lazily compute the CSS.
