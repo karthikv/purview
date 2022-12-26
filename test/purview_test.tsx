@@ -9,6 +9,7 @@ import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import Purview, {
+  RenderOptions,
   InputEvent,
   ChangeEvent,
   KeyEvent,
@@ -2016,6 +2017,180 @@ test("unique component name with getUniqueName", async () => {
   expect(p.hasAttribute("data-root")).toBe(true)
 })
 
+test("onError, top-level render", async () => {
+  const error = new Error("top-level render error")
+  class Foo extends TestComponent<{}, {}> {
+    render(): JSX.Element {
+      throw error
+    }
+  }
+
+  const onError = jest.fn()
+  await expect(Purview.render(<Foo />, {} as any, { onError })).rejects.toThrow(
+    error,
+  )
+  expect(onError).toBeCalledTimes(1)
+  expect(onError).toBeCalledWith(error)
+})
+
+test("onError, child render", async () => {
+  const error = new Error("child render error")
+  class Foo extends TestComponent<{}, {}> {
+    render(): JSX.Element {
+      return <Bar />
+    }
+  }
+
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
+    render(): JSX.Element {
+      throw error
+    }
+  }
+
+  const onError = jest.fn()
+  await expect(Purview.render(<Foo />, {} as any, { onError })).rejects.toThrow(
+    error,
+  )
+  expect(onError).toBeCalledTimes(1)
+  expect(onError).toBeCalledWith(error)
+})
+
+test("onError, eventCallback", async () => {
+  const error = new Error("eventCallback error")
+  class Foo extends TestComponent<{}, {}> {
+    async onClick(): Promise<void> {
+      throw error
+    }
+
+    render(): JSX.Element {
+      return <button onClick={this.onClick.bind(this)} />
+    }
+  }
+
+  const onError = jest.fn()
+  await renderAndConnect(
+    <Foo />,
+    async conn => {
+      const event: EventMessage = {
+        type: "event",
+        rootID: conn.rootID,
+        componentID: conn.elem.getAttribute("data-component-id")!,
+        eventID: conn.elem.getAttribute("data-click") as string,
+      }
+      conn.ws.send(JSON.stringify(event))
+      // Wait for handlers to be called.
+      await new Promise(resolve => setTimeout(resolve, 25))
+      expect(onError).toBeCalledTimes(1)
+      expect(onError).toBeCalledWith(error)
+    },
+    { onError },
+  )
+})
+
+test("onError, eventCallback and getInitialState", async () => {
+  const error = new Error("eventCallback and getInitialState error")
+  class Foo extends TestComponent<{}, { on: boolean }> {
+    state = { on: false }
+
+    async onClick(): Promise<void> {
+      await this.setState({ on: true })
+    }
+
+    render(): JSX.Element {
+      if (this.state.on) {
+        return <Bar />
+      } else {
+        return <button onClick={this.onClick.bind(this)} />
+      }
+    }
+  }
+
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
+    async getInitialState(): Promise<{}> {
+      throw error
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  const onError = jest.fn()
+  await renderAndConnect(
+    <Foo />,
+    async conn => {
+      const event: EventMessage = {
+        type: "event",
+        rootID: conn.rootID,
+        componentID: conn.elem.getAttribute("data-component-id")!,
+        eventID: conn.elem.getAttribute("data-click") as string,
+      }
+      conn.ws.send(JSON.stringify(event))
+      // Wait for handlers to be called.
+      await new Promise(resolve => setTimeout(resolve, 25))
+      expect(onError).toBeCalledTimes(1)
+      expect(onError).toBeCalledWith(error)
+    },
+    { onError },
+  )
+})
+
+test("onError, eventCallback and render", async () => {
+  const error = new Error("eventCallback and render error")
+  class Foo extends TestComponent<{}, { on: boolean }> {
+    state = { on: false }
+
+    async onClick(): Promise<void> {
+      await this.setState({ on: true })
+    }
+
+    render(): JSX.Element {
+      if (this.state.on) {
+        return <Bar />
+      } else {
+        return <button onClick={this.onClick.bind(this)} />
+      }
+    }
+  }
+
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
+    render(): JSX.Element {
+      throw error
+    }
+  }
+
+  const onError = jest.fn()
+  await renderAndConnect(
+    <Foo />,
+    async conn => {
+      const event: EventMessage = {
+        type: "event",
+        rootID: conn.rootID,
+        componentID: conn.elem.getAttribute("data-component-id")!,
+        eventID: conn.elem.getAttribute("data-click") as string,
+      }
+      conn.ws.send(JSON.stringify(event))
+      // Wait for handlers to be called.
+      await new Promise(resolve => setTimeout(resolve, 25))
+      expect(onError).toBeCalledTimes(1)
+      expect(onError).toBeCalledWith(error)
+    },
+    { onError },
+  )
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (conn: {
@@ -2026,6 +2201,7 @@ async function renderAndConnect<T>(
     updateMessage: UpdateMessage
     messages: AsyncQueue<ServerMessage>
   }) => Promise<T>,
+  options: RenderOptions = {},
 ): Promise<T> {
   let rootID: string | null = null
   let cssStateID: string | null = null
@@ -2033,7 +2209,7 @@ async function renderAndConnect<T>(
   const server = http.createServer(async (req, res) => {
     // The WebSocket connection will make a second request where the return
     // value of render() is empty, so the check below is necessary.
-    const body = await Purview.render(jsxElem, req)
+    const body = await Purview.render(jsxElem, req, options)
     if (!rootID) {
       rootID = parseHTML(body).getAttribute("data-component-id")
     }

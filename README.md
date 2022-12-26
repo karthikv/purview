@@ -408,6 +408,39 @@ Components](https://github.com/styled-components/styled-components) and
 [Emotion](https://github.com/emotion-js/emotion), don't work with Purview, since
 Purview components do not run in the browser.
 
+## Error handling
+Normally, when an error occurs in the context of a Purview component, it will 
+appear as top-level [`uncaughtException`][uncaught-exception] or
+[`unhandledRejection`][unhandled-rejection] events. Purview provides the option
+to observe or modify these errors with a custom error handler before they
+appear within these top-level events.
+
+In order to add a custom error handler, pass an `onError` function as an option
+to `Purview.render()`. When provided, the handler is invoked for these classes
+of Purview errors:
+
+- Errors within event callbacks.
+- Errors in the component render path.
+- Errors when setting initial component state, after WebSocket connection is
+established.
+
+If your handler does not itself throw an error, Purview will re-throw the error
+in order to prevent execution of further code.
+
+```tsx
+app.get("/", async (req, res) => {
+  function onError(error: unknown): void {
+    // Instrument the error here, such as to add context:
+    error.userID = req.userID
+    // Or send it to a monitoring service:
+    logError(error)
+  }
+
+  const appHTML = Purview.render(<App />, req, { onError })
+  // ...
+})
+```
+
 ## Using Purview with load balancing / multiple processes
 When a user makes a request to a web server using Purview, Purview will
 initialize and render the root component (and any sub-components) on the server,
@@ -518,3 +551,5 @@ Purview is [MIT licensed](LICENSE).
 [class-validator]: https://github.com/typestack/class-validator
 [disabled]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#disabled
 [readonly]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#readonly
+[uncaught-exception]: https://nodejs.org/docs/latest-v19.x/api/process.html#event-uncaughtexception
+[unhandled-rejection]: https://nodejs.org/docs/latest-v19.x/api/process.html#event-unhandledrejection
