@@ -306,20 +306,21 @@ declare global {
     }
 
     export interface CheckboxInputHTMLAttributes<T>
-      extends InputHTMLAttributes<T> {
+      extends Omit<InputHTMLAttributes<T>, "onChange" | "onInput"> {
       type: "checkbox"
       onChange?: (event: ChangeEvent<boolean>) => void
       onInput?: (event: InputEvent<boolean>) => void
     }
 
     export interface NumberInputHTMLAttributes<T>
-      extends InputHTMLAttributes<T> {
+      extends Omit<InputHTMLAttributes<T>, "onChange" | "onInput"> {
       type: "number"
       onChange?: (event: ChangeEvent<number>) => void
       onInput?: (event: InputEvent<number>) => void
     }
 
-    export interface TextInputHTMLAttributes<T> extends InputHTMLAttributes<T> {
+    export interface TextInputHTMLAttributes<T>
+      extends Omit<InputHTMLAttributes<T>, "onChange" | "onInput"> {
       type?: Exclude<InputType, "checkbox" | "number">
       onChange?: (event: ChangeEvent<string>) => void
       onInput?: (event: InputEvent<string>) => void
@@ -546,14 +547,14 @@ declare global {
     }
 
     export interface MultiSelectHTMLAttributes<T>
-      extends SelectHTMLAttributes<T> {
+      extends Omit<SelectHTMLAttributes<T>, "onChange" | "onInput"> {
       multiple: true
       onChange?: (event: ChangeEvent<string[]>) => void
       onInput?: (event: InputEvent<string[]>) => void
     }
 
     export interface SingleSelectHTMLAttributes<T>
-      extends SelectHTMLAttributes<T> {
+      extends Omit<SelectHTMLAttributes<T>, "onChange" | "onInput"> {
       multiple?: false
       onChange?: (event: ChangeEvent<string>) => void
       onInput?: (event: InputEvent<string>) => void
@@ -1033,10 +1034,10 @@ declare global {
       onBlurCapture?: () => void
 
       // Form Events
-      onChange?: (event: InputEvent<any>) => void
-      onChangeCapture?: (event: InputEvent<any>) => void
-      onInput?: (event: InputEvent<any>) => void
-      onInputCapture?: (event: InputEvent<any>) => void
+      onChange?: (event: InputEvent) => void
+      onChangeCapture?: (event: InputEvent) => void
+      onInput?: (event: InputEvent) => void
+      onInputCapture?: (event: InputEvent) => void
       onReset?: () => void
       onResetCapture?: () => void
       onSubmit?: (event: SubmitEvent) => void
