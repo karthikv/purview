@@ -330,7 +330,7 @@ export function handleWebSocket(
         return
       }
 
-      await saveState(wsState)
+      await saveRootsState(wsState)
       wsState.closing = false
     })
   })
@@ -459,7 +459,7 @@ async function handleMessage(
 
       wsState.connected = true
       if (wsState.closing) {
-        await saveState(wsState)
+        await saveRootsState(wsState)
         wsState.closing = false
       }
 
@@ -1092,7 +1092,7 @@ function unalias(id: string, root: ConnectedRoot): string {
   return id
 }
 
-async function saveState(wsState: WebSocketState): Promise<void> {
+async function saveRootsState(wsState: WebSocketState): Promise<void> {
   const promises = wsState.roots.map(async root => {
     const stateTree = makeStateTree(root.component, true)
     await reloadOptions.saveStateTree(root.component._id, stateTree)
