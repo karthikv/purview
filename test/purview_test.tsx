@@ -1742,8 +1742,6 @@ test("reconnect", async () => {
     await conn.messages.next()
     conn.ws.close()
 
-    // Wait for state to be saved and unmount to occur.
-    // await new Promise(resolve => setTimeout(resolve, 25))
     expect(mountCount).toBe(1)
 
     const origin = `http://localhost:${conn.port}`
