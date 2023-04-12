@@ -1742,7 +1742,10 @@ test("reconnect", async () => {
     await conn.messages.next()
     conn.ws.close()
 
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
     expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(1)
 
     const origin = `http://localhost:${conn.port}`
     const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
@@ -1753,11 +1756,6 @@ test("reconnect", async () => {
       rootIDs: [conn.rootID],
     }
     ws.send(JSON.stringify(connect))
-
-    // Either the "close" event will execute the unmounting, or on reconnect the
-    // unmounting will occur because the `closing` flag is set during "connect".
-    // So there's no need to busy wait for an unmount anymore.
-    expect(unmountCount).toBe(1)
 
     await new Promise(resolve => {
       ws.addEventListener("message", messageEvent => {
@@ -1862,6 +1860,8 @@ test("reconnect getInitialState()", async () => {
     expect(count).toBe(1)
     conn.ws.close()
 
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
     const origin = `http://localhost:${conn.port}`
     const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
     await new Promise(resolve => ws.addEventListener("open", resolve))
