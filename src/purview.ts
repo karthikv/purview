@@ -65,8 +65,10 @@ interface WebSocketStateNoCSS extends BaseWebSocketState {
 interface BaseWebSocketState {
   ws: WebSocket
   roots: ConnectedRoot[]
+  connecting: boolean
   connected: boolean
   mounted: boolean
+  closing: boolean
   seenEventNames: Set<string>
 }
 
@@ -301,8 +303,10 @@ export function handleWebSocket(
     const wsStateBase: WebSocketState = {
       ws,
       roots: [] as ConnectedRoot[],
+      connecting: false,
       connected: false,
       mounted: false,
+      closing: false,
       seenEventNames: new Set(),
       hasCSS: false,
     }
@@ -321,19 +325,13 @@ export function handleWebSocket(
     })
 
     ws.on("close", async () => {
-      const promises = wsState.roots.map(async root => {
-        const stateTree = makeStateTree(root.component, true)
-        await reloadOptions.saveStateTree(root.component._id, stateTree)
-        await root.component._triggerUnmount(root.allComponentsMap)
-      })
-      if (wsState.hasCSS) {
-        const cssPromise = reloadOptions.saveCSSState(
-          wsState.cssState.id,
-          wsState.cssState,
-        )
-        promises.push(cssPromise)
+      wsState.closing = true
+      if (!wsState.connected) {
+        return
       }
-      await Promise.all(promises)
+
+      await saveState(wsState)
+      wsState.closing = false
     })
   })
 
@@ -372,10 +370,10 @@ async function handleMessage(
 ): Promise<void> {
   switch (message.type) {
     case "connect": {
-      if (wsState.connected) {
+      if (wsState.connecting) {
         break
       }
-      wsState.connected = true
+      wsState.connecting = true
 
       const cssStateID = message.cssStateID
       if (cssStateID) {
@@ -442,7 +440,7 @@ async function handleMessage(
           type: "update",
           componentID: root.component._id,
           pNode: toLatestPNode(root.component._pNode),
-          newEventNames: Array.from(root!.eventNames),
+          newEventNames: Array.from(root.eventNames),
         })
 
         // Don't wait for this, since we want wsState.mounted and wsState.roots
@@ -458,6 +456,13 @@ async function handleMessage(
         deletePromises.push(reloadOptions.deleteCSSState(cssStateID))
       }
       await Promise.all(deletePromises)
+
+      wsState.connected = true
+      if (wsState.closing) {
+        await saveState(wsState)
+        wsState.closing = false
+      }
+
       break
     }
 
@@ -1085,6 +1090,22 @@ function unalias(id: string, root: ConnectedRoot): string {
     alias = root.aliases[id]
   }
   return id
+}
+
+async function saveState(wsState: WebSocketState): Promise<void> {
+  const promises = wsState.roots.map(async root => {
+    const stateTree = makeStateTree(root.component, true)
+    await reloadOptions.saveStateTree(root.component._id, stateTree)
+    await root.component._triggerUnmount(root.allComponentsMap)
+  })
+  if (wsState.hasCSS) {
+    const cssPromise = reloadOptions.saveCSSState(
+      wsState.cssState.id,
+      wsState.cssState,
+    )
+    promises.push(cssPromise)
+  }
+  await Promise.all(promises)
 }
 
 const globalStateTrees: Record<string, StateTree | undefined> = {}
