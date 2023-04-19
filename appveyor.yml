@@ -1,10 +1,10 @@
 environment:
   matrix:
-    - nodejs_version: "10"
+    - nodejs_version: "16"
 cache: [node_modules]
 install:
   - ps: Install-Product node $env:nodejs_version
-  - npm install
+  - npm i
 test_script:
   - bin\lint
   - bin\test
