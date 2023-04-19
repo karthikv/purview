@@ -1812,6 +1812,8 @@ test("reconnect new child component mount cycle", async () => {
   await renderAndConnect(<Foo />, async conn => {
     conn.ws.close()
 
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
     const origin = `http://localhost:${conn.port}`
     const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
     await new Promise(resolve => ws.addEventListener("open", resolve))
