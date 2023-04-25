@@ -4,10 +4,7 @@ environment:
 cache: [node_modules]
 install:
   - ps: Install-Product node $env:nodejs_version
-  # Using `npm i` respects the package-lock.json file. Otherwise, the
-  # dependencies within package.json will be updated automatically. The use of
-  # `npm i` requires the use of node v16+.
-  - npm i
+  - npm install
 test_script:
   - bin\lint
   - bin\test
