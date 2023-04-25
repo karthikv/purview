@@ -1908,7 +1908,7 @@ test("reconnect early", async () => {
   })
 })
 
-test.only("cleanup happens when 'close' and 'connect' race", async () => {
+test("cleanup happens when 'close' and 'connect' race", async () => {
   let mountCount = 0
   let unmountCount = 0
 
@@ -1947,14 +1947,17 @@ test.only("cleanup happens when 'close' and 'connect' race", async () => {
     const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
     await new Promise(resolve => ws.addEventListener("open", resolve))
 
+    // To avoid infinite recursion, we only mock the first call to
+    // `getStateTree`. To allow jest to cleanup the mock implementation, we use
+    // `spyOn` and call `spy.mockRestore()` once test execution has completed.
+    // This prevent subsequnt tests from using the mock implementation.
     const spy = jest.spyOn(reloadOptions, "getStateTree")
-    const boundGetStateTree = reloadOptions.getStateTree.bind(reloadOptions)
     spy.mockImplementationOnce(async rootID => {
       // Create an artificial delay when deleting state trees so that "connect"
       // takes a while to let the "close" event execute before "connect"
       // finishes.
       await new Promise(resolve => setTimeout(resolve, 200))
-      return await boundGetStateTree(rootID)
+      return await reloadOptions.getStateTree(rootID)
     })
     const connect: ClientMessage = {
       type: "connect",
