@@ -1908,6 +1908,69 @@ test("reconnect early", async () => {
   })
 })
 
+test.only("cleanup happens when 'close' and 'connect' race", async () => {
+  let mountCount = 0
+  let unmountCount = 0
+
+  class Foo extends TestComponent<{}, { text: string }> {
+    state = { text: "hi" }
+
+    constructor(props: {}) {
+      super(props)
+    }
+
+    componentDidMount(): void {
+      mountCount++
+    }
+
+    componentWillUnmount(): void {
+      unmountCount++
+    }
+
+    render(): JSX.Element {
+      return <p>{this.state.text}</p>
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(0)
+    conn.ws.close()
+
+    // Wait for state to be saved and unmount to occur. And wait for the state
+    // to be saved into the db to help simulate the page refresh scenario.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(1)
+
+    const origin = `http://localhost:${conn.port}`
+    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
+    await new Promise(resolve => ws.addEventListener("open", resolve))
+
+    const spy = jest.spyOn(reloadOptions, "getStateTree")
+    const boundGetStateTree = reloadOptions.getStateTree.bind(reloadOptions)
+    spy.mockImplementationOnce(async rootID => {
+      // Create an artificial delay when deleting state trees so that "connect"
+      // takes a while to let the "close" event execute before "connect"
+      // finishes.
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return await boundGetStateTree(rootID)
+    })
+    const connect: ClientMessage = {
+      type: "connect",
+      rootIDs: [conn.rootID],
+    }
+    ws.send(JSON.stringify(connect))
+    ws.close()
+
+    // Wait for state to be saved and unmount to occur in "connect."
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(mountCount).toBe(2)
+    expect(unmountCount).toBe(2)
+    spy.mockRestore()
+  })
+})
+
 test("setState() after unmount", async () => {
   let instance: Foo = null as any
   class Foo extends TestComponent<{}, {}> {
@@ -2214,86 +2277,6 @@ test("onError, eventCallback and render", async () => {
     },
     { onError },
   )
-})
-
-test("simulate a page refresh", async () => {
-  let instance: Foo
-  let mountCount = 0
-  let unmountCount = 0
-
-  class Foo extends TestComponent<{}, { text: string }> {
-    state = { text: "hi" }
-
-    constructor(props: {}) {
-      super(props)
-      instance = this
-    }
-
-    componentDidMount(): void {
-      mountCount++
-    }
-
-    componentWillUnmount(): void {
-      unmountCount++
-    }
-
-    render(): JSX.Element {
-      return <p>{this.state.text}</p>
-    }
-  }
-
-  await renderAndConnect(<Foo />, async conn => {
-    expect(mountCount).toBe(1)
-    expect(unmountCount).toBe(0)
-
-    void instance.setState({ text: "hello" })
-    await conn.messages.next()
-    conn.ws.close()
-
-    // Wait for state to be saved and unmount to occur. And wait for the state
-    // to be saved into the db to help simulate the page refresh scenario.
-    await new Promise(resolve => setTimeout(resolve, 25))
-    expect(mountCount).toBe(1)
-    expect(unmountCount).toBe(1)
-
-    const origin = `http://localhost:${conn.port}`
-    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
-    await new Promise(resolve => ws.addEventListener("open", resolve))
-
-    const originalDeleteStateTree = reloadOptions.deleteStateTree.bind(
-      reloadOptions,
-    )
-    reloadOptions.deleteStateTree = jest.fn(async rootID => {
-      // Create an artificial delay when deleting state trees so that "connect"
-      // takes a while to let the "close" event execute before "connect"
-      // finishes.
-      await new Promise(resolve => setTimeout(resolve, 200))
-      await originalDeleteStateTree(rootID)
-    })
-    const connect: ClientMessage = {
-      type: "connect",
-      rootIDs: [conn.rootID],
-    }
-    ws.send(JSON.stringify(connect))
-    await new Promise(resolve => {
-      ws.addEventListener("message", messageEvent => {
-        // Create the race condition for having "close" execute while "connect"
-        // is executing.
-        ws.close()
-        const message: ServerMessage = JSON.parse(messageEvent.data.toString())
-        expect(message.type).toBe("update")
-        resolve()
-      })
-    })
-
-    expect(mountCount).toBe(2)
-    expect(unmountCount).toBe(1)
-
-    // Wait for state to be saved and unmount to occur in "connect."
-    await new Promise(resolve => setTimeout(resolve, 200))
-    expect(mountCount).toBe(2)
-    expect(unmountCount).toBe(2)
-  })
 })
 
 async function renderAndConnect<T>(
