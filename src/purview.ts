@@ -470,9 +470,9 @@ async function handleMessage(
       // fires just after the "connect" event (e.g., on page refresh), and the
       // "close" event will see that the `wsState.roots` is an empty array due
       // to the "connect" event still being in progress. This would result in an
-      // incomplete clean up of the previous connection's state. Hence, we check
+      // incomplete cleanup of the previous connection's state. Hence, we check
       // the `closing` flag and clean up any existing state that the "closing"
-      // event could not cleanup if needed.
+      // event could not clean up if needed.
       if (wsState.closing) {
         await cleanUpWebSocketState(wsState)
         wsState.closing = false
