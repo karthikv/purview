@@ -324,11 +324,12 @@ export function handleWebSocket(
 
     ws.on("close", async () => {
       wsState.closing = true
-      // We check if `connectionState` is set to "connected" because it could be
-      // the case that the "close" event fires just after the "connect" event
-      // (e.g., on page refresh), and the "close" event will see that the
-      // `wsState.roots` is an empty array due to the "connect" still being in
-      // progress. This would result in an incomplete cleanup of the previous
+      // Because both the "close" and "connect" events are async, we check if
+      // `connectionState` is set to "connected" because it could be the case
+      // that the "close" event fires just after the "connect" event (e.g., on
+      // page refresh), and the "close" event will see that the `wsState.roots`
+      // is an empty array due to the "connect" event still being in progress.
+      // This would result in an incomplete clean up of the previous
       // connection's state. Hence, we return early, set the `closing` flag, and
       // let the "connect" event clean up the existing state by signaling with
       // `closing`.
@@ -336,7 +337,7 @@ export function handleWebSocket(
         return
       }
 
-      await cleanupExistingState(wsState)
+      await cleanUpWebSocketState(wsState)
       wsState.closing = false
     })
   })
@@ -464,15 +465,16 @@ async function handleMessage(
       await Promise.all(deletePromises)
 
       wsState.connectionState = "connected"
-      // We check if `closing` is set because it could be the case that the
-      // "close" event fires just after the "connect" event (e.g., on page
-      // refresh), and the "close" event will see that the `wsState.roots` is an
-      // empty array due to the "connect" still being in progress. This would
-      // result in an incomplete cleanup of the previous connection's state.
-      // Hence, we check the `closing` flag and cleanup any existing state that
-      // the "closing" event could not cleanup if needed.
+      // Because both the "close" and "connect" events are async, we check if
+      // `closing` is set because it could be the case that the "close" event
+      // fires just after the "connect" event (e.g., on page refresh), and the
+      // "close" event will see that the `wsState.roots` is an empty array due
+      // to the "connect" event still being in progress. This would result in an
+      // incomplete clean up of the previous connection's state. Hence, we check
+      // the `closing` flag and clean up any existing state that the "closing"
+      // event could not cleanup if needed.
       if (wsState.closing) {
-        await cleanupExistingState(wsState)
+        await cleanUpWebSocketState(wsState)
         wsState.closing = false
       }
 
@@ -1105,7 +1107,7 @@ function unalias(id: string, root: ConnectedRoot): string {
   return id
 }
 
-async function cleanupExistingState(wsState: WebSocketState): Promise<void> {
+async function cleanUpWebSocketState(wsState: WebSocketState): Promise<void> {
   const promises = wsState.roots.map(async root => {
     const stateTree = makeStateTree(root.component, true)
     await reloadOptions.saveStateTree(root.component._id, stateTree)
