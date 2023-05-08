@@ -65,8 +65,9 @@ interface WebSocketStateNoCSS extends BaseWebSocketState {
 interface BaseWebSocketState {
   ws: WebSocket
   roots: ConnectedRoot[]
-  connected: boolean
+  connectionState: null | "connecting" | "connected"
   mounted: boolean
+  closing: boolean
   seenEventNames: Set<string>
 }
 
@@ -301,8 +302,9 @@ export function handleWebSocket(
     const wsStateBase: WebSocketState = {
       ws,
       roots: [] as ConnectedRoot[],
-      connected: false,
+      connectionState: null,
       mounted: false,
+      closing: false,
       seenEventNames: new Set(),
       hasCSS: false,
     }
@@ -321,19 +323,22 @@ export function handleWebSocket(
     })
 
     ws.on("close", async () => {
-      const promises = wsState.roots.map(async root => {
-        const stateTree = makeStateTree(root.component, true)
-        await reloadOptions.saveStateTree(root.component._id, stateTree)
-        await root.component._triggerUnmount(root.allComponentsMap)
-      })
-      if (wsState.hasCSS) {
-        const cssPromise = reloadOptions.saveCSSState(
-          wsState.cssState.id,
-          wsState.cssState,
-        )
-        promises.push(cssPromise)
+      wsState.closing = true
+      // Because both the "close" and "connect" events are async, we check if
+      // `connectionState` is set to "connected" because it could be the case
+      // that the "close" event fires just after the "connect" event (e.g., on
+      // page refresh), and the "close" event will see that the `wsState.roots`
+      // is an empty array due to the "connect" event still being in progress.
+      // This would result in an incomplete clean up of the previous
+      // connection's state. Hence, we return early, set the `closing` flag, and
+      // let the "connect" event clean up the existing state by signaling with
+      // `closing`.
+      if (wsState.connectionState !== "connected") {
+        return
       }
-      await Promise.all(promises)
+
+      await cleanUpWebSocketState(wsState)
+      wsState.closing = false
     })
   })
 
@@ -372,10 +377,10 @@ async function handleMessage(
 ): Promise<void> {
   switch (message.type) {
     case "connect": {
-      if (wsState.connected) {
+      if (wsState.connectionState !== null) {
         break
       }
-      wsState.connected = true
+      wsState.connectionState = "connecting"
 
       const cssStateID = message.cssStateID
       if (cssStateID) {
@@ -442,7 +447,7 @@ async function handleMessage(
           type: "update",
           componentID: root.component._id,
           pNode: toLatestPNode(root.component._pNode),
-          newEventNames: Array.from(root!.eventNames),
+          newEventNames: Array.from(root.eventNames),
         })
 
         // Don't wait for this, since we want wsState.mounted and wsState.roots
@@ -458,6 +463,21 @@ async function handleMessage(
         deletePromises.push(reloadOptions.deleteCSSState(cssStateID))
       }
       await Promise.all(deletePromises)
+
+      wsState.connectionState = "connected"
+      // Because both the "close" and "connect" events are async, we check if
+      // `closing` is set because it could be the case that the "close" event
+      // fires just after the "connect" event (e.g., on page refresh), and the
+      // "close" event will see that the `wsState.roots` is an empty array due
+      // to the "connect" event still being in progress. This would result in an
+      // incomplete cleanup of the previous connection's state. Hence, we check
+      // the `closing` flag and clean up any existing state that the "closing"
+      // event could not clean up if needed.
+      if (wsState.closing) {
+        await cleanUpWebSocketState(wsState)
+        wsState.closing = false
+      }
+
       break
     }
 
@@ -1085,6 +1105,22 @@ function unalias(id: string, root: ConnectedRoot): string {
     alias = root.aliases[id]
   }
   return id
+}
+
+async function cleanUpWebSocketState(wsState: WebSocketState): Promise<void> {
+  const promises = wsState.roots.map(async root => {
+    const stateTree = makeStateTree(root.component, true)
+    await reloadOptions.saveStateTree(root.component._id, stateTree)
+    await root.component._triggerUnmount(root.allComponentsMap)
+  })
+  if (wsState.hasCSS) {
+    const cssPromise = reloadOptions.saveCSSState(
+      wsState.cssState.id,
+      wsState.cssState,
+    )
+    promises.push(cssPromise)
+  }
+  await Promise.all(promises)
 }
 
 const globalStateTrees: Record<string, StateTree | undefined> = {}

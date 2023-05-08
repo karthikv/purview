@@ -17,6 +17,7 @@ import Purview, {
   css,
   RENDER_CSS_ORDERING_ERROR,
   styledTag,
+  reloadOptions,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
@@ -1904,6 +1905,68 @@ test("reconnect early", async () => {
     }
     ws.send(JSON.stringify(connect))
     await new Promise(resolve => ws.addEventListener("close", resolve))
+  })
+})
+
+test("cleanup happens when 'close' and 'connect' race", async () => {
+  let mountCount = 0
+  let unmountCount = 0
+
+  class Foo extends TestComponent<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+    }
+
+    componentDidMount(): void {
+      mountCount++
+    }
+
+    componentWillUnmount(): void {
+      unmountCount++
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async conn => {
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(0)
+    conn.ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(mountCount).toBe(1)
+    expect(unmountCount).toBe(1)
+
+    const origin = `http://localhost:${conn.port}`
+    const ws = new WebSocket(`ws://localhost:${conn.port}`, { origin })
+    await new Promise(resolve => ws.addEventListener("open", resolve))
+
+    // To avoid infinite recursion, we only mock the first call to
+    // `getStateTree`. To allow jest to clean up the mock implementation, we use
+    // `spyOn` and call `spy.mockRestore()` once test execution has completed.
+    // This prevent subsequnt tests from using the mock implementation.
+    const spy = jest.spyOn(reloadOptions, "getStateTree")
+    spy.mockImplementationOnce(async rootID => {
+      // Create an artificial delay when fetching state trees so that the
+      // "close" event executes before the "connect" event finishes.
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return await reloadOptions.getStateTree(rootID)
+    })
+    const connect: ClientMessage = {
+      type: "connect",
+      rootIDs: [conn.rootID],
+    }
+    ws.send(JSON.stringify(connect))
+    ws.close()
+
+    // Wait for state to be saved and unmount to occur.
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(mountCount).toBe(2)
+    expect(unmountCount).toBe(2)
+    spy.mockRestore()
   })
 })
 
