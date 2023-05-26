@@ -15,6 +15,8 @@ import {
   findNested,
   isJSXElement,
   STYLE_TAG_ID,
+  WS_PING_INTERVAL,
+  WS_PONG_TIMEOUT,
 } from "./helpers"
 import {
   ServerMessage,
@@ -342,7 +344,50 @@ export function handleWebSocket(
     })
   })
 
+  // Send pings periodically and terminate if no pong.
+  const interval = setInterval(
+    () => pingClients(wsServer, WS_PONG_TIMEOUT),
+    WS_PING_INTERVAL,
+  )
+  wsServer.on("close", () => clearInterval(interval))
+
+  server.on("close", () => wsServer.close())
   return wsServer
+}
+
+const terminationTimers = new WeakMap<WebSocket, NodeJS.Timer | null>()
+
+// If a client doesn't respond with a pong in the timeout (given in
+// milliseconds), forcibly terminate the connection.
+export function pingClients(wsServer: WebSocket.Server, timeout: number): void {
+  for (const ws of wsServer.clients) {
+    if (!terminationTimers.has(ws)) {
+      // First time we're processing this websocket; listen for pongs to clear
+      // the termination timer.
+      ws.on("pong", () => {
+        const timer = terminationTimers.get(ws)
+        if (timer) {
+          clearTimeout(timer)
+        }
+
+        // N.B. We want to maintain an association in the WeakMap so that we
+        // don't add another pong handler.
+        terminationTimers.set(ws, null)
+      })
+    }
+
+    // If no termination timer is set, either because one has never been set, or
+    // because the last was cleared from a pong, set one.
+    if (!terminationTimers.get(ws)) {
+      terminationTimers.set(
+        ws,
+        setTimeout(() => ws.terminate(), timeout),
+      )
+    }
+
+    // Ask the client to send us a pong.
+    ws.ping()
+  }
 }
 
 function makeStateTree(

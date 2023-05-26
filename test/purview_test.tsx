@@ -18,6 +18,7 @@ import Purview, {
   RENDER_CSS_ORDERING_ERROR,
   styledTag,
   reloadOptions,
+  pingClients,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
@@ -2276,6 +2277,42 @@ test("onError, eventCallback and render", async () => {
     },
     { onError },
   )
+})
+
+test("pingClients terminates connections", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const port = (server.address() as net.AddressInfo).port
+  const wsServer = new WebSocket.Server({ server })
+
+  const ws = new WebSocket(`ws://localhost:${port}`)
+  await new Promise(resolve => ws.addEventListener("open", resolve))
+
+  expect(wsServer.clients.size).toBe(1)
+  const client = Array.from(wsServer.clients)[0]
+  const spy = jest.spyOn(client, "ping")
+
+  pingClients(wsServer, 20)
+  expect(spy).toBeCalledTimes(1)
+
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(spy).toBeCalledTimes(1)
+  expect(ws.readyState).toBe(WebSocket.OPEN)
+
+  spy.mockImplementation(() => {
+    // Do nothing to simulate no ping.
+  })
+
+  pingClients(wsServer, 20)
+  expect(spy).toBeCalledTimes(2)
+
+  await new Promise(resolve => setTimeout(resolve, 30))
+  expect(spy).toBeCalledTimes(2)
+  expect(ws.readyState).toBe(WebSocket.CLOSED)
+
+  spy.mockRestore()
+  server.close()
 })
 
 async function renderAndConnect<T>(
