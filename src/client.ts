@@ -72,7 +72,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
     }
   }
 
-  let interval: number | null = null
+  let interval: NodeJS.Timer | null = null
   ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
@@ -90,11 +90,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
 
     rootElems.forEach(initMorph)
     sendMessage(ws, { type: "connect", rootIDs, cssStateID })
-
-    // Explicitly call window.setInterval() so Webpack's ts-loader type
-    // checking passes. Otherwise, the return type is NodeJS.Timer, which
-    // ts-loader doesn't recognize.
-    interval = window.setInterval(
+    interval = setInterval(
       () => pingServer(ws, WS_PONG_TIMEOUT),
       WS_PING_INTERVAL,
     )
@@ -133,11 +129,8 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
   })
 
   ws.addEventListener("close", () => {
-    if (typeof interval === "number") {
-      // During testing, window.clearInterval is different than the global
-      // clearInterval. Because we used window.setInterval to set this timer,
-      // we need to use window.clearInterval to clear it.
-      window.clearInterval(interval)
+    if (interval) {
+      clearInterval(interval)
       interval = null
     }
 
@@ -145,7 +138,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
       location.reload()
     } else {
       if (process.env.NODE_ENV !== "test") {
-        window.setTimeout(() => {
+        setTimeout(() => {
           state.ws = new WebSocket(state.url)
           addWebSocketHandlers(state, location)
         }, state.waitTime)
@@ -163,7 +156,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
 // - Reconnects are easy: they will introduce a new WebSocket object, which will
 //   have a new timer in the map.
 // - We don't need to worry about clean up.
-const terminationTimers = new WeakMap<WebSocket, number | null>()
+const terminationTimers = new WeakMap<WebSocket, NodeJS.Timer | null>()
 
 // If the server doesn't respond with a pong in the timeout (given in
 // milliseconds), forcibly terminate the connection.
@@ -174,11 +167,8 @@ export function pingServer(ws: WebSocket, timeout: number): void {
     ws.addEventListener("message", messageEvent => {
       if (messageEvent.data === "pong") {
         const timer = terminationTimers.get(ws)
-        if (typeof timer === "number") {
-          // During testing, window.clearTimeout is different than the global
-          // clearTimeout. Because we used window.setTimeout to set this timer,
-          // we need to use window.clearTimeout to clear it.
-          window.clearTimeout(timer)
+        if (timer) {
+          clearTimeout(timer)
         }
 
         // N.B. We want to maintain an association in the WeakMap so that we
@@ -190,13 +180,10 @@ export function pingServer(ws: WebSocket, timeout: number): void {
 
   // If no termination timer is set, either because one has never been set, or
   // because the last was cleared from a pong, set one.
-  if (typeof terminationTimers.get(ws) !== "number") {
+  if (!terminationTimers.get(ws)) {
     terminationTimers.set(
       ws,
-      // Explicitly call window.setTimeout() so Webpack's ts-loader type
-      // checking passes. Otherwise, the return type is NodeJS.Timer, which
-      // ts-loader doesn't recognize.
-      window.setTimeout(() => ws.close(), timeout),
+      setTimeout(() => ws.close(), timeout),
     )
   }
 
