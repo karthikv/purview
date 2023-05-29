@@ -317,6 +317,11 @@ export function handleWebSocket(
     const wsState = wsStateBase as WebSocketState
 
     ws.on("message", async data => {
+      if (data === "ping") {
+        ws.send("pong")
+        return
+      }
+
       const parsed = tryParseJSON(data.toString())
       const decoded = clientMessageValidator.decode(parsed)
       if (decoded.isRight()) {

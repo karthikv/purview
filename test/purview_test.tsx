@@ -2315,6 +2315,27 @@ test("pingClients terminates connections", async () => {
   server.close()
 })
 
+test("responds to client ping through data frame", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const port = (server.address() as net.AddressInfo).port
+  const origin = `http://localhost:${port}`
+  Purview.handleWebSocket(server, { origin })
+
+  const ws = new WebSocket(`ws://localhost:${port}`, { origin })
+  await new Promise(resolve => ws.addEventListener("open", resolve))
+
+  ws.send("ping")
+  const data = await new Promise<unknown>(resolve =>
+    ws.addEventListener("message", message => resolve(message.data)),
+  )
+
+  expect(data).toBe("pong")
+  server.close()
+  ws.close()
+})
+
 async function renderAndConnect<T>(
   jsxElem: JSX.Element,
   callback: (conn: {
