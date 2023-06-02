@@ -72,7 +72,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
     }
   }
 
-  let interval: NodeJS.Timer | null = null
+  let interval: ReturnType<typeof setInterval> | null = null
   ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
