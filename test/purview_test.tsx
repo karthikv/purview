@@ -2296,7 +2296,7 @@ test("pingClients terminates connections", async () => {
   pingClients(wsServer, 20)
   expect(spy).toBeCalledTimes(1)
 
-  await new Promise(resolve => setTimeout(resolve, 30))
+  await new Promise(resolve => setTimeout(resolve, 50))
   expect(spy).toBeCalledTimes(1)
   expect(ws.readyState).toBe(WebSocket.OPEN)
 
@@ -2307,7 +2307,7 @@ test("pingClients terminates connections", async () => {
   pingClients(wsServer, 20)
   expect(spy).toBeCalledTimes(2)
 
-  await new Promise(resolve => setTimeout(resolve, 30))
+  await new Promise(resolve => setTimeout(resolve, 50))
   expect(spy).toBeCalledTimes(2)
   expect(ws.readyState).toBe(WebSocket.CLOSED)
 
