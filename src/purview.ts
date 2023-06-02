@@ -360,7 +360,10 @@ export function handleWebSocket(
   return wsServer
 }
 
-const terminationTimers = new WeakMap<WebSocket, NodeJS.Timer | null>()
+const terminationTimers = new WeakMap<
+  WebSocket,
+  ReturnType<typeof setTimeout> | null
+>()
 
 // If a client doesn't respond with a pong in the timeout (given in
 // milliseconds), forcibly terminate the connection.

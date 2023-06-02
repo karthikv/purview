@@ -72,7 +72,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
     }
   }
 
-  let interval: NodeJS.Timer | null = null
+  let interval: ReturnType<typeof setInterval> | null = null
   ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
@@ -156,7 +156,10 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
 // - Reconnects are easy: they will introduce a new WebSocket object, which will
 //   have a new timer in the map.
 // - We don't need to worry about clean up.
-const terminationTimers = new WeakMap<WebSocket, NodeJS.Timer | null>()
+const terminationTimers = new WeakMap<
+  WebSocket,
+  ReturnType<typeof setTimeout> | null
+>()
 
 // If the server doesn't respond with a pong in the timeout (given in
 // milliseconds), forcibly terminate the connection.

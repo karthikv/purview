@@ -429,7 +429,7 @@ test("pingServer terminates connections", async () => {
   expect(spy.mock.calls[0]).toEqual(["ping"])
   expect(spy).toBeCalledTimes(1)
 
-  await new Promise(resolve => setTimeout(resolve, 30))
+  await new Promise(resolve => setTimeout(resolve, 50))
   expect(spy).toBeCalledTimes(1)
   expect(ws.readyState).toBe(WebSocket.OPEN)
 
@@ -443,7 +443,7 @@ test("pingServer terminates connections", async () => {
   expect(spy.mock.calls[1]).toEqual(["ping"])
   expect(spy).toBeCalledTimes(2)
 
-  await new Promise(resolve => setTimeout(resolve, 30))
+  await new Promise(resolve => setTimeout(resolve, 50))
   expect(spy).toBeCalledTimes(2)
   expect(ws.readyState).toBe(WebSocket.CLOSED)
 
