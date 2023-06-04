@@ -70,7 +70,7 @@ Purview.reloadOptions.getStateTree = async id => {
   try {
     contents = await fs.promises.readFile(path, "utf8")
   } catch (error) {
-    if (error.code === "ENOENT") {
+    if ((error as any).code === "ENOENT") {
       return null
     }
     throw error
@@ -83,7 +83,7 @@ Purview.reloadOptions.deleteStateTree = async id => {
   try {
     await fs.promises.unlink(path)
   } catch (error) {
-    if (error.code === "ENOENT") {
+    if ((error as any).code === "ENOENT") {
       return
     }
     throw error

@@ -7,15 +7,17 @@ declare global {
   interface NestedArray<T> extends Array<NestedArray<T> | T> {}
 
   namespace JSX {
-    interface Element<T = HTMLAttributes> {
+    interface Element<T extends HTMLAttributes = HTMLAttributes> {
       nodeName: string | ComponentConstructor<any, any>
       attributes: T
       children: Child | NestedArray<Child>
     }
-    interface ComponentElement<T = HTMLAttributes> extends Element<T> {
+    interface ComponentElement<T extends HTMLAttributes = HTMLAttributes>
+      extends Element<T> {
       nodeName: ComponentConstructor<any, any>
     }
-    interface NormalElement<T = HTMLAttributes> extends Element<T> {
+    interface NormalElement<T extends HTMLAttributes = HTMLAttributes>
+      extends Element<T> {
       nodeName: string
     }
 

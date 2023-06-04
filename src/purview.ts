@@ -4,6 +4,7 @@ import * as util from "util"
 import * as WebSocket from "ws"
 import { nanoid } from "nanoid"
 import * as t from "io-ts"
+import { fold } from "fp-ts/lib/Either"
 
 import Component, { ComponentConstructor } from "./component"
 import {
@@ -41,6 +42,7 @@ import {
   generateRule,
   getAtomicProperties,
 } from "./css"
+import { pipe } from "fp-ts/lib/function"
 
 export interface RenderOptions {
   onError?: ErrorHandler
@@ -316,10 +318,13 @@ export function handleWebSocket(
 
     ws.on("message", async data => {
       const parsed = tryParseJSON(data.toString())
-      const decoded = clientMessageValidator.decode(parsed)
-      if (decoded.isRight()) {
-        await handleMessage(decoded.value, wsState, req, server)
+      const onLeft = () => {
+        // error case, do nothing
       }
+      const onRight = async (clientMessage: ClientMessage) => {
+        await handleMessage(clientMessage, wsState, req, server)
+      }
+      pipe(clientMessageValidator.decode(parsed), fold(onLeft, onRight))
     })
 
     ws.on("close", async () => {
@@ -526,10 +531,11 @@ async function handleMessage(
       }
 
       if (handler.validator) {
-        const decoded = handler.validator.decode(message.event)
-        if (decoded.isRight()) {
-          await handler.callback(decoded.value)
+        const onLeft = async () => {}
+        const onRight = async (purviewEvent: PurviewEvent) => {
+          await handler.callback(purviewEvent)
         }
+        pipe(handler.validator.decode(message.event), fold(onLeft, onRight))
       } else {
         await handler.callback()
       }

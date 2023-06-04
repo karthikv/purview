@@ -93,7 +93,7 @@ type NextRuleIndexMessageValidator = t.TypeOf<
 check<NextRuleIndexMessageValidator, NextRuleIndexMessage>()
 check<NextRuleIndexMessage, NextRuleIndexMessageValidator>()
 
-export const clientMessageValidator = t.taggedUnion("type", [
+export const clientMessageValidator = t.union([
   connectMessageValidator,
   eventMessageValidator,
   seenEventNamesMessageValidator,

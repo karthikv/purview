@@ -1701,7 +1701,9 @@ test("origin validation", async () => {
     origin: `http://example.com`,
   })
   const error = await new Promise<Error>(resolve =>
-    ws.addEventListener("error", resolve),
+    ws.addEventListener("error", event => {
+      resolve(event.error)
+    }),
   )
   expect(error.message).toBe("Unexpected server response: 401")
 
@@ -1758,7 +1760,7 @@ test("reconnect", async () => {
     }
     ws.send(JSON.stringify(connect))
 
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       ws.addEventListener("message", messageEvent => {
         const message: ServerMessage = JSON.parse(messageEvent.data.toString())
         expect(message.type).toBe("update")
@@ -1826,7 +1828,7 @@ test("reconnect new child component mount cycle", async () => {
     }
     ws.send(JSON.stringify(connect))
 
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       ws.addEventListener("message", messageEvent => {
         const message: ServerMessage = JSON.parse(messageEvent.data.toString())
         expect(message.type).toBe("update")
@@ -1875,7 +1877,7 @@ test("reconnect getInitialState()", async () => {
     }
     ws.send(JSON.stringify(connect))
 
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       ws.addEventListener("message", messageEvent => {
         const message: ServerMessage = JSON.parse(messageEvent.data.toString())
         expect(message.type).toBe("update")
@@ -2313,7 +2315,7 @@ async function renderAndConnect<T>(
   await new Promise(resolve => server.listen(resolve))
 
   const port = (server.address() as net.AddressInfo).port
-  await new Promise(resolve => {
+  await new Promise<void>(resolve => {
     http.get(`http://localhost:${port}`, res => {
       res.on("data", () => null)
       res.on("end", () => resolve())

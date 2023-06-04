@@ -62,8 +62,8 @@ export function css(...allCSSProperties: CSSProperties[]): CSS {
       // expand many layers recursively. We rely on the type system to prevent
       // nested layers of pseudo properties from being passed in.
       if (isPseudoClass(key)) {
-        result[key] = result[key] ?? {}
-        Object.assign(result[key], css(value as OptionalProperties))
+        const resultKey = result[key] ?? {}
+        result[key] = Object.assign(resultKey, css(value as OptionalProperties))
         return
       }
 
@@ -188,7 +188,7 @@ export function styledTag<K extends keyof JSX.IntrinsicElements>(
       const finalCSS = cssProperties ? css(baseCSS, cssProperties!) : baseCSS
       return (
         // TS seems to have trouble type-checking otherProps here.
-        <Tag css={finalCSS} {...(otherProps as unknown)}>
+        <Tag css={finalCSS} {...(otherProps as any)}>
           {children}
         </Tag>
       )
