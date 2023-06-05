@@ -2315,6 +2315,25 @@ test("pingClients terminates connections", async () => {
   server.close()
 })
 
+test("pingClients doesn't process websockets in closing state", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const port = (server.address() as net.AddressInfo).port
+  const wsServer = new WebSocket.Server({ server })
+
+  const ws = new WebSocket(`ws://localhost:${port}`)
+  await new Promise(resolve => ws.addEventListener("open", resolve))
+
+  expect(wsServer.clients.size).toBe(1)
+  const client = Array.from(wsServer.clients)[0]
+
+  client.close()
+  expect(() => pingClients(wsServer, 20)).not.toThrow()
+
+  server.close()
+})
+
 test("responds to client ping through data frame", async () => {
   const server = http.createServer()
   await new Promise(resolve => server.listen(resolve))

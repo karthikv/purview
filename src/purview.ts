@@ -369,6 +369,15 @@ const terminationTimers = new WeakMap<
 // milliseconds), forcibly terminate the connection.
 export function pingClients(wsServer: WebSocket.Server, timeout: number): void {
   for (const ws of wsServer.clients) {
+    // If a WebSocket is in the closing state, ws.ping() (which is called
+    // further below) will throw the following error: Error: WebSocket is not
+    // open: readyState 2 (CLOSING)
+    //
+    // Prevent this from happening by checking the state.
+    if (ws.readyState !== WebSocket.OPEN) {
+      continue
+    }
+
     if (!terminationTimers.has(ws)) {
       // First time we're processing this websocket; listen for pongs to clear
       // the termination timer.
