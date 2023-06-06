@@ -108,6 +108,9 @@ const PSEUDO_CLASS_MAP: Record<SimplePseudos, true> = {
   ":user-valid": true,
   ":valid": true,
   ":visited": true,
+  "::-ms-expand": true,
+  "::view-transition": true,
+  ":playing": true,
 }
 
 export function isPseudoClass(value: string): value is SimplePseudos {
