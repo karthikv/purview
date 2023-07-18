@@ -1,4 +1,11 @@
-import { tryParseJSON, isSelect, isInput, STYLE_TAG_ID } from "./helpers"
+import {
+  tryParseJSON,
+  isSelect,
+  isInput,
+  STYLE_TAG_ID,
+  WS_PING_INTERVAL,
+  WS_PONG_TIMEOUT,
+} from "./helpers"
 import { initMorph, morph, clearSetValueTimer } from "./morph"
 import {
   ServerMessage,
@@ -65,6 +72,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
     }
   }
 
+  let interval: ReturnType<typeof setInterval> | null = null
   ws.addEventListener("open", () => {
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
@@ -82,9 +90,17 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
 
     rootElems.forEach(initMorph)
     sendMessage(ws, { type: "connect", rootIDs, cssStateID })
+    interval = setInterval(
+      () => pingServer(ws, WS_PONG_TIMEOUT),
+      WS_PING_INTERVAL,
+    )
   })
 
-  ws.addEventListener("message", (messageEvent: MessageEvent) => {
+  ws.addEventListener("message", messageEvent => {
+    if (messageEvent.data === "pong") {
+      return
+    }
+
     const message = tryParseJSON<ServerMessage>(messageEvent.data)
 
     switch (message.type) {
@@ -113,6 +129,11 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
   })
 
   ws.addEventListener("close", () => {
+    if (interval) {
+      clearInterval(interval)
+      interval = null
+    }
+
     if (state.numRetries === MAX_RETRIES) {
       location.reload()
     } else {
@@ -126,6 +147,51 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
       state.waitTime *= RETRY_FACTOR
     }
   })
+}
+
+// At any given time, there should only be one active WebSocket, and hence one
+// active termination timer, but we still use a WeakMap here for a few reasons:
+//
+// - We can keep this code analogous to pingClients() in purview.ts.
+// - Reconnects are easy: they will introduce a new WebSocket object, which will
+//   have a new timer in the map.
+// - We don't need to worry about clean up.
+const terminationTimers = new WeakMap<
+  WebSocket,
+  ReturnType<typeof setTimeout> | null
+>()
+
+// If the server doesn't respond with a pong in the timeout (given in
+// milliseconds), forcibly terminate the connection.
+export function pingServer(ws: WebSocket, timeout: number): void {
+  if (!terminationTimers.has(ws)) {
+    // First time we're processing this websocket; listen for pongs to clear
+    // the termination timer.
+    ws.addEventListener("message", messageEvent => {
+      if (messageEvent.data === "pong") {
+        const timer = terminationTimers.get(ws)
+        if (timer) {
+          clearTimeout(timer)
+        }
+
+        // N.B. We want to maintain an association in the WeakMap so that we
+        // don't add another pong handler.
+        terminationTimers.set(ws, null)
+      }
+    })
+  }
+
+  // If no termination timer is set, either because one has never been set, or
+  // because the last was cleared from a pong, set one.
+  if (!terminationTimers.get(ws)) {
+    terminationTimers.set(
+      ws,
+      setTimeout(() => ws.close(), timeout),
+    )
+  }
+
+  // Ask the server to send us a pong.
+  ws.send("ping")
 }
 
 function addEventHandlers(

@@ -17,7 +17,7 @@ import * as http from "http"
 import * as net from "net"
 import Purview from "../src/purview"
 import AsyncQueue from "./async_queue"
-import { connectWebSocket } from "../src/client"
+import { connectWebSocket, pingServer } from "../src/client"
 import {
   PNodeRegular,
   SeenEventNamesMessage,
@@ -402,6 +402,53 @@ test("submit event", async () => {
       },
     })
   })
+})
+
+test("pingServer terminates connections", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const port = (server.address() as net.AddressInfo).port
+  const wsServer = new WebSocket.Server({ server })
+
+  const ws = new WebSocket(`ws://localhost:${port}`)
+  const spy = jest.spyOn(ws, "send")
+  await new Promise(resolve => ws.addEventListener("open", resolve))
+
+  expect(wsServer.clients.size).toBe(1)
+  const client = Array.from(wsServer.clients)[0]
+  client.on("message", data => {
+    if (data === "ping") {
+      client.send("pong")
+    }
+  })
+
+  // The ws library's WebSocket is different than the browser's WebSocket, so we
+  // cast here.
+  pingServer(ws as any, 20)
+  expect(spy.mock.calls[0]).toEqual(["ping"])
+  expect(spy).toBeCalledTimes(1)
+
+  await new Promise(resolve => setTimeout(resolve, 50))
+  expect(spy).toBeCalledTimes(1)
+  expect(ws.readyState).toBe(WebSocket.OPEN)
+
+  spy.mockImplementation(() => {
+    // Do nothing to simulate no ping.
+  })
+
+  // The ws library's WebSocket is different than the browser's WebSocket, so we
+  // cast here.
+  pingServer(ws as any, 20)
+  expect(spy.mock.calls[1]).toEqual(["ping"])
+  expect(spy).toBeCalledTimes(2)
+
+  await new Promise(resolve => setTimeout(resolve, 50))
+  expect(spy).toBeCalledTimes(2)
+  expect(ws.readyState).toBe(WebSocket.CLOSED)
+
+  spy.mockRestore()
+  server.close()
 })
 
 function populate(jsx: JSX.Element): PNodeRegular {
