@@ -32,6 +32,9 @@ export default class extends Purview.Component<{}, AnimationState> {
   }
 
   toggle = () => {
+    // tslint:disable-next-line
+    console.log("toggling")
+
     void this.setState(state => {
       if (state.visible) {
         if (this.interval) {

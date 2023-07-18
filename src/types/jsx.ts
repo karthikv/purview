@@ -1,4 +1,4 @@
-import Component, { ComponentConstructor } from "../component"
+import Component, { ComponentConstructor, Fragment } from "../component"
 import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./ws"
 import { CSS } from "../css"
 
@@ -8,8 +8,14 @@ declare global {
 
   namespace JSX {
     interface Element<T extends HTMLAttributes = HTMLAttributes> {
-      nodeName: string | ComponentConstructor<any, any>
+      nodeName: string | ComponentConstructor<any, any> | Fragment<any>
       attributes: T
+      children: Child | NestedArray<Child>
+    }
+
+    interface FragmentElement<P extends { children: any } = { children: any }> {
+      nodeName: Fragment<P>
+      attributes: {}
       children: Child | NestedArray<Child>
     }
     interface ComponentElement<T extends HTMLAttributes = HTMLAttributes>

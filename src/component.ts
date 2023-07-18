@@ -4,6 +4,15 @@ import { PNodeRegular } from "./types/ws"
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 
+export class Fragment<P extends { children: any }> {
+  public _isFragment: boolean
+  constructor(props: P) {
+    return props.children
+  }
+}
+
+Fragment.prototype._isFragment = true
+
 export interface ComponentConstructor<P, S> {
   _stateless: boolean
   getUniqueName(): string

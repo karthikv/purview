@@ -17,6 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "jsx": "react",
     "jsxFactory": "Purview.createElem",
+    "jsxFragmentFactory": "Purview.Fragment",
     "plugins": [{ "name": "typescript-tslint-plugin" }],
     "declaration": true
   },

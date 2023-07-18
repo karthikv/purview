@@ -6,7 +6,7 @@ import { nanoid } from "nanoid"
 import * as t from "io-ts"
 import { fold } from "fp-ts/lib/Either"
 
-import Component, { ComponentConstructor } from "./component"
+import Component, { Fragment, ComponentConstructor } from "./component"
 import {
   tryParseJSON,
   mapNested,
@@ -685,6 +685,14 @@ function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
   )
 }
 
+function isFragmentElem(jsx: JSX.Element): jsx is JSX.FragmentElement {
+  return (
+    typeof jsx.nodeName === "function" &&
+    jsx.nodeName.prototype &&
+    jsx.nodeName.prototype._isFragment
+  )
+}
+
 async function makeElem(
   jsx: JSX.Element,
   parent: Component<any, any>,
@@ -693,6 +701,7 @@ async function makeElem(
   parentKey: string,
 ): Promise<PNode | null> {
   let key: string
+
   if (isComponentElem(jsx)) {
     key = parentKey + "/" + jsx.nodeName.getUniqueName()
     const cached = parent._childMap[key]
@@ -727,7 +736,50 @@ async function makeElem(
     })
   }
 
+  if (isFragmentElem(jsx)) {
+    return makeFragmentElem(jsx, parent, rootID, root, parentKey)
+  }
+
   return makeRegularElem(jsx, parent, rootID, root, parentKey)
+}
+
+async function makeFragmentElem(
+  jsx: JSX.Element,
+  parent: Component<any, any>,
+  rootID: string,
+  root: ConnectedRoot | DisconnectedRoot,
+  parentKey: string,
+): Promise<PNode | null> {
+  const { children } = jsx
+
+  let nodeName = "FragmentChild" + nanoid()
+
+  let vChildren: Array<PNode | null>
+  // Most common case: leaf text node.
+  if (typeof children === "string") {
+    vChildren = [createTextPNode(children)]
+  } else if (children instanceof Array) {
+    const promises = mapNested(children, child =>
+      makeChild(child, parent, rootID, root, parentKey + "/" + nodeName),
+    )
+    vChildren = await Promise.all(promises)
+
+    // Remove nulls in place to save memory.
+    let nextIndex = 0
+    for (const vChild of vChildren) {
+      if (vChild) {
+        vChildren[nextIndex] = vChild
+        nextIndex++
+      }
+    }
+    vChildren.length = nextIndex
+  } else {
+    const key = parentKey + "/" + nodeName
+    const child = await makeChild(children, parent, rootID, root, key)
+    vChildren = child ? [child] : []
+  }
+
+  return createPNode(nodeName, {}, vChildren as PNode[])
 }
 
 async function makeRegularElem(
@@ -760,6 +812,7 @@ async function makeRegularElem(
     const callback = attributes[attr] as EventCallback
 
     let eventID = cachedEventIDs.get(callback)
+
     if (!eventID) {
       eventID = nanoid()
       cachedEventIDs.set(callback, eventID)
@@ -913,6 +966,7 @@ async function withComponent<T>(
   root?: ConnectedRoot | DisconnectedRoot,
 ): Promise<T> {
   const { nodeName, attributes, children } = jsx
+
   const props = Object.assign({ children }, attributes)
 
   let component: Component<any, any>
@@ -1177,6 +1231,7 @@ export const scriptPath = pathLib.resolve(
 // Export all values above on the default object as well.
 export default {
   createElem,
+  Fragment,
   handleWebSocket,
   render,
   renderCSS,
