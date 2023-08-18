@@ -1,5 +1,6 @@
 import { JSDOM } from "jsdom"
 import * as WebSocket from "ws"
+import { JSX } from "../src/purview"
 
 const {
   window,

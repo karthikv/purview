@@ -11,7 +11,7 @@ class Example extends Purview.Component<{}, { text: string }> {
     void this.setState({ text: event.value })
   }
 
-  render(): JSX.Element {
+  render() {
     return (
       <div>
         <input type="text" onInput={this.handleInput} />

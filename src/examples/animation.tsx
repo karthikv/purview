@@ -51,7 +51,7 @@ export default class extends Purview.Component<{}, AnimationState> {
   next = () => this.setState(state => ({ count: state.count + state.step }))
   flip = () => this.setState(state => ({ step: -state.step }))
 
-  render(): JSX.Element {
+  render() {
     const barCount = 80
     const barWidth = 100 / barCount
 

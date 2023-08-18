@@ -9,16 +9,13 @@ import * as http from "http"
 import * as net from "net"
 import AsyncQueue from "./async_queue"
 import Purview, {
-  RenderOptions,
   InputEvent,
   ChangeEvent,
   KeyEvent,
   SubmitEvent,
-  css,
-  RENDER_CSS_ORDERING_ERROR,
+  JSX,
   styledTag,
-  reloadOptions,
-  pingClients,
+  css,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
@@ -29,13 +26,19 @@ import {
   ClientMessage,
   NextRuleIndexMessage,
 } from "../src/types/ws"
-import {
-  MAX_SET_STATE_AFTER_UNMOUNT,
-  ComponentConstructor,
-} from "../src/component"
 import { CSSProperties } from "../src/css"
 
 const NANO_ID_REGEX = /^[A-Za-z0-9_-]{21}$/
+
+const {
+  RENDER_CSS_ORDERING_ERROR,
+  reloadOptions,
+  pingClients,
+  MAX_SET_STATE_AFTER_UNMOUNT,
+} = Purview
+
+type ComponentConstructor<P, S> = Purview.ComponentConstructor<P, S>
+type RenderOptions = Purview.RenderOptions
 
 test("createElem", () => {
   const p = (

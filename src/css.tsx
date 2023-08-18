@@ -2,8 +2,9 @@ import { Properties, SimplePseudos } from "csstype"
 import { expandProperty } from "inline-style-expand-shorthand"
 import { lexer } from "css-tree"
 import * as LRU from "lru-cache"
-import * as Purview from "./purview"
+import Purview from "./purview"
 import { isPseudoClass } from "./pseudo_classes"
+import { JSXInternal as JSX } from "./types/jsx"
 
 type OptionalProperties = {
   [key in keyof Properties]?: Properties[key] | null | false

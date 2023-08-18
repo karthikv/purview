@@ -1,5 +1,6 @@
 import { Attrs } from "snabbdom/modules/attributes"
 import { PNodeRegular, PNode } from "./types/ws"
+import { JSXInternal as JSX } from "./types/jsx"
 
 type EventAttribute = keyof JSX.DOMAttributes
 

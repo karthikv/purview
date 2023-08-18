@@ -1,7 +1,4 @@
-import Purview, {
-  ChangeEvent,
-  // css, styledTag
-} from "../purview"
+import Purview, { ChangeEvent, css, styledTag } from "../purview"
 import Animation from "./animation"
 
 interface AppState {
@@ -12,20 +9,20 @@ interface AppState {
   list: string[]
 }
 
-// const Help = styledTag("p", {
-//   color: "red",
-//   ":hover": { backgroundColor: "red", color: "white" },
-// })
+const Help = styledTag("p", {
+  color: "red",
+  ":hover": { backgroundColor: "red", color: "white" },
+})
 
-// const FirstButton = styledTag("button", {
-//   backgroundColor: "#ccc",
-//   color: "black",
-// })
+const FirstButton = styledTag("button", {
+  backgroundColor: "#ccc",
+  color: "black",
+})
 
-// const SecondButton = styledTag("button", {
-//   backgroundColor: "blue",
-//   color: "white",
-// })
+const SecondButton = styledTag("button", {
+  backgroundColor: "blue",
+  color: "white",
+})
 
 export default class App extends Purview.Component<{}, AppState> {
   state = {
@@ -39,9 +36,6 @@ export default class App extends Purview.Component<{}, AppState> {
   toggleHelp = () => this.setState(state => ({ help: !state.help }))
 
   setValue = async (event: ChangeEvent) => {
-    // tslint:disable-next-line
-    console.log("in here with the event ", event)
-
     await this.setState({ value: event.value as string })
   }
 
@@ -54,30 +48,14 @@ export default class App extends Purview.Component<{}, AppState> {
     }))
   }
 
-  render(): JSX.Element {
-    const { list, value } = this.state
-    // tslint:disable-next-line
-    console.log("list", list)
-
-    return (
-      <>
-        <input onInput={this.setValue} value={value} />
-        <button onClick={this.onClick}>add</button>
-        {list.map(item => (
-          <div key={item}>{item}</div>
-        ))}
-      </>
-    )
-  }
-
-  renderNot(): JSX.Element {
-    // const help = this.state.help ? <Help>This is some help text</Help> : null
+  render() {
+    const help = this.state.help ? <Help>This is some help text</Help> : null
 
     return (
       <div>
         <Animation />
 
-        {/* {this.state.showFirst && <FirstButton>Bar</FirstButton>}
+        {this.state.showFirst && <FirstButton>Bar</FirstButton>}
         <SecondButton
           onClick={() => this.setState({ showFirst: !this.state.showFirst })}
         >
@@ -140,7 +118,7 @@ export default class App extends Purview.Component<{}, AppState> {
         />
 
         {help}
-        <button onClick={this.toggleHelp}>Toggle Help</button> */}
+        <button onClick={this.toggleHelp}>Toggle Help</button>
       </div>
     )
   }

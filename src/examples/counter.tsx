@@ -24,7 +24,7 @@ class Counter extends Purview.Component<{}, { count: number }> {
     await this.setState(await this.getInitialState())
   }
 
-  render(): JSX.Element {
+  render() {
     return (
       <div>
         <p>The count is {this.state.count}</p>
