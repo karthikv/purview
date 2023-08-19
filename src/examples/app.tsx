@@ -1,4 +1,4 @@
-import Purview, { ChangeEvent, css, styledTag } from "../purview"
+import Purview, { ChangeEvent, css, JSX, styledTag } from "../purview"
 import Animation from "./animation"
 
 interface AppState {

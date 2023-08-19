@@ -25,6 +25,7 @@ const config = {
   output: {
     filename: "[name].js",
     path: pathLib.resolve(__dirname, "build"),
+    hashFunction: "xxhash64",
   },
 }
 

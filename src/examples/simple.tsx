@@ -1,5 +1,5 @@
 import * as http from "http"
-import Purview, { InputEvent } from "../purview"
+import Purview, { InputEvent, JSX } from "../purview"
 import * as express from "express"
 
 // (1) Write components by extending Purview.Component. The two type parameters

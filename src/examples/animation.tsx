@@ -1,4 +1,4 @@
-import Purview, { css } from "../purview"
+import Purview, { css, JSX } from "../purview"
 
 interface AnimationState {
   visible: boolean

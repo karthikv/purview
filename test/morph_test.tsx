@@ -1,4 +1,5 @@
 import { JSDOM } from "jsdom"
+import { JSX } from "../src/purview"
 
 const { document, HTMLElement } = new JSDOM().window
 Object.assign(global, { document, HTMLElement })
@@ -51,16 +52,16 @@ test("morph text input value undefined", () => {
 
 test("morph option selected", async () => {
   const select = populate(
-    <select>
-      <optgroup>
-        <option>Foo</option>
-      </optgroup>
-      <option selected>Bar</option>
-      <option>Baz</option>
-    </select>,
-  ) as HTMLInputElement
+      <select>
+        <optgroup>
+          <option>Foo</option>
+        </optgroup>
+        <option selected>Bar</option>
+        <option>Baz</option>
+      </select>,
+    ) as HTMLInputElement
 
-  // Simulate user selecting an option.
+    // Simulate user selecting an option.
   ;(select.children[0].children[0] as HTMLOptionElement).selected = true
   ;(select.children[1] as HTMLOptionElement).selected = false
   expect(document.querySelector("select")!.value).toBe("Foo")
@@ -82,13 +83,13 @@ test("morph option selected", async () => {
 
 test("morph select multiple", async () => {
   const select = populate(
-    <select multiple>
-      <option>Foo</option>
-      <option>Bar</option>
-    </select>,
-  ) as HTMLSelectElement
+      <select multiple>
+        <option>Foo</option>
+        <option>Bar</option>
+      </select>,
+    ) as HTMLSelectElement
 
-  // Simulate user selecting multiple options.
+    // Simulate user selecting multiple options.
   ;(select.children[0] as HTMLOptionElement).selected = true
   ;(select.children[1] as HTMLOptionElement).selected = true
 
