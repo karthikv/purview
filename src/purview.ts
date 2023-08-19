@@ -105,7 +105,7 @@ interface DisconnectedRoot {
   onError: ErrorHandler | null
 }
 
-interface CSSState {
+export interface CSSState {
   id: string
   // Maps a single CSS property to a class name.
   atomicCSS: Record<string, string | undefined>
