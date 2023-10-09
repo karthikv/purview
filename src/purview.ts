@@ -44,6 +44,7 @@ import {
   getAtomicProperties,
 } from "./css"
 import { JSX } from "./types/jsx"
+import { NestedArray } from "./types/utility"
 
 export interface RenderOptions {
   onError?: ErrorHandler
@@ -1244,4 +1245,4 @@ export {
   PurviewEvent,
 } from "./types/ws"
 export { css, styledTag, CSS } from "./css"
-export { JSX }
+export { JSX, NestedArray }

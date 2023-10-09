@@ -1,11 +1,9 @@
 import Component, { ComponentConstructor } from "../component"
 import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./ws"
 import { CSS } from "../css"
+import { NestedArray } from "./utility"
 
 /* tslint:disable no-namespace */
-declare global {
-  interface NestedArray<T> extends Array<NestedArray<T> | T> {}
-}
 
 export namespace JSX {
   export interface Element<T = HTMLAttributes> {

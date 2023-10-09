@@ -1,6 +1,6 @@
 import { Attrs } from "snabbdom/modules/attributes"
 import { PNodeRegular, PNode } from "./types/ws"
-import { JSX } from "./purview"
+import { JSX, NestedArray } from "./purview"
 
 type EventAttribute = keyof JSX.DOMAttributes
 
