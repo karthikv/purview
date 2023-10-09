@@ -43,25 +43,13 @@ import {
   generateRule,
   getAtomicProperties,
 } from "./css"
-import { JSXInternal } from "./types/jsx"
+import { JSX } from "./types/jsx"
 
-const InternalComponent = Component
-
-declare module "http" {
-  interface IncomingMessage {
-    purviewState?: {
-      wsState: WebSocketState
-      idStateTrees: IDStateTree[]
-      roots?: ConnectedRoot[]
-    }
-    purviewCSSState?: CSSState
-    purviewCSSRendered?: boolean
-  }
-}
 export interface RenderOptions {
   onError?: ErrorHandler
 }
-interface WebSocketOptions {
+
+export interface WebSocketOptions {
   origin: string | null
 }
 
@@ -140,6 +128,18 @@ interface IDStateTree {
   stateTree: StateTree
 }
 
+declare module "http" {
+  interface IncomingMessage {
+    purviewState?: {
+      wsState: WebSocketState
+      idStateTrees: IDStateTree[]
+      roots?: ConnectedRoot[]
+    }
+    purviewCSSState?: CSSState
+    purviewCSSRendered?: boolean
+  }
+}
+
 const INPUT_TYPE_VALIDATOR: Record<
   string,
   t.Type<any, any, any> | undefined
@@ -169,8 +169,100 @@ export const RENDER_CSS_ORDERING_ERROR =
 const RENDER_CSS_NOT_CALLED_ERROR =
   "Purview: You attempted to use the css attribute in a tag, but renderCSS was never called, so Purview could not add styles. Make sure to call renderCSS and include its output in the head tag during the initial render."
 
+export function createElem(
+  nodeName: string | ComponentConstructor<any, any>,
+  attributes:
+    | (JSX.InputHTMLAttributes &
+        JSX.TextareaHTMLAttributes &
+        JSX.OptionHTMLAttributes)
+    | null,
+  ...children: NestedArray<JSX.Child>
+): JSX.Element {
+  attributes = attributes || {}
+
+  const hasSelected =
+    (nodeName === "option" && attributes.selected !== undefined) ||
+    (nodeName === "select" && containsControlledOption(children))
+
+  const isValueInput =
+    (nodeName === "input" &&
+      (!attributes.type || attributes.type === "text")) ||
+    nodeName === "textarea"
+  const hasValue = isValueInput && attributes.value !== undefined
+
+  const isCheckedInput =
+    nodeName === "input" &&
+    (attributes.type === "checkbox" || attributes.type === "radio")
+  const hasChecked = isCheckedInput && attributes.checked !== undefined
+
+  if (hasSelected || hasValue || hasChecked) {
+    ;(attributes as any)["data-controlled"] = true
+  }
+
+  if (
+    isValueInput &&
+    attributes.defaultValue !== undefined &&
+    attributes.value === undefined
+  ) {
+    attributes.value = attributes.defaultValue
+    delete attributes.defaultValue
+  }
+
+  // Must come after the defaultValue case is handled above. This ensures the
+  // defaultValue is properly written to the children.
+  if (nodeName === "textarea" && attributes.value !== undefined) {
+    children = [attributes.value]
+    delete attributes.value
+  }
+
+  if (
+    isCheckedInput &&
+    attributes.defaultChecked !== undefined &&
+    attributes.checked === undefined
+  ) {
+    attributes.checked = attributes.defaultChecked
+    delete attributes.defaultChecked
+  }
+
+  if (
+    nodeName === "option" &&
+    attributes.defaultSelected !== undefined &&
+    attributes.selected === undefined
+  ) {
+    attributes.selected = attributes.defaultSelected
+    delete attributes.defaultSelected
+  }
+
+  // For intrinsic elements, change special attributes to data-* equivalents and
+  // remove falsy attributes.
+  if (typeof nodeName === "string") {
+    if (attributes.key !== undefined) {
+      ;(attributes as any)["data-key"] = attributes.key
+      delete attributes.key
+    }
+
+    if (attributes.ignoreChildren) {
+      ;(attributes as any)["data-ignore-children"] = true
+      delete attributes.ignoreChildren
+    }
+
+    Object.keys(attributes).forEach(key => {
+      const value = (attributes as any)[key]
+      if (value === null || value === undefined || value === false) {
+        delete (attributes as any)[key]
+      }
+    })
+  }
+
+  if (children.length === 1) {
+    return { nodeName, attributes, children: children[0] }
+  } else {
+    return { nodeName, attributes, children }
+  }
+}
+
 function containsControlledOption(
-  children: JSXInternal.Child | NestedArray<JSXInternal.Child>,
+  children: JSX.Child | NestedArray<JSX.Child>,
 ): boolean {
   if (children instanceof Array) {
     const controlled = findNested(children, child => {
@@ -190,8 +282,83 @@ function containsControlledOption(
   }
 }
 
-function isControlledOption(jsx: JSXInternal.Element): boolean {
+function isControlledOption(jsx: JSX.Element): boolean {
   return jsx.nodeName === "option" && "data-controlled" in jsx.attributes
+}
+
+export function handleWebSocket(
+  server: http.Server,
+  options: WebSocketOptions,
+): WebSocket.Server {
+  const wsServer = new WebSocket.Server({
+    server,
+    verifyClient(info: { origin: string; secure: boolean }): boolean {
+      return options.origin === null || info.origin === options.origin
+    },
+  })
+
+  wsServer.on("connection", (ws, req) => {
+    if (req.method !== "GET") {
+      throw new Error("Only GET requests are supported")
+    }
+
+    const wsStateBase: WebSocketState = {
+      ws,
+      roots: [] as ConnectedRoot[],
+      connectionState: null,
+      mounted: false,
+      closing: false,
+      seenEventNames: new Set(),
+      hasCSS: false,
+    }
+    // wsStateBase is narrowed here to WebSocketStateNoCSS. This can be
+    // problematic in the handlers below because it may have changed to
+    // WebSocketStateHasCSS via the connect message. To avoid this, explicitly
+    // widen the type here.
+    const wsState = wsStateBase as WebSocketState
+
+    ws.on("message", async data => {
+      if (data === "ping") {
+        ws.send("pong")
+        return
+      }
+
+      const parsed = tryParseJSON(data.toString())
+      const decoded = clientMessageValidator.decode(parsed)
+      if (decoded.isRight()) {
+        await handleMessage(decoded.value, wsState, req, server)
+      }
+    })
+
+    ws.on("close", async () => {
+      wsState.closing = true
+      // Because both the "close" and "connect" events are async, we check if
+      // `connectionState` is set to "connected" because it could be the case
+      // that the "close" event fires just after the "connect" event (e.g., on
+      // page refresh), and the "close" event will see that the `wsState.roots`
+      // is an empty array due to the "connect" event still being in progress.
+      // This would result in an incomplete clean up of the previous
+      // connection's state. Hence, we return early, set the `closing` flag, and
+      // let the "connect" event clean up the existing state by signaling with
+      // `closing`.
+      if (wsState.connectionState !== "connected") {
+        return
+      }
+
+      await cleanUpWebSocketState(wsState)
+      wsState.closing = false
+    })
+  })
+
+  // Send pings periodically and terminate if no pong.
+  const interval = setInterval(
+    () => pingClients(wsServer, WS_PONG_TIMEOUT),
+    WS_PING_INTERVAL,
+  )
+  wsServer.on("close", () => clearInterval(interval))
+
+  server.on("close", () => wsServer.close())
+  return wsServer
 }
 
 const terminationTimers = new WeakMap<
@@ -248,7 +415,7 @@ function makeStateTree(
   const childMap: ChildMap<StateTree> = {}
   Object.keys(component._childMap).forEach(key => {
     const children = component._childMap[key]!
-    childMap[key] = children.map((c: any) =>
+    childMap[key] = children.map(c =>
       makeStateTree(c as Component<any, any>, reload),
     )
   })
@@ -280,7 +447,7 @@ async function handleMessage(
 
       const cssStateID = message.cssStateID
       if (cssStateID) {
-        const cssState = await Purview.reloadOptions.getCSSState(cssStateID)
+        const cssState = await reloadOptions.getCSSState(cssStateID)
         if (!cssState) {
           // Can't load CSS state; close WebSocket and force refresh.
           wsState.ws.close()
@@ -295,7 +462,7 @@ async function handleMessage(
       }
 
       const promises = message.rootIDs.map(async id => {
-        return { id, stateTree: await Purview.reloadOptions.getStateTree(id) }
+        return { id, stateTree: await reloadOptions.getStateTree(id) }
       })
       const idStateTrees = await Promise.all(promises)
       if (idStateTrees.some(ist => !ist.stateTree)) {
@@ -353,10 +520,10 @@ async function handleMessage(
       wsState.mounted = true
 
       const deletePromises = message.rootIDs.map(id =>
-        Purview.reloadOptions.deleteStateTree(id),
+        reloadOptions.deleteStateTree(id),
       )
       if (cssStateID) {
-        deletePromises.push(Purview.reloadOptions.deleteCSSState(cssStateID))
+        deletePromises.push(reloadOptions.deleteCSSState(cssStateID))
       }
       await Promise.all(deletePromises)
 
@@ -456,9 +623,118 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
   }
 }
 
-function isComponentElem(
-  jsx: JSXInternal.Element,
-): jsx is JSXInternal.ComponentElement {
+export async function render(
+  jsx: JSX.Element,
+  req: http.IncomingMessage,
+  options: RenderOptions = {},
+): Promise<string> {
+  const onError = options.onError ?? null
+
+  if (!isComponentElem(jsx)) {
+    throw new Error("Root element must be a Purview.Component")
+  }
+
+  const purviewState = req.purviewState
+  let idStateTree: IDStateTree | undefined
+  if (purviewState) {
+    idStateTree = purviewState.idStateTrees.find(
+      ist => ist.stateTree.name === jsx.nodeName.getUniqueName(),
+    )
+  }
+
+  const stateTree = idStateTree && idStateTree.stateTree
+  return await withComponent(jsx, stateTree, async component => {
+    if (!component) {
+      throw new Error("Expected non-null component")
+    }
+
+    let onUnseenError: ErrorHandler | null = null
+    if (onError) {
+      onUnseenError = error => {
+        if (typeof error !== "object" || error === null) {
+          onError(error)
+          return
+        }
+
+        if (!seenErrors.has(error)) {
+          seenErrors.add(error)
+          onError(error)
+        }
+      }
+    }
+
+    let root: ConnectedRoot | DisconnectedRoot
+    if (purviewState) {
+      // This is the request from the websocket connection.
+      component._id = idStateTree!.id
+      root = {
+        connected: true,
+        component,
+        wsState: purviewState.wsState,
+        eventNames: new Set(),
+        aliases: {},
+        allComponentsMap: { [component._id]: component },
+        onError: onUnseenError,
+      }
+      purviewState.roots = purviewState.roots || []
+      purviewState.roots.push(root)
+    } else {
+      // This is the initial render.
+      req.purviewCSSState = req.purviewCSSState ?? {
+        id: nanoid(),
+        atomicCSS: {},
+        cssRules: [],
+        nextRuleIndex: 0,
+      }
+      if (req.purviewCSSRendered) {
+        throw new Error(RENDER_CSS_ORDERING_ERROR)
+      }
+      root = {
+        connected: false,
+        cssState: req.purviewCSSState,
+        onError: onUnseenError,
+      }
+    }
+
+    const pNode = await renderComponent(component, component._id, root)
+    if (!pNode) {
+      throw new Error("Expected non-null node")
+    }
+
+    if (purviewState) {
+      return ""
+    } else {
+      await reloadOptions.saveStateTree(
+        component._id,
+        makeStateTree(component, false),
+      )
+      return toHTML(pNode)
+    }
+  })
+}
+
+export async function renderCSS(req: http.IncomingMessage): Promise<string> {
+  const cssState = req.purviewCSSState
+  if (!cssState) {
+    req.purviewCSSRendered = true
+    return ""
+  }
+
+  const { id, cssRules } = cssState
+  const textPNode = createTextPNode(cssRules.join("\n"))
+  const pNode = createPNode(
+    "style",
+    { id: STYLE_TAG_ID, "data-css-state-id": id },
+    [textPNode],
+  )
+
+  cssState.nextRuleIndex = cssRules.length
+  await reloadOptions.saveCSSState(id, cssState)
+  req.purviewCSSRendered = true
+  return toHTML(pNode)
+}
+
+function isComponentElem(jsx: JSX.Element): jsx is JSX.ComponentElement {
   return (
     typeof jsx.nodeName === "function" &&
     jsx.nodeName.prototype &&
@@ -467,7 +743,7 @@ function isComponentElem(
 }
 
 async function makeElem(
-  jsx: JSXInternal.Element,
+  jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
   root: ConnectedRoot | DisconnectedRoot,
@@ -512,7 +788,7 @@ async function makeElem(
 }
 
 async function makeRegularElem(
-  jsx: JSXInternal.Element,
+  jsx: JSX.Element,
   parent: Component<any, any>,
   rootID: string,
   root: ConnectedRoot | DisconnectedRoot,
@@ -572,12 +848,10 @@ async function makeRegularElem(
           }
 
           if (nodeName === "input") {
-            const type = (attributes as JSXInternal.InputHTMLAttributes)
-              .type as string
+            const type = (attributes as JSX.InputHTMLAttributes).type as string
             validator = makeValidator(INPUT_TYPE_VALIDATOR[type] || t.string)
           } else if (nodeName === "select") {
-            const multiple = (attributes as JSXInternal.SelectHTMLAttributes)
-              .multiple
+            const multiple = (attributes as JSX.SelectHTMLAttributes).multiple
             validator = makeValidator(multiple ? t.array(t.string) : t.string)
           } else if (nodeName === "textarea") {
             validator = makeValidator(t.string)
@@ -670,7 +944,7 @@ async function makeRegularElem(
 }
 
 function makeChild(
-  child: JSXInternal.Child,
+  child: JSX.Child,
   parent: Component<any, any>,
   rootID: string,
   root: ConnectedRoot | DisconnectedRoot,
@@ -688,7 +962,7 @@ function makeChild(
 }
 
 async function withComponent<T>(
-  jsx: JSXInternal.ComponentElement,
+  jsx: JSX.ComponentElement,
   existing: Component<any, any> | StateTree | null | undefined,
   callback: (component: Component<any, any> | null) => T,
   root?: ConnectedRoot | DisconnectedRoot,
@@ -764,7 +1038,7 @@ async function renderComponent(
   const newChildMap: ChildMap<Component<any, any>> = {}
   Object.keys(component._newChildMap).forEach(key => {
     newChildMap[key] = component._newChildMap[key]!.filter(
-      (c: any) => c !== null,
+      c => c !== null,
     ) as Array<Component<any, any>>
   })
 
@@ -874,7 +1148,7 @@ function unmountChildren(
 ): void {
   Object.keys(component._childMap).forEach(key => {
     const children = component._childMap[key]!
-    children.forEach((child: any) => {
+    children.forEach(child => {
       if (child instanceof Component) {
         // Don't wait for this; unmounting is an asynchronous event.
         void child._triggerUnmount(
@@ -897,11 +1171,11 @@ function unalias(id: string, root: ConnectedRoot): string {
 async function cleanUpWebSocketState(wsState: WebSocketState): Promise<void> {
   const promises = wsState.roots.map(async root => {
     const stateTree = makeStateTree(root.component, true)
-    await Purview.reloadOptions.saveStateTree(root.component._id, stateTree)
+    await reloadOptions.saveStateTree(root.component._id, stateTree)
     await root.component._triggerUnmount(root.allComponentsMap)
   })
   if (wsState.hasCSS) {
-    const cssPromise = Purview.reloadOptions.saveCSSState(
+    const cssPromise = reloadOptions.saveCSSState(
       wsState.cssState.id,
       wsState.cssState,
     )
@@ -914,332 +1188,52 @@ const globalStateTrees: Record<string, StateTree | undefined> = {}
 const globalCSSState: Record<string, CSSState | undefined> = {}
 const DELETE_INTERVAL = 60 * 1000 // 60 seconds
 
-namespace Purview {
-  export function createElem(
-    nodeName: string | ComponentConstructor<any, any>,
-    attributes:
-      | (JSXInternal.InputHTMLAttributes &
-          JSXInternal.TextareaHTMLAttributes &
-          JSXInternal.OptionHTMLAttributes)
-      | null,
-    ...children: NestedArray<JSXInternal.Child>
-  ): JSXInternal.Element {
-    attributes = attributes || {}
-
-    const hasSelected =
-      (nodeName === "option" && attributes.selected !== undefined) ||
-      (nodeName === "select" && containsControlledOption(children))
-
-    const isValueInput =
-      (nodeName === "input" &&
-        (!attributes.type || attributes.type === "text")) ||
-      nodeName === "textarea"
-    const hasValue = isValueInput && attributes.value !== undefined
-
-    const isCheckedInput =
-      nodeName === "input" &&
-      (attributes.type === "checkbox" || attributes.type === "radio")
-    const hasChecked = isCheckedInput && attributes.checked !== undefined
-
-    if (hasSelected || hasValue || hasChecked) {
-      ;(attributes as any)["data-controlled"] = true
+export const reloadOptions = {
+  async saveStateTree(id: string, tree: StateTree): Promise<void> {
+    globalStateTrees[id] = tree
+    if (process.env.NODE_ENV !== "test") {
+      setTimeout(() => this.deleteStateTree(id), DELETE_INTERVAL)
     }
+  },
 
-    if (
-      isValueInput &&
-      attributes.defaultValue !== undefined &&
-      attributes.value === undefined
-    ) {
-      attributes.value = attributes.defaultValue
-      delete attributes.defaultValue
+  async getStateTree(id: string): Promise<StateTree | null> {
+    return globalStateTrees[id] ?? null
+  },
+
+  async deleteStateTree(id: string): Promise<void> {
+    delete globalStateTrees[id]
+  },
+
+  async saveCSSState(id: string, cssState: CSSState): Promise<void> {
+    globalCSSState[id] = cssState
+    if (process.env.NODE_ENV !== "test") {
+      setTimeout(() => this.deleteCSSState(id), DELETE_INTERVAL)
     }
+  },
 
-    // Must come after the defaultValue case is handled above. This ensures the
-    // defaultValue is properly written to the children.
-    if (nodeName === "textarea" && attributes.value !== undefined) {
-      children = [attributes.value]
-      delete attributes.value
-    }
+  async getCSSState(id: string): Promise<CSSState | null> {
+    return globalCSSState[id] ?? null
+  },
 
-    if (
-      isCheckedInput &&
-      attributes.defaultChecked !== undefined &&
-      attributes.checked === undefined
-    ) {
-      attributes.checked = attributes.defaultChecked
-      delete attributes.defaultChecked
-    }
-
-    if (
-      nodeName === "option" &&
-      attributes.defaultSelected !== undefined &&
-      attributes.selected === undefined
-    ) {
-      attributes.selected = attributes.defaultSelected
-      delete attributes.defaultSelected
-    }
-
-    // For intrinsic elements, change special attributes to data-* equivalents and
-    // remove falsy attributes.
-    if (typeof nodeName === "string") {
-      if (attributes.key !== undefined) {
-        ;(attributes as any)["data-key"] = attributes.key
-        delete attributes.key
-      }
-
-      if (attributes.ignoreChildren) {
-        ;(attributes as any)["data-ignore-children"] = true
-        delete attributes.ignoreChildren
-      }
-
-      Object.keys(attributes).forEach(key => {
-        const value = (attributes as any)[key]
-        if (value === null || value === undefined || value === false) {
-          delete (attributes as any)[key]
-        }
-      })
-    }
-
-    if (children.length === 1) {
-      return { nodeName, attributes, children: children[0] }
-    } else {
-      return { nodeName, attributes, children }
-    }
-  }
-  export function handleWebSocket(
-    server: http.Server,
-    options: WebSocketOptions,
-  ): WebSocket.Server {
-    const wsServer = new WebSocket.Server({
-      server,
-      verifyClient(info: { origin: string; secure: boolean }): boolean {
-        return options.origin === null || info.origin === options.origin
-      },
-    })
-
-    wsServer.on("connection", (ws, req) => {
-      if (req.method !== "GET") {
-        throw new Error("Only GET requests are supported")
-      }
-
-      const wsStateBase: WebSocketState = {
-        ws,
-        roots: [] as ConnectedRoot[],
-        connectionState: null,
-        mounted: false,
-        closing: false,
-        seenEventNames: new Set(),
-        hasCSS: false,
-      }
-      // wsStateBase is narrowed here to WebSocketStateNoCSS. This can be
-      // problematic in the handlers below because it may have changed to
-      // WebSocketStateHasCSS via the connect message. To avoid this, explicitly
-      // widen the type here.
-      const wsState = wsStateBase as WebSocketState
-
-      ws.on("message", async data => {
-        if (data === "ping") {
-          ws.send("pong")
-          return
-        }
-
-        const parsed = tryParseJSON(data.toString())
-        const decoded = clientMessageValidator.decode(parsed)
-        if (decoded.isRight()) {
-          await handleMessage(decoded.value, wsState, req, server)
-        }
-      })
-
-      ws.on("close", async () => {
-        wsState.closing = true
-        // Because both the "close" and "connect" events are async, we check if
-        // `connectionState` is set to "connected" because it could be the case
-        // that the "close" event fires just after the "connect" event (e.g., on
-        // page refresh), and the "close" event will see that the `wsState.roots`
-        // is an empty array due to the "connect" event still being in progress.
-        // This would result in an incomplete clean up of the previous
-        // connection's state. Hence, we return early, set the `closing` flag, and
-        // let the "connect" event clean up the existing state by signaling with
-        // `closing`.
-        if (wsState.connectionState !== "connected") {
-          return
-        }
-
-        await cleanUpWebSocketState(wsState)
-        wsState.closing = false
-      })
-    })
-
-    // Send pings periodically and terminate if no pong.
-    const interval = setInterval(
-      () => pingClients(wsServer, WS_PONG_TIMEOUT),
-      WS_PING_INTERVAL,
-    )
-    wsServer.on("close", () => clearInterval(interval))
-
-    server.on("close", () => wsServer.close())
-    return wsServer
-  }
-
-  export async function render(
-    jsx: JSXInternal.Element,
-    req: http.IncomingMessage,
-    options: RenderOptions = {},
-  ): Promise<string> {
-    const onError = options.onError ?? null
-
-    if (!isComponentElem(jsx)) {
-      throw new Error("Root element must be a Purview.Component")
-    }
-
-    const purviewState = req.purviewState
-    let idStateTree: IDStateTree | undefined
-    if (purviewState) {
-      idStateTree = purviewState.idStateTrees.find(
-        ist => ist.stateTree.name === jsx.nodeName.getUniqueName(),
-      )
-    }
-
-    const stateTree = idStateTree && idStateTree.stateTree
-    return await withComponent(jsx, stateTree, async component => {
-      if (!component) {
-        throw new Error("Expected non-null component")
-      }
-
-      let onUnseenError: ErrorHandler | null = null
-      if (onError) {
-        onUnseenError = error => {
-          if (typeof error !== "object" || error === null) {
-            onError(error)
-            return
-          }
-
-          if (!seenErrors.has(error)) {
-            seenErrors.add(error)
-            onError(error)
-          }
-        }
-      }
-
-      let root: ConnectedRoot | DisconnectedRoot
-      if (purviewState) {
-        // This is the request from the websocket connection.
-        component._id = idStateTree!.id
-        root = {
-          connected: true,
-          component,
-          wsState: purviewState.wsState,
-          eventNames: new Set(),
-          aliases: {},
-          allComponentsMap: { [component._id]: component },
-          onError: onUnseenError,
-        }
-        purviewState.roots = purviewState.roots || []
-        purviewState.roots.push(root)
-      } else {
-        // This is the initial render.
-        req.purviewCSSState = req.purviewCSSState ?? {
-          id: nanoid(),
-          atomicCSS: {},
-          cssRules: [],
-          nextRuleIndex: 0,
-        }
-        if (req.purviewCSSRendered) {
-          throw new Error(RENDER_CSS_ORDERING_ERROR)
-        }
-        root = {
-          connected: false,
-          cssState: req.purviewCSSState,
-          onError: onUnseenError,
-        }
-      }
-
-      const pNode = await renderComponent(component, component._id, root)
-      if (!pNode) {
-        throw new Error("Expected non-null node")
-      }
-
-      if (purviewState) {
-        return ""
-      } else {
-        await reloadOptions.saveStateTree(
-          component._id,
-          makeStateTree(component, false),
-        )
-        return toHTML(pNode)
-      }
-    })
-  }
-
-  export async function renderCSS(req: http.IncomingMessage): Promise<string> {
-    const cssState = req.purviewCSSState
-    if (!cssState) {
-      req.purviewCSSRendered = true
-      return ""
-    }
-
-    const { id, cssRules } = cssState
-    const textPNode = createTextPNode(cssRules.join("\n"))
-    const pNode = createPNode(
-      "style",
-      { id: STYLE_TAG_ID, "data-css-state-id": id },
-      [textPNode],
-    )
-
-    cssState.nextRuleIndex = cssRules.length
-    await reloadOptions.saveCSSState(id, cssState)
-    req.purviewCSSRendered = true
-    return toHTML(pNode)
-  }
-  export import JSX = JSXInternal
-
-  export const reloadOptions = {
-    async saveStateTree(id: string, tree: StateTree): Promise<void> {
-      globalStateTrees[id] = tree
-      if (process.env.NODE_ENV !== "test") {
-        setTimeout(() => this.deleteStateTree(id), DELETE_INTERVAL)
-      }
-    },
-
-    async getStateTree(id: string): Promise<StateTree | null> {
-      return globalStateTrees[id] ?? null
-    },
-
-    async deleteStateTree(id: string): Promise<void> {
-      delete globalStateTrees[id]
-    },
-
-    async saveCSSState(id: string, cssState: CSSState): Promise<void> {
-      globalCSSState[id] = cssState
-      if (process.env.NODE_ENV !== "test") {
-        setTimeout(() => this.deleteCSSState(id), DELETE_INTERVAL)
-      }
-    },
-
-    async getCSSState(id: string): Promise<CSSState | null> {
-      return globalCSSState[id] ?? null
-    },
-
-    async deleteCSSState(id: string): Promise<void> {
-      delete globalCSSState[id]
-    },
-  }
-  export const scriptPath = pathLib.resolve(
-    __dirname,
-    "..",
-    "dist",
-    "bundle",
-    "browser.js",
-  )
-  // tslint:disable-next-line
-  export abstract class Component<P, S> extends InternalComponent<P, S> {}
+  async deleteCSSState(id: string): Promise<void> {
+    delete globalCSSState[id]
+  },
 }
 
-Purview.Component = Component
-
-export default Purview
-
 export { Component }
+export const scriptPath = pathLib.resolve(
+  __dirname,
+  "..",
+  "dist",
+  "bundle",
+  "browser.js",
+)
+
+// Export all values above on the default object as well. Do this through
+// a namespace so we can use a locally scoped JSX namespace:
+// https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-8.html#locally-scoped-jsx-namespaces
+import { Purview } from "./namespace"
+export default Purview
 
 // Export relevant types.
 export {
@@ -1250,4 +1244,4 @@ export {
   PurviewEvent,
 } from "./types/ws"
 export { css, styledTag, CSS } from "./css"
-export { JSXInternal as JSX }
+export { JSX }

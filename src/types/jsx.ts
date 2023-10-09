@@ -7,7 +7,7 @@ declare global {
   interface NestedArray<T> extends Array<NestedArray<T> | T> {}
 }
 
-export namespace JSXInternal {
+export namespace JSX {
   export interface Element<T = HTMLAttributes> {
     nodeName: string | ComponentConstructor<any, any>
     attributes: T
@@ -656,13 +656,7 @@ export namespace JSXInternal {
     width?: number | string
   }
 
-  export type Child =
-    | string
-    | number
-    | boolean
-    | null
-    | undefined
-    | JSXInternal.Element
+  export type Child = string | number | boolean | null | undefined | JSX.Element
 
   export interface HTMLAttributes extends DOMAttributes {
     // Purview specific
