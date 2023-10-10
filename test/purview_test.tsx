@@ -1,5 +1,4 @@
 /* tslint:disable max-classes-per-file */
-import { JSX } from "../src/purview"
 const mockEventHandlerGracePeriodMS = 150
 jest.mock("../src/constants", () => {
   const constants = jest.requireActual("../src/constants")
@@ -27,6 +26,7 @@ import Purview, {
   RENDER_CSS_ORDERING_ERROR,
   styledTag,
   pingClients,
+  JSX,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
