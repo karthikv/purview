@@ -1,7 +1,7 @@
 import Component, { ComponentConstructor } from "../component"
 import { InputEvent, SubmitEvent, KeyEvent, ChangeEvent } from "./ws"
 import { CSS } from "../css"
-import { NestedArray } from "./utility"
+import { NestedArray } from "../helpers"
 
 /* tslint:disable no-namespace */
 

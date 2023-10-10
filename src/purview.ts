@@ -7,6 +7,7 @@ import * as t from "io-ts"
 
 import Component, { ComponentConstructor } from "./component"
 import {
+  NestedArray,
   tryParseJSON,
   mapNested,
   isEventAttr,
@@ -44,7 +45,6 @@ import {
   getAtomicProperties,
 } from "./css"
 import { JSX } from "./types/jsx"
-import { NestedArray } from "./types/utility"
 
 export interface RenderOptions {
   onError?: ErrorHandler
