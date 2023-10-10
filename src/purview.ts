@@ -45,6 +45,7 @@ import {
   getAtomicProperties,
 } from "./css"
 import { JSX } from "./types/jsx"
+import { EVENT_HANDLER_GRACE_PERIOD_MS } from "./constants"
 
 export interface RenderOptions {
   onError?: ErrorHandler
@@ -120,6 +121,7 @@ export interface EventHandler {
   eventName: string
   callback: EventCallback
   validator?: t.Type<any, any, any>
+  expiry: number | null
 }
 
 export type ErrorHandler = (error: unknown) => void
@@ -836,6 +838,7 @@ async function makeRegularElem(
             }
           }
         },
+        expiry: null,
       }
       root.eventNames.add(eventName)
 
@@ -1044,7 +1047,7 @@ async function renderComponent(
   })
 
   component._childMap = newChildMap
-  component._eventHandlers = component._newEventHandlers
+  replaceEventHandlers(component, EVENT_HANDLER_GRACE_PERIOD_MS)
 
   if (root.connected && !component._handleUpdate) {
     component._handleUpdate = async () => {
@@ -1110,6 +1113,39 @@ async function renderComponent(
   }
 
   return pNode
+}
+
+// If an event handler is changed during a re-render, concurrent inflight events
+// may be dropped if we disassociate the old handler from the component
+// immediately. Prevent this by retaining old event handlers for a grace period.
+// This can happen most commonly with a controlled input.
+function replaceEventHandlers(
+  component: Component<any, any>,
+  gracePeriodMS: number,
+): void {
+  const expiry = Date.now() + gracePeriodMS
+  for (const eventID of Object.keys(component._eventHandlers)) {
+    const handler = component._eventHandlers[eventID]!
+    if (typeof handler.expiry !== "number") {
+      handler.expiry = expiry
+    }
+  }
+
+  setTimeout(() => pruneEventHandlers(component), gracePeriodMS + 1)
+
+  // N.B. Any event handlers that are retained in the new render will have their
+  // expiry set back to null because of this assignment.
+  Object.assign(component._eventHandlers, component._newEventHandlers)
+}
+
+function pruneEventHandlers(component: Component<any, any>): void {
+  const now = Date.now()
+  for (const eventID of Object.keys(component._eventHandlers)) {
+    const handler = component._eventHandlers[eventID]!
+    if (typeof handler.expiry === "number" && now >= handler.expiry) {
+      delete component._eventHandlers[eventID]
+    }
+  }
 }
 
 function createPNode(

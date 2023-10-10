@@ -1,7 +1,15 @@
 /* tslint:disable max-classes-per-file */
-import { JSDOM } from "jsdom"
 import { JSX } from "../src/purview"
+const mockEventHandlerGracePeriodMS = 150
+jest.mock("../src/constants", () => {
+  const constants = jest.requireActual("../src/constants")
+  return {
+    ...constants,
+    EVENT_HANDLER_GRACE_PERIOD_MS: mockEventHandlerGracePeriodMS,
+  }
+})
 
+import { JSDOM } from "jsdom"
 const { document } = new JSDOM().window
 Object.assign(global, { document })
 
@@ -761,6 +769,69 @@ test("render submit event", async () => {
     // Wait for handlers to be called.
     await new Promise(resolve => setTimeout(resolve, 25))
     expect(fields).toEqual((event.event as SubmitEvent).fields)
+  })
+})
+
+// If an event handler is changed during a re-render, concurrent inflight events
+// may be dropped if we disassociate the old handler from the component
+// immediately. Prevent this by retaining old event handlers for a grace period.
+// This can happen most commonly with a controlled input.
+test("render retain old event handlers for grace period", async () => {
+  let instance: Foo = null as any
+  const events: InputEvent[] = []
+
+  class Foo extends TestComponent<{}, {}> {
+    state = { value: "" }
+
+    constructor(props: {}) {
+      super(props)
+      instance = this
+    }
+
+    render(): JSX.Element {
+      // Create a new event handler for each re-render. If we factor this out in
+      // a class method, cachedEventIDs will mask any issues.
+      const handler = async (event: InputEvent) => {
+        events.push(event)
+        void this.setState({ value: event.value })
+      }
+      return <input onInput={handler} value={this.state.value} />
+    }
+  }
+
+  const value = "a value"
+  await renderAndConnect(<Foo />, async conn => {
+    // Simulate pressing keys in quick succession.
+    for (let i = 0; i < value.length; i++) {
+      const event: EventMessage = {
+        type: "event",
+        rootID: conn.rootID,
+        componentID: conn.rootID,
+        eventID: conn.elem.getAttribute("data-input") as string,
+        event: { name: "", value: value.substring(0, i + 1) },
+      }
+      conn.ws.send(JSON.stringify(event))
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
+
+    // Wait for handlers to be called.
+    await new Promise(resolve => setTimeout(resolve, 25))
+    expect(events).toEqual([
+      { name: "", value: "a" },
+      { name: "", value: "a " },
+      { name: "", value: "a v" },
+      { name: "", value: "a va" },
+      { name: "", value: "a val" },
+      { name: "", value: "a valu" },
+      { name: "", value: "a value" },
+    ])
+
+    // Ensure old event handlers are cleaned up after grace period.
+    expect(Object.keys(instance._eventHandlers).length).toBe(value.length + 1)
+    await new Promise(resolve =>
+      setTimeout(resolve, mockEventHandlerGracePeriodMS),
+    )
+    expect(Object.keys(instance._eventHandlers).length).toBe(1)
   })
 })
 
