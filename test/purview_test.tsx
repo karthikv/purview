@@ -1,5 +1,5 @@
 /* tslint:disable max-classes-per-file */
-const mockEventHandlerGracePeriodMS = 150
+const mockEventHandlerGracePeriodMS = 200
 jest.mock("../src/constants", () => {
   const constants = jest.requireActual("../src/constants")
   return {
