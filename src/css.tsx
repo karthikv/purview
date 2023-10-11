@@ -1,8 +1,9 @@
+import { JSX } from "./purview"
 import { Properties, SimplePseudos } from "csstype"
 import { expandProperty } from "inline-style-expand-shorthand"
 import { lexer } from "css-tree"
 import * as LRU from "lru-cache"
-import * as Purview from "./purview"
+import Purview, { Component } from "./purview"
 import { isPseudoClass } from "./pseudo_classes"
 
 type OptionalProperties = {
@@ -169,7 +170,7 @@ export function styledTag<K extends keyof JSX.IntrinsicElements>(
   // Even though this is a string, it must be uppercase for JSX.
   Tag: K,
   ...baseCSSProperties: CSSProperties[]
-): new (props: JSX.IntrinsicElements[K]) => Purview.Component<
+): new (props: JSX.IntrinsicElements[K]) => Component<
   JSX.IntrinsicElements[K],
   {}
 > {

@@ -1,3 +1,4 @@
+import { NestedArray } from "../src/purview"
 import { mapNested } from "../src/helpers"
 
 test("mapNested", () => {

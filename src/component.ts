@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid"
 import { StateTree, ChildMap, EventHandler } from "./purview"
 import { PNodeRegular } from "./types/ws"
+import { JSX } from "./purview"
 
 type UpdateFn<S> = (state: Readonly<S>) => Partial<S>
 

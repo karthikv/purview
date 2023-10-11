@@ -7,6 +7,7 @@ import * as t from "io-ts"
 
 import Component, { ComponentConstructor } from "./component"
 import {
+  NestedArray,
   tryParseJSON,
   mapNested,
   isEventAttr,
@@ -43,6 +44,7 @@ import {
   generateRule,
   getAtomicProperties,
 } from "./css"
+import { JSX } from "./types/jsx"
 import { EVENT_HANDLER_GRACE_PERIOD_MS } from "./constants"
 
 export interface RenderOptions {
@@ -173,9 +175,9 @@ const RENDER_CSS_NOT_CALLED_ERROR =
 export function createElem(
   nodeName: string | ComponentConstructor<any, any>,
   attributes:
-    | (JSX.InputHTMLAttributes<any> &
-        JSX.TextareaHTMLAttributes<any> &
-        JSX.OptionHTMLAttributes<any>)
+    | (JSX.InputHTMLAttributes &
+        JSX.TextareaHTMLAttributes &
+        JSX.OptionHTMLAttributes)
     | null,
   ...children: NestedArray<JSX.Child>
 ): JSX.Element {
@@ -850,12 +852,10 @@ async function makeRegularElem(
           }
 
           if (nodeName === "input") {
-            const type = (attributes as JSX.InputHTMLAttributes<any>)
-              .type as string
+            const type = (attributes as JSX.InputHTMLAttributes).type as string
             validator = makeValidator(INPUT_TYPE_VALIDATOR[type] || t.string)
           } else if (nodeName === "select") {
-            const multiple = (attributes as JSX.SelectHTMLAttributes<any>)
-              .multiple
+            const multiple = (attributes as JSX.SelectHTMLAttributes).multiple
             validator = makeValidator(multiple ? t.array(t.string) : t.string)
           } else if (nodeName === "textarea") {
             validator = makeValidator(t.string)
@@ -1266,16 +1266,11 @@ export const scriptPath = pathLib.resolve(
   "browser.js",
 )
 
-// Export all values above on the default object as well.
-export default {
-  createElem,
-  handleWebSocket,
-  render,
-  renderCSS,
-  Component,
-  scriptPath,
-  reloadOptions,
-}
+// Export all values above on the default object as well. Do this through
+// a namespace so we can use a locally scoped JSX namespace:
+// https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-8.html#locally-scoped-jsx-namespaces
+import { Purview } from "./namespace"
+export default Purview
 
 // Export relevant types.
 export {
@@ -1286,4 +1281,4 @@ export {
   PurviewEvent,
 } from "./types/ws"
 export { css, styledTag, CSS } from "./css"
-export * from "./types/jsx"
+export { JSX, NestedArray }

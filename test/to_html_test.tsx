@@ -1,4 +1,4 @@
-import Purview from "../src/purview"
+import Purview, { JSX } from "../src/purview"
 import { toHTML } from "../src/to_html"
 import { virtualize } from "../src/helpers"
 

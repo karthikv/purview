@@ -1,5 +1,8 @@
 import { Attrs } from "snabbdom/modules/attributes"
 import { PNodeRegular, PNode } from "./types/ws"
+import { JSX } from "./purview"
+
+export interface NestedArray<T> extends Array<NestedArray<T> | T> {}
 
 type EventAttribute = keyof JSX.DOMAttributes
 

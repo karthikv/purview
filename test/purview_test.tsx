@@ -25,8 +25,8 @@ import Purview, {
   css,
   RENDER_CSS_ORDERING_ERROR,
   styledTag,
-  reloadOptions,
   pingClients,
+  JSX,
 } from "../src/purview"
 import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
 import {
@@ -2020,12 +2020,12 @@ test("cleanup happens when 'close' and 'connect' race", async () => {
     // `getStateTree`. To allow jest to clean up the mock implementation, we use
     // `spyOn` and call `spy.mockRestore()` once test execution has completed.
     // This prevent subsequnt tests from using the mock implementation.
-    const spy = jest.spyOn(reloadOptions, "getStateTree")
+    const spy = jest.spyOn(Purview.reloadOptions, "getStateTree")
     spy.mockImplementationOnce(async rootID => {
       // Create an artificial delay when fetching state trees so that the
       // "close" event executes before the "connect" event finishes.
       await new Promise(resolve => setTimeout(resolve, 200))
-      return await reloadOptions.getStateTree(rootID)
+      return await Purview.reloadOptions.getStateTree(rootID)
     })
     const connect: ClientMessage = {
       type: "connect",

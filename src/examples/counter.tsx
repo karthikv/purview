@@ -1,6 +1,6 @@
 // Normally you'd import from "purview". We use "../purview" here since we're in
 // the Purview codebase.
-import Purview from "../purview"
+import Purview, { JSX } from "../purview"
 import { Sequelize, QueryTypes, DataTypes } from "sequelize"
 import * as http from "http"
 import * as express from "express"
