@@ -128,7 +128,7 @@ export const CAPTURE_TEXT = "Capture"
 export const STYLE_TAG_ID = "purview-css"
 
 export const WS_PING_INTERVAL = 2_000 // ms
-export const WS_PONG_TIMEOUT = 5_000 // ms
+export const WS_PONG_TIMEOUT = 15_000 // ms
 
 export function isEventAttr(attr: string): attr is EventAttribute {
   return EVENT_ATTRS.has(attr)
