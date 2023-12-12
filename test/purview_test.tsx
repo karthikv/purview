@@ -1390,10 +1390,16 @@ test("locked mount cycle", async () => {
 })
 
 test("componentWillUnmount", async () => {
-  let unmounted = false
-  class Foo extends TestComponent<{}, { text: string }> {
+  let unmountCalled = false
+  let instance: Foo = null as any
+  class Foo extends TestComponent<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      instance = this
+    }
+
     componentWillUnmount(): void {
-      unmounted = true
+      unmountCalled = true
     }
 
     render(): JSX.Element {
@@ -1402,12 +1408,65 @@ test("componentWillUnmount", async () => {
   }
 
   await renderAndConnect(<Foo />, async () => {
-    expect(unmounted).toBe(false)
+    expect(unmountCalled).toBe(false)
+    expect(instance._unmounted).toBe(false)
   })
 
   // Must wait for close to propagate to server.
   await new Promise(resolve => setTimeout(resolve, 25))
-  expect(unmounted).toBe(true)
+  expect(unmountCalled).toBe(true)
+  expect(instance._unmounted).toBe(true)
+})
+
+test("componentWillUnmount nested error", async () => {
+  let unmountCalled = false
+  let fooInstance: Foo = null as any
+  class Foo extends TestComponent<{}, {}> {
+    constructor(props: {}) {
+      super(props)
+      fooInstance = this
+    }
+
+    componentWillUnmount(): void {
+      unmountCalled = true
+    }
+
+    render(): JSX.Element {
+      return <Bar />
+    }
+  }
+
+  let barInstance: Bar = null as any
+  class Bar extends TestComponent<{}, {}> {
+    static getUniqueName(): string {
+      return `${super.getUniqueName()}-bar`
+    }
+
+    constructor(props: {}) {
+      super(props)
+      barInstance = this
+    }
+
+    componentWillUnmount(): void {
+      throw new Error("Bar unmount error")
+    }
+
+    render(): JSX.Element {
+      return <div />
+    }
+  }
+
+  await renderAndConnect(<Foo />, async () => {
+    expect(unmountCalled).toBe(false)
+    expect(barInstance._unmounted).toBe(false)
+    expect(fooInstance._unmounted).toBe(false)
+  })
+
+  // Must wait for close to propagate to server.
+  await new Promise(resolve => setTimeout(resolve, 25))
+  expect(unmountCalled).toBe(true)
+  expect(barInstance._unmounted).toBe(true)
+  expect(fooInstance._unmounted).toBe(true)
 })
 
 test("componentWillReceiveProps", async () => {

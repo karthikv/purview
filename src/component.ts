@@ -207,22 +207,38 @@ abstract class Component<P, S> {
     allComponentsMap: Record<string, Component<any, any> | undefined> | null,
   ): Promise<void> {
     return this._lock(async () => {
-      const promises = Object.keys(this._childMap).map(key => {
-        const childPromises = this._childMap[key]!.map(child => {
+      const promises = Object.keys(this._childMap).flatMap(key => {
+        return this._childMap[key]!.map(async child => {
           if (child instanceof Component) {
             return child._triggerUnmount(allComponentsMap)
           }
-          return
         })
-        return Promise.all(childPromises)
       })
-      await Promise.all(promises)
 
-      this.componentWillUnmount()
-      if (allComponentsMap) {
-        delete allComponentsMap[this._id]
+      try {
+        await Promise.all(promises)
+      } catch (error) {
+        // If a child errors while unmounting, still wait for all children to be
+        // processed before calling the parent's componentWillUnmount.
+        await Promise.allSettled(promises)
+
+        if (process.env.NODE_ENV !== "test") {
+          // Don't suppress the error, but ensure the finally block unmounts and
+          // cleans up appropriately.
+          throw error
+        }
+      } finally {
+        // The user-defined componentWillUnmount() may error, but we still need
+        // to clean up.
+        try {
+          this.componentWillUnmount()
+        } finally {
+          if (allComponentsMap) {
+            delete allComponentsMap[this._id]
+          }
+          this._unmounted = true
+        }
       }
-      this._unmounted = true
     })
   }
 
