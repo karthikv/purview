@@ -28,7 +28,12 @@ import Purview, {
   pingClients,
   JSX,
 } from "../src/purview"
-import { parseHTML, concretize, STYLE_TAG_ID } from "../src/helpers"
+import {
+  parseHTML,
+  concretize,
+  STYLE_TAG_ID,
+  WS_PING_INTERVAL,
+} from "../src/helpers"
 import {
   UpdateMessage,
   EventMessage,
@@ -2481,6 +2486,29 @@ test("responds to client ping through data frame", async () => {
   )
 
   expect(data).toBe("pong")
+  server.close()
+  ws.close()
+})
+
+test("continues sending pings to existing clients after close is called", async () => {
+  const server = http.createServer()
+  await new Promise(resolve => server.listen(resolve))
+
+  const port = (server.address() as net.AddressInfo).port
+  const origin = `http://localhost:${port}`
+  const wsServer = Purview.handleWebSocket(server, { origin })
+
+  const ws = new WebSocket(`ws://localhost:${port}`, { origin })
+  await new Promise(resolve => ws.addEventListener("open", resolve))
+
+  wsServer.close()
+
+  const pingReceived = await Promise.race([
+    new Promise(resolve => setTimeout(() => resolve(false), WS_PING_INTERVAL)),
+    new Promise(resolve => ws.on("ping", () => resolve(true))),
+  ])
+  expect(pingReceived).toBe(true)
+
   server.close()
   ws.close()
 })
