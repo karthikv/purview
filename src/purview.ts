@@ -320,13 +320,18 @@ export function handleWebSocket(
     // widen the type here.
     const wsState = wsStateBase as WebSocketState
 
-    ws.on("message", async data => {
+    ws.on("message", async (rawData, isBinary) => {
+      if (isBinary) {
+        return
+      }
+
+      const data = rawData.toString()
       if (data === "ping") {
         ws.send("pong")
         return
       }
 
-      const parsed = tryParseJSON(data.toString())
+      const parsed = tryParseJSON(data)
       const decoded = clientMessageValidator.decode(parsed)
       if (decoded.isRight()) {
         await handleMessage(decoded.value, wsState, req, server)

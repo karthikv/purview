@@ -1836,7 +1836,7 @@ test("origin validation", async () => {
   const ws = new WebSocket(`ws://localhost:${addr.port}`, {
     origin: `http://example.com`,
   })
-  const error = await new Promise<Error>(resolve =>
+  const error = await new Promise<WebSocket.ErrorEvent>(resolve =>
     ws.addEventListener("error", resolve),
   )
   expect(error.message).toBe("Unexpected server response: 401")

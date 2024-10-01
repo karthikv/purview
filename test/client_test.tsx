@@ -418,7 +418,12 @@ test("pingServer terminates connections", async () => {
 
   expect(wsServer.clients.size).toBe(1)
   const client = Array.from(wsServer.clients)[0]
-  client.on("message", data => {
+  client.on("message", (rawData, isBinary) => {
+    if (isBinary) {
+      return
+    }
+
+    const data = rawData.toString()
     if (data === "ping") {
       client.send("pong")
     }
