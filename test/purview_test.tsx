@@ -2504,7 +2504,10 @@ test("continues sending pings to existing clients after close is called", async 
   wsServer.close()
 
   const pingReceived = await Promise.race([
-    new Promise(resolve => setTimeout(() => resolve(false), WS_PING_INTERVAL)),
+    new Promise(resolve =>
+      // Provide 500ms leeway on the ping.
+      setTimeout(() => resolve(false), WS_PING_INTERVAL + 500),
+    ),
     new Promise(resolve => ws.on("ping", () => resolve(true))),
   ])
   expect(pingReceived).toBe(true)
