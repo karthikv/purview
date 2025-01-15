@@ -13,6 +13,7 @@ import {
   EventMessage,
   UpdateMessage,
 } from "./types/ws"
+import { PurviewLogger } from './logger';
 
 interface WebSocketState {
   ws: WebSocket
@@ -135,6 +136,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
     }
 
     if (state.numRetries === MAX_RETRIES) {
+      PurviewLogger.info("restarting page, as maximum retries reached")
       location.reload()
     } else {
       if (process.env.NODE_ENV !== "test") {

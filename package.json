@@ -9,6 +9,13 @@
     "type": "git",
     "url": "https://github.com/karthikv/purview"
   },
+  "scripts": {
+    "build-prod": "BUILD_PROD=1 webpack",
+    "build-dev": "webpack",
+    "test": "jest",
+    "test-watch": "jest --watch",
+    "start": "node dist/server.js"
+  },
   "main": "dist/purview.js",
   "types": "dist/purview.d.ts",
   "files": [
