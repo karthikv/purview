@@ -83,6 +83,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
 
   let interval: ReturnType<typeof setInterval> | null = null
   ws.addEventListener("open", () => {
+    dispatchPurviewEvent({ type: 'websocket:open' });
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
       return elem.getAttribute("data-component-id") as string
@@ -137,11 +138,19 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
     }
   })
 
+  ws.addEventListener("error", (error) => {
+    dispatchPurviewEvent({ 
+        type: 'websocket:error', 
+        detail: { error } 
+    });
+  });
+
   ws.addEventListener("close", () => {
     if (interval) {
       clearInterval(interval)
       interval = null
     }
+    dispatchPurviewEvent({ type: 'websocket:close', detail: { retries: state.numRetries } });
 
     if (state.numRetries === MAX_RETRIES) {
       location.reload()
