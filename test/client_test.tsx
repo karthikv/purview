@@ -1,6 +1,7 @@
 import { JSDOM } from "jsdom"
 import * as WebSocket from "ws"
 import { JSX } from "../src/purview"
+import { PurviewWebsocketEvent } from "../src/client"
 
 const {
   window,
@@ -13,6 +14,20 @@ Object.assign(global, {
   HTMLStyleElement,
   WebSocket,
 })
+global.CustomEvent = class CustomEvent<T> extends Event {
+  detail: T;
+  
+  constructor(event: string, params?: CustomEventInit<T>) {
+    super(event, params);
+    this.detail = params?.detail as T;
+  }
+
+  initCustomEvent(type: string, bubbles = false, cancelable = false, detail?: T): void {
+    super.initEvent(type, bubbles, cancelable);
+    this.detail = detail as T;
+  }
+} as unknown as typeof CustomEvent;
+
 
 import * as http from "http"
 import * as net from "net"
@@ -404,6 +419,26 @@ test("submit event", async () => {
     })
   })
 })
+
+test("dispatchPurviewEvent dispatches custom events correctly", () => {
+  const dispatchEventSpy = jest.spyOn(window, 'dispatchEvent');
+  
+  // Add proper type for the received event
+  let receivedEvent: CustomEvent<PurviewWebsocketEvent>
+  
+  window.addEventListener('purview', ((e: CustomEvent<PurviewWebsocketEvent>) => {
+    receivedEvent = e;
+    expect(receivedEvent).toBeTruthy();
+    expect(receivedEvent?.detail).toEqual({ type: 'websocket:open' });
+  }) as EventListener);
+
+  const event = new CustomEvent<PurviewWebsocketEvent>('purview', { detail: { type: 'websocket:open' } });
+
+  window.dispatchEvent(event);
+
+  // Cleanup
+  dispatchEventSpy.mockRestore();
+});
 
 test("pingServer terminates connections", async () => {
   const server = http.createServer()

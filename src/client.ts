@@ -30,21 +30,19 @@ const STYLE_TAG_ERROR = `Purview: expected element with ID ${STYLE_TAG_ID} to be
 
 export type PurviewWebsocketEvent = {
   type: 'websocket:open' | 'websocket:close' | 'websocket:error' | 'websocket:forced_restart'
-  details?: {
+  data?: {
     retries?: number
     event?: Event
   }
 }
 
-export const dispatchPurviewEvent = (event: PurviewWebsocketEvent) => {
-  window.dispatchEvent(new CustomEvent('purview', { detail: event }));
-};
-
-export type PurviewEventCallback = (event: CustomEvent<PurviewWebsocketEvent>) => void;
-
-export const addPurviewListener = (callback: PurviewEventCallback) => {
-  window.addEventListener('purview', callback as EventListener);
-  return () => window.removeEventListener('purview', callback as EventListener);
+// export const dispatchPurviewEvent = (event: PurviewWebsocketEvent) => {
+//   window.dispatchEvent(new CustomEvent<PurviewWebsocketEvent>('purview', { detail: event }));
+// };
+export const dispatchPurviewEvent = (event: PurviewWebsocketEvent): void => {
+  window.dispatchEvent(new CustomEvent<PurviewWebsocketEvent>('purview', { 
+    detail: event 
+  }));
 };
 
 export function connectWebSocket(location: Location): WebSocket {
@@ -151,7 +149,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
   ws.addEventListener("error", (error: Event) => {
     dispatchPurviewEvent({ 
         type: 'websocket:error', 
-        details: { event: error } 
+        data: { event: error } 
     });
   });
 
@@ -160,7 +158,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
       clearInterval(interval)
       interval = null
     }
-    dispatchPurviewEvent({ type: 'websocket:close', details: { retries: state.numRetries } });
+    dispatchPurviewEvent({ type: 'websocket:close', data: { retries: state.numRetries } });
 
     if (state.numRetries === MAX_RETRIES) {
       dispatchPurviewEvent({ type: 'websocket:forced_restart'});
