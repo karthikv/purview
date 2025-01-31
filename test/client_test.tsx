@@ -34,6 +34,54 @@ afterEach(() => {
   }
 })
 
+test("window events are dispatched correctly", async () => {
+  const events: PurviewWebsocketEvent[] = [];
+  const eventHandler = (e: CustomEvent<PurviewWebsocketEvent>) => {
+    events.push(e.detail);
+  };
+  window.addEventListener("purview", eventHandler as EventListener);
+
+  // Setup DOM
+  populate(
+    <p data-root="true" data-component-id="foo" />
+  );
+
+  try {
+    await connect(async conn => {
+      // Wait for initial connection events to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const errorEvent = new Event('error', { bubbles: true });
+      conn.wsClient.emit("error", errorEvent);
+
+      // Clean up
+      await new Promise(resolve => {
+        conn.ws.close();
+        setTimeout(resolve, 0);
+      });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Verify events
+      expect(events.length).toBe(3);
+
+      expect(events[0]).toEqual(
+        { type: 'websocket:open' },
+      )
+
+      //because the error from the ws has a lot of extra stuff
+      expect(events[1].type).toEqual('websocket:error');
+
+      expect(events[2]).toEqual({
+        type: 'websocket:close',
+        data: { retries: 0 }
+      });
+      
+    });
+  } finally {
+    window.removeEventListener("purview", eventHandler as EventListener);
+  }
+});
+
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
     <p data-root="true" data-component-id="foo">Paragraph</p>
@@ -407,30 +455,6 @@ test("submit event", async () => {
       },
     })
   })
-})
-
-test("dispatchPurviewEvent dispatches custom events correctly", () => {
-  const dispatchEventSpy = jest.spyOn(window, "dispatchEvent")
-
-  // Add proper type for the received event
-  let receivedEvent: CustomEvent<PurviewWebsocketEvent>
-
-  purviewEventListener = ((e: CustomEvent<PurviewWebsocketEvent>) => {
-    receivedEvent = e
-    expect(receivedEvent).toBeTruthy()
-    expect(receivedEvent?.detail).toEqual({ type: "websocket:open" })
-  }) as EventListener
-
-  window.addEventListener("purview", purviewEventListener)
-
-  const event = new CustomEvent<PurviewWebsocketEvent>("purview", {
-    detail: { type: "websocket:open" },
-  })
-
-  window.dispatchEvent(event)
-
-  // Cleanup
-  dispatchEventSpy.mockRestore()
 })
 
 test("pingServer terminates connections", async () => {

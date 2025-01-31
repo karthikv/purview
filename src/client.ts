@@ -93,7 +93,7 @@ function addWebSocketHandlers(state: WebSocketState, location: Location): void {
   }
 
   let interval: ReturnType<typeof setInterval> | null = null
-  ws.addEventListener("open", () => {
+  ws.addEventListener("open", () => {    
     dispatchPurviewEvent({ type: "websocket:open" })
     const rootElems = Array.from(document.querySelectorAll("[data-root]"))
     const rootIDs = rootElems.map(elem => {
