@@ -35,52 +35,47 @@ afterEach(() => {
 })
 
 test("window events are dispatched correctly", async () => {
-  const events: PurviewWebsocketEvent[] = [];
+  const events: PurviewWebsocketEvent[] = []
   const eventHandler = (e: CustomEvent<PurviewWebsocketEvent>) => {
-    events.push(e.detail);
-  };
-  window.addEventListener("purview", eventHandler as EventListener);
+    events.push(e.detail)
+  }
+  window.addEventListener("purview", eventHandler as EventListener)
 
   // Setup DOM
-  populate(
-    <p data-root="true" data-component-id="foo" />
-  );
+  populate(<p data-root="true" data-component-id="foo" />)
 
   try {
     await connect(async conn => {
       // Wait for initial connection events to complete
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise(resolve => setTimeout(resolve, 0))
 
-      const errorEvent = new Event('error', { bubbles: true });
-      conn.wsClient.emit("error", errorEvent);
+      const errorEvent = new Event("error", { bubbles: true })
+      conn.wsClient.emit("error", errorEvent)
 
       // Clean up
       await new Promise(resolve => {
-        conn.ws.close();
-        setTimeout(resolve, 0);
-      });
-      await new Promise(resolve => setTimeout(resolve, 0));
+        conn.ws.close()
+        setTimeout(resolve, 0)
+      })
+      await new Promise(resolve => setTimeout(resolve, 0))
 
       // Verify events
-      expect(events.length).toBe(3);
+      expect(events.length).toBe(3)
 
-      expect(events[0]).toEqual(
-        { type: 'websocket:open' },
-      )
+      expect(events[0]).toEqual({ type: "websocket:open" })
 
       //because the error from the ws has a lot of extra stuff
-      expect(events[1].type).toEqual('websocket:error');
+      expect(events[1].type).toEqual("websocket:error")
 
       expect(events[2]).toEqual({
-        type: 'websocket:close',
-        data: { retries: 0 }
-      });
-      
-    });
+        type: "websocket:close",
+        data: { retries: 0 },
+      })
+    })
   } finally {
-    window.removeEventListener("purview", eventHandler as EventListener);
+    window.removeEventListener("purview", eventHandler as EventListener)
   }
-});
+})
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
