@@ -25,15 +25,6 @@ import {
 } from "../src/types/ws"
 import { virtualize, concretize, STYLE_TAG_ID } from "../src/helpers"
 
-let purviewEventListener: EventListener | null = null
-
-afterEach(() => {
-  if (purviewEventListener) {
-    window.removeEventListener("purview", purviewEventListener)
-    purviewEventListener = null
-  }
-})
-
 test("window events are dispatched correctly", async () => {
   const events: PurviewWebsocketEvent[] = []
   const eventHandler = (e: CustomEvent<PurviewWebsocketEvent>) => {
