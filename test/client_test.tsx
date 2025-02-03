@@ -47,8 +47,6 @@ test("window events are dispatched correctly", async () => {
       conn.ws.close()
       await waitForPurviewEventOrTimeout()
 
-      window.addEventListener("purview", eventHandler)
-
       // Verify events
       expect(events.length).toBe(3)
 
@@ -556,18 +554,18 @@ async function connect<T>(
 }
 
 const waitForPurviewEventOrTimeout = () => {
-  let cbforlater: ((value: unknown) => void) | undefined
+  let eventListenerCallback: ((value: unknown) => void) | undefined
   const eventType = "purview"
 
   return Promise.race([
     new Promise(resolve => {
-      cbforlater = resolve
-      window.addEventListener(eventType, cbforlater, { once: true })
+      eventListenerCallback = resolve
+      window.addEventListener(eventType, eventListenerCallback, { once: true })
     }),
     new Promise((_, reject) => {
       setTimeout(() => {
-        if (cbforlater) {
-          window.removeEventListener(eventType, cbforlater)
+        if (eventListenerCallback) {
+          window.removeEventListener(eventType, eventListenerCallback)
         }
         reject()
       }, 20)
