@@ -26,7 +26,7 @@ import {
 import { virtualize, concretize, STYLE_TAG_ID } from "../src/helpers"
 
 test("window events are dispatched correctly", async () => {
-  expect.assertions(4)
+  expect.assertions(1)
   const events: PurviewWebsocketEvent[] = []
   const eventHandler = (e: CustomEvent<PurviewWebsocketEvent>) => {
     events.push(e.detail)
@@ -47,18 +47,11 @@ test("window events are dispatched correctly", async () => {
       conn.ws.close()
       await waitForPurviewEventOrTimeout()
 
-      // Verify events
-      expect(events.length).toBe(3)
-
-      expect(events[0]).toEqual({ type: "websocket:open" })
-
-      //because the error from the ws has a lot of extra stuff
-      expect(events[1].type).toEqual("websocket:error")
-
-      expect(events[2]).toEqual({
-        type: "websocket:close",
-        data: { retries: 0 },
-      })
+      expect(events).toEqual([
+        expect.objectContaining({ type: "websocket:open" }),
+        expect.objectContaining({ type: "websocket:error" }),
+        expect.objectContaining({ type: "websocket:close", data: { retries: 0 } }),
+      ])
     })
   } finally {
     window.removeEventListener("purview", eventHandler)
