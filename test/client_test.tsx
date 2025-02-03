@@ -26,11 +26,12 @@ import {
 import { virtualize, concretize, STYLE_TAG_ID } from "../src/helpers"
 
 test("window events are dispatched correctly", async () => {
+  expect.assertions(4)
   const events: PurviewWebsocketEvent[] = []
   const eventHandler = (e: CustomEvent<PurviewWebsocketEvent>) => {
     events.push(e.detail)
   }
-  window.addEventListener("purview", eventHandler as EventListener)
+  window.addEventListener("purview", eventHandler)
 
   // Setup DOM
   populate(<p data-root="true" data-component-id="foo" />)
@@ -43,12 +44,10 @@ test("window events are dispatched correctly", async () => {
       const errorEvent = new Event("error", { bubbles: true })
       conn.wsClient.emit("error", errorEvent)
 
-      // Clean up
-      await new Promise(resolve => {
-        conn.ws.close()
-        setTimeout(resolve, 0)
-      })
-      await new Promise(resolve => setTimeout(resolve, 0))
+      conn.ws.close()
+      await waitForPurviewEventOrTimeout()
+
+      window.addEventListener("purview", eventHandler)
 
       // Verify events
       expect(events.length).toBe(3)
@@ -64,7 +63,7 @@ test("window events are dispatched correctly", async () => {
       })
     })
   } finally {
-    window.removeEventListener("purview", eventHandler as EventListener)
+    window.removeEventListener("purview", eventHandler)
   }
 })
 
@@ -554,4 +553,24 @@ async function connect<T>(
     wsConn.close()
   }
   return result
+}
+
+const waitForPurviewEventOrTimeout = () => {
+  let cbforlater: ((value: unknown) => void) | undefined
+  const eventType = "purview"
+
+  return Promise.race([
+    new Promise(resolve => {
+      cbforlater = resolve
+      window.addEventListener(eventType, cbforlater, { once: true })
+    }),
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        if (cbforlater) {
+          window.removeEventListener(eventType, cbforlater)
+        }
+        reject()
+      }, 20)
+    }),
+  ])
 }
