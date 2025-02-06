@@ -1,16 +1,11 @@
-import { JSDOM } from "jsdom"
+/**
+ * @jest-environment jsdom
+ */
 import * as WebSocket from "ws"
 import { JSX } from "../src/purview"
+import { PurviewWebsocketEvent } from "../src/client"
 
-const {
-  window,
-  window: { document, HTMLElement, HTMLStyleElement },
-} = new JSDOM()
 Object.assign(global, {
-  window,
-  document,
-  HTMLElement,
-  HTMLStyleElement,
   WebSocket,
 })
 
@@ -29,6 +24,39 @@ import {
   NextRuleIndexMessage,
 } from "../src/types/ws"
 import { virtualize, concretize, STYLE_TAG_ID } from "../src/helpers"
+
+test("window events are dispatched correctly", async () => {
+  expect.assertions(1)
+  const events: PurviewWebsocketEvent[] = []
+  const eventHandler = (e: CustomEvent<PurviewWebsocketEvent>) => {
+    events.push(e.detail)
+  }
+  window.addEventListener("purview", eventHandler)
+
+  // Setup DOM
+  populate(<p data-root="true" data-component-id="foo" />)
+
+  try {
+    await connect(async conn => {
+      // Wait for initial connection events to complete
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      const errorEvent = new Event("error", { bubbles: true })
+      conn.wsClient.emit("error", errorEvent)
+
+      conn.ws.close()
+      await waitForPurviewEventOrTimeout()
+
+      expect(events).toEqual([
+        expect.objectContaining({ type: "websocket:open" }),
+        expect.objectContaining({ type: "websocket:error" }),
+        expect.objectContaining({ type: "websocket:close", data: { retries: 0 } }),
+      ])
+    })
+  } finally {
+    window.removeEventListener("purview", eventHandler)
+  }
+})
 
 test("connectWebSocket", async () => {
   document.body.innerHTML = `
@@ -516,4 +544,24 @@ async function connect<T>(
     wsConn.close()
   }
   return result
+}
+
+const waitForPurviewEventOrTimeout = () => {
+  let eventListenerCallback: ((value: unknown) => void) | undefined
+  const eventType = "purview"
+
+  return Promise.race([
+    new Promise(resolve => {
+      eventListenerCallback = resolve
+      window.addEventListener(eventType, eventListenerCallback, { once: true })
+    }),
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        if (eventListenerCallback) {
+          window.removeEventListener(eventType, eventListenerCallback)
+        }
+        reject()
+      }, 20)
+    }),
+  ])
 }

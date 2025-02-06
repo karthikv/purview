@@ -1285,5 +1285,8 @@ export {
   KeyEvent,
   PurviewEvent,
 } from "./types/ws"
+export {
+  PurviewWebsocketEvent,
+} from "./client"
 export { css, styledTag, CSS } from "./css"
 export { JSX, NestedArray }
